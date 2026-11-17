@@ -30,14 +30,15 @@ pub fn suggestions(net: &dyn Net, cfg: &Config, loc: &Location, notes: &mut Vec<
         },
         _ => notes.push(Note::tip("Connect your Steam library to get picks from games you already own.")),
     }
-    match store(net, loc.steam_cc().as_deref()) {
+    let cc = loc.steam_cc();
+    match store(net, cc.as_deref()) {
         Ok(v) => {
             let owned: HashSet<String> = items.iter().map(|s| s.id.clone()).collect();
             items.extend(v.into_iter().filter(|s| !owned.contains(&s.id)));
         }
         Err(e) => notes.push(Note::problem(format!("Steam store unavailable ({e})."))),
     }
-    enrich(net, &mut items);
+    enrich(net, &mut items, cc.as_deref());
     items
 }
 
@@ -143,17 +144,32 @@ fn library(net: &dyn Net, key: &str, steam_id: &str) -> Result<Vec<Suggestion>> 
     Ok(out)
 }
 
-fn store(net: &dyn Net, cc: Option<&str>) -> Result<Vec<Suggestion>> {
-    let mut query = vec![("l", "english")];
+/// Query for a store.steampowered.com call: every one of them carries the user's country,
+/// so prices come back in the local currency.
+fn store_query<'a>(cc: Option<&'a str>, mut query: Vec<(&'a str, &'a str)>) -> Vec<(&'a str, &'a str)> {
     if let Some(cc) = cc {
         query.push(("cc", cc));
     }
+    query
+}
+
+fn store(net: &dyn Net, cc: Option<&str>) -> Result<Vec<Suggestion>> {
     let v: Value = net::get_json(
         net,
         "https://store.steampowered.com/api/featuredcategories",
-        &query,
+        &store_query(cc, vec![("l", "english")]),
     )?;
-    let mut out = Vec::new();
+
+    struct Featured<'a> {
+        id: u64,
+        name: &'a str,
+        final_price: u64,
+        discount: u64,
+        image: Option<String>,
+        key: &'static str,
+        label: &'static str,
+    }
+    let mut featured = Vec::new();
     let mut seen = HashSet::new();
     // "new_releases" is left out on purpose: it's mostly unknown shovelware.
     for (key, label) in [("top_sellers", "Top seller"), ("specials", "On sale")] {
@@ -169,46 +185,111 @@ fn store(net: &dyn Net, cc: Option<&str>) -> Result<Vec<Suggestion>> {
             if name.is_empty() || !seen.insert(id) {
                 continue;
             }
-            let final_price = it.get("final_price").and_then(Value::as_u64).unwrap_or(0);
-            let discount = it.get("discount_percent").and_then(Value::as_u64).unwrap_or(0);
-            let currency = it.get("currency").and_then(Value::as_str).unwrap_or("");
-            let price = if final_price == 0 {
-                "free to play".to_string()
-            } else {
-                format!("{:.2} {currency}", final_price as f64 / 100.0)
-            };
-            let detail = if discount > 0 {
-                format!("{label} · -{discount}% → {price}")
-            } else {
-                format!("{label} · {price}")
-            };
-            let quality = match key {
-                "top_sellers" => 0.58,
-                _ => (0.45 + discount as f64 / 300.0).min(0.75),
-            };
-            out.push(Suggestion {
-                id: format!("steam:{id}"),
-                category: Category::Game,
-                title: name.to_string(),
-                detail,
-                link: Some(format!("https://store.steampowered.com/app/{id}")),
+            featured.push(Featured {
+                id,
+                name,
+                final_price: it.get("final_price").and_then(Value::as_u64).unwrap_or(0),
+                discount: it.get("discount_percent").and_then(Value::as_u64).unwrap_or(0),
                 image: it.get("header_image").and_then(Value::as_str).map(String::from),
+                key,
+                label,
+            });
+        }
+    }
+
+    let ids: Vec<u64> = featured.iter().map(|f| f.id).collect();
+    let prices = prices(net, &ids, cc);
+    Ok(featured
+        .into_iter()
+        .map(|f| {
+            let price = prices.get(&f.id);
+            let final_minor = price.map_or(f.final_price, |p| p.final_minor);
+            let discount = price.map_or(f.discount, |p| p.discount);
+            Suggestion {
+                id: format!("steam:{}", f.id),
+                category: Category::Game,
+                title: f.name.to_string(),
+                detail: price_detail(f.label, price, final_minor, discount),
+                link: Some(format!("https://store.steampowered.com/app/{}", f.id)),
+                image: f.image,
                 min_minutes: STORE_MIN_MINUTES,
                 max_minutes: 180,
                 energy: Energy::Medium,
                 outdoor: false,
                 social: Social::Either,
-                cost: match final_price {
+                cost: match final_minor {
                     0 => Cost::Free,
                     1..=1500 => Cost::Cheap,
                     _ => Cost::Paid,
                 },
-                quality,
-                tags: vec!["steam".into(), "store".into(), key.into()],
-            });
-        }
+                quality: match f.key {
+                    "top_sellers" => 0.58,
+                    _ => (0.45 + discount as f64 / 300.0).min(0.75),
+                },
+                tags: vec!["steam".into(), "store".into(), f.key.into()],
+            }
+        })
+        .collect())
+}
+
+/// A price as Steam formats it for the user's country ("13,49€", "$9.99", "¥1,980").
+#[derive(Debug, Clone, PartialEq)]
+struct Price {
+    final_formatted: String,
+    /// The price before the discount; empty when there is none.
+    initial_formatted: String,
+    discount: u64,
+    final_minor: u64,
+}
+
+/// One appdetails call for all the apps: with `filters=price_overview`, Steam accepts a list.
+fn prices(net: &dyn Net, appids: &[u64], cc: Option<&str>) -> HashMap<u64, Price> {
+    if appids.is_empty() {
+        return HashMap::new();
     }
-    Ok(out)
+    let ids = appids.iter().map(u64::to_string).collect::<Vec<_>>().join(",");
+    let query = store_query(cc, vec![("appids", ids.as_str()), ("filters", "price_overview")]);
+    net::get_json::<Value>(net, "https://store.steampowered.com/api/appdetails", &query)
+        .map(|v| parse_prices(&v))
+        .unwrap_or_default()
+}
+
+fn parse_prices(v: &Value) -> HashMap<u64, Price> {
+    let mut out = HashMap::new();
+    let Some(apps) = v.as_object() else { return out };
+    for (id, entry) in apps {
+        let Ok(id) = id.parse::<u64>() else { continue };
+        let Some(p) = entry.get("data").and_then(|d| d.get("price_overview")) else { continue };
+        let text = |k: &str| p.get(k).and_then(Value::as_str).unwrap_or("").trim().to_string();
+        let final_formatted = text("final_formatted");
+        if final_formatted.is_empty() {
+            continue;
+        }
+        out.insert(
+            id,
+            Price {
+                final_formatted,
+                initial_formatted: text("initial_formatted"),
+                discount: p.get("discount_percent").and_then(Value::as_u64).unwrap_or(0),
+                final_minor: p.get("final").and_then(Value::as_u64).unwrap_or(0),
+            },
+        );
+    }
+    out
+}
+
+/// "On sale · -40% · 11,99€ (was 19,99€)": prices are Steam's own strings, never formatted here.
+fn price_detail(label: &str, price: Option<&Price>, final_minor: u64, discount: u64) -> String {
+    match price {
+        Some(p) if discount > 0 && !p.initial_formatted.is_empty() => {
+            format!("{label} · -{discount}% · {} (was {})", p.final_formatted, p.initial_formatted)
+        }
+        Some(p) if discount > 0 => format!("{label} · -{discount}% · {}", p.final_formatted),
+        Some(p) => format!("{label} · {}", p.final_formatted),
+        None if final_minor == 0 => format!("{label} · Free to play"),
+        None if discount > 0 => format!("{label} · -{discount}%"),
+        None => label.to_string(),
+    }
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -219,7 +300,7 @@ struct AppInfo {
 }
 
 /// Uses genres to guess session length, energy and whether it's multiplayer.
-fn enrich(net: &dyn Net, items: &mut [Suggestion]) {
+fn enrich(net: &dyn Net, items: &mut [Suggestion], cc: Option<&str>) {
     let path = config::data_dir().join("steam_apps.json");
     let mut cache: HashMap<String, AppInfo> = fs::read_to_string(&path)
         .ok()
@@ -233,7 +314,7 @@ fn enrich(net: &dyn Net, items: &mut [Suggestion]) {
                 continue;
             }
             fetched += 1;
-            match app_details(net, &appid) {
+            match app_details(net, &appid, cc) {
                 Ok(info) => {
                     cache.insert(appid.clone(), info);
                 }
@@ -250,11 +331,11 @@ fn enrich(net: &dyn Net, items: &mut [Suggestion]) {
     }
 }
 
-fn app_details(net: &dyn Net, appid: &str) -> Result<AppInfo> {
+fn app_details(net: &dyn Net, appid: &str, cc: Option<&str>) -> Result<AppInfo> {
     let v: Value = net::get_json(
         net,
         "https://store.steampowered.com/api/appdetails",
-        &[("appids", appid), ("filters", "genres,categories,metacritic")],
+        &store_query(cc, vec![("appids", appid), ("filters", "genres,categories,metacritic")]),
     )?;
     // `data` is an object, or `[]` when none of the filtered fields exist.
     let data = v.get(appid).and_then(|e| e.get("data"));
@@ -337,4 +418,58 @@ pub fn resolve_steam_id(net: &dyn Net, key: &str, input: &str) -> Result<String>
         .as_str()
         .map(String::from)
         .ok_or_else(|| anyhow!("Steam couldn't find a profile named '{s}'"))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::net::fake::FakeNet;
+
+    const FEATURED: &str = include_str!("../../fixtures/steam_featuredcategories.json");
+    const PRICES: &str = include_str!("../../fixtures/steam_prices.json");
+    const FEATURED_URL: &str = "https://store.steampowered.com/api/featuredcategories";
+    const APPDETAILS_URL: &str = "https://store.steampowered.com/api/appdetails";
+
+    fn detail(items: &[Suggestion], id: &str) -> String {
+        items.iter().find(|s| s.id == id).unwrap().detail.clone()
+    }
+
+    #[test]
+    fn store_prices_are_steams_own_local_strings() {
+        let net = FakeNet::new().on(FEATURED_URL, FEATURED).on(APPDETAILS_URL, PRICES);
+        let items = store(&net, Some("fr")).unwrap();
+        assert_eq!(items.len(), 3, "bundles and duplicates are skipped");
+        assert_eq!(detail(&items, "steam:1145360"), "Top seller · 24,50€");
+        assert_eq!(detail(&items, "steam:413150"), "On sale · -40% · 8,99€ (was 14,99€)");
+        assert_eq!(detail(&items, "steam:730"), "Top seller · Free to play");
+        let stardew = items.iter().find(|s| s.id == "steam:413150").unwrap();
+        assert_eq!(stardew.cost, Cost::Cheap);
+    }
+
+    #[test]
+    fn every_store_call_carries_the_country() {
+        let net = FakeNet::new().on(FEATURED_URL, FEATURED).on(APPDETAILS_URL, PRICES);
+        store(&net, Some("fr")).unwrap();
+        let calls = net.calls();
+        assert_eq!(calls.len(), 2, "one featured call, one batched price call: {calls:?}");
+        for call in calls {
+            assert!(call.contains("cc=fr"), "{call}");
+        }
+    }
+
+    #[test]
+    fn unknown_country_lets_steam_decide() {
+        let net = FakeNet::new().on(FEATURED_URL, FEATURED).on(APPDETAILS_URL, PRICES);
+        store(&net, None).unwrap();
+        assert!(net.calls().iter().all(|c| !c.contains("cc=")));
+    }
+
+    #[test]
+    fn missing_prices_are_left_out_not_formatted_by_hand() {
+        let net = FakeNet::new().on(FEATURED_URL, FEATURED).fail(APPDETAILS_URL);
+        let items = store(&net, Some("fr")).unwrap();
+        assert_eq!(detail(&items, "steam:1145360"), "Top seller");
+        assert_eq!(detail(&items, "steam:413150"), "On sale · -40%");
+        assert_eq!(detail(&items, "steam:730"), "Top seller · Free to play");
+    }
 }

@@ -1,0 +1,29 @@
+{
+  "1145360": {
+    "success": true,
+    "data": {
+      "price_overview": {
+        "currency": "EUR",
+        "initial": 2450,
+        "final": 2450,
+        "discount_percent": 0,
+        "initial_formatted": "",
+        "final_formatted": "24,50€"
+      }
+    }
+  },
+  "730": { "success": true, "data": [] },
+  "413150": {
+    "success": true,
+    "data": {
+      "price_overview": {
+        "currency": "EUR",
+        "initial": 1499,
+        "final": 899,
+        "discount_percent": 40,
+        "initial_formatted": "14,99€",
+        "final_formatted": "8,99€"
+      }
+    }
+  }
+}

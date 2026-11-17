@@ -1,0 +1,65 @@
+{
+  "top_sellers": {
+    "id": "cat_topsellers",
+    "name": "Top Sellers",
+    "items": [
+      {
+        "id": 1145360,
+        "type": 0,
+        "name": "Hades",
+        "discounted": false,
+        "discount_percent": 0,
+        "original_price": null,
+        "final_price": 2450,
+        "currency": "EUR",
+        "header_image": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1145360/header.jpg"
+      },
+      {
+        "id": 730,
+        "type": 0,
+        "name": "Counter-Strike 2",
+        "discounted": false,
+        "discount_percent": 0,
+        "original_price": null,
+        "final_price": 0,
+        "currency": "EUR",
+        "header_image": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/730/header.jpg"
+      },
+      {
+        "id": 54029,
+        "type": 1,
+        "name": "Some Bundle",
+        "discounted": true,
+        "discount_percent": 20,
+        "final_price": 3999,
+        "currency": "EUR"
+      }
+    ]
+  },
+  "specials": {
+    "id": "cat_specials",
+    "name": "Specials",
+    "items": [
+      {
+        "id": 413150,
+        "type": 0,
+        "name": "Stardew Valley",
+        "discounted": true,
+        "discount_percent": 40,
+        "original_price": 1499,
+        "final_price": 899,
+        "currency": "EUR",
+        "header_image": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/413150/header.jpg"
+      },
+      {
+        "id": 1145360,
+        "type": 0,
+        "name": "Hades",
+        "discount_percent": 0,
+        "final_price": 2450,
+        "currency": "EUR"
+      }
+    ]
+  },
+  "status": 1
+}
