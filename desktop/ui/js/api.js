@@ -20,4 +20,6 @@ export const api = {
   settings: () => invoke('get_settings'),
   saveSettings: (input) => invoke('save_settings', { input }),
   openDataDir: () => invoke('open_data_dir'),
+  searchCities: (query) => invoke('search_cities', { query }),
+  setCity: (place) => invoke('set_city', { place }),
 };

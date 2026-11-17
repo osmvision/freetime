@@ -5,12 +5,14 @@ use std::{env, fs, path::PathBuf};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Config {
-    /// A city the user typed. Empty = detect the location automatically.
+    /// The city picked by the user (for the weather). Empty = no weather.
     pub city: Option<String>,
     pub latitude: Option<f64>,
     pub longitude: Option<f64>,
     /// Two-letter country code of the typed city.
     pub country: Option<String>,
+    /// The "where are you?" question was answered or skipped: it isn't asked again.
+    pub asked_for_city: bool,
     /// Topics used to find YouTube videos.
     pub interests: Vec<String>,
     pub steam: SteamConfig,
@@ -39,6 +41,7 @@ impl Default for Config {
             latitude: None,
             longitude: None,
             country: None,
+            asked_for_city: false,
             interests: ["science explained", "history", "game design", "cooking", "travel"]
                 .map(String::from)
                 .to_vec(),

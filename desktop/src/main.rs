@@ -23,6 +23,8 @@ fn main() {
             commands::get_history,
             commands::get_settings,
             commands::save_settings,
+            commands::search_cities,
+            commands::set_city,
             commands::open_data_dir,
         ])
         .run(tauri::generate_context!())

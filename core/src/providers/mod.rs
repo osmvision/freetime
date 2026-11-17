@@ -41,8 +41,8 @@ pub struct Online {
     pub notes: Vec<Note>,
 }
 
-/// Fetches everything concurrently: YouTube right away, the location meanwhile,
-/// then the weather and Steam (which need the location) in parallel.
+/// Startup network, all concurrent and visible in the UI: the Open-Meteo forecast for the picked
+/// city, the Steam store lists (with the regional `cc`) and the YouTube channel feeds.
 pub fn fetch_online(cfg: &Config) -> Online {
     let net = match HttpNet::shared() {
         Ok(net) => net,
@@ -53,32 +53,30 @@ pub fn fetch_online(cfg: &Config) -> Online {
             }
         }
     };
-    let now = chrono::Utc::now().timestamp();
     let keys = Keys::resolve();
+    // Offline: the picked city and the OS regional settings.
+    let location = location::current(cfg);
     std::thread::scope(|s| {
         let yt = s.spawn(|| {
             let mut notes = Vec::new();
             (youtube::suggestions(net.as_ref(), cfg, &keys, &mut notes), notes)
         });
-
-        let location = location::resolve(&net, cfg, now);
-        let (weather, steam) = std::thread::scope(|s2| {
-            let w = s2.spawn(|| {
-                location.coords().map(|(lat, lon)| weather::fetch(net.as_ref(), lat, lon, &location.label()))
-            });
-            let st = s2.spawn(|| {
-                let mut notes = Vec::new();
-                let (items, status) = steam::suggestions(net.as_ref(), cfg, &keys, &location, &mut notes);
-                (items, notes, status)
-            });
-            (w.join().unwrap_or(None), st.join())
+        let w = s.spawn(|| {
+            location.coords().map(|(lat, lon)| weather::fetch(net.as_ref(), lat, lon, &location.label()))
         });
+        let st = s.spawn(|| {
+            let mut notes = Vec::new();
+            let (items, status) = steam::suggestions(net.as_ref(), cfg, &keys, &location, &mut notes);
+            (items, notes, status)
+        });
+        let weather = w.join().unwrap_or(None);
+        let steam = st.join();
 
         let mut out = Online::default();
         match weather {
             Some(Ok(w)) => out.weather = Some(w),
             Some(Err(e)) => out.notes.push(Note::problem(format!("Weather unavailable ({e})."))),
-            None => out.notes.push(Note::tip("Couldn't detect your location: set your city to get the weather.")),
+            None => out.notes.push(Note::tip("Add your city to get weather-aware outdoor ideas.")),
         }
         if let Ok((items, notes, status)) = steam {
             out.items.extend(items);
@@ -89,7 +87,7 @@ pub fn fetch_online(cfg: &Config) -> Online {
             out.items.extend(items);
             out.notes.extend(notes);
         }
-        out.location = location;
+        out.location = location.clone();
         out
     })
 }

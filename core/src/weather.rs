@@ -2,7 +2,7 @@
 
 use crate::net::{self, Net};
 use anyhow::Result;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone)]
 pub struct Weather {
@@ -125,7 +125,7 @@ struct GeoResp {
     results: Vec<Place>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Place {
     pub name: String,
     pub latitude: f64,
@@ -151,11 +151,58 @@ impl Place {
     }
 }
 
-pub fn geocode(net: &dyn Net, name: &str) -> Result<Option<Place>> {
+/// City search for the autocomplete (Open-Meteo geocoding, no key). Needs at least 2 characters.
+pub fn search_places(net: &dyn Net, query: &str, count: usize) -> Result<Vec<Place>> {
+    let query = query.trim();
+    if query.chars().count() < 2 {
+        return Ok(Vec::new());
+    }
+    let count = count.clamp(1, 10).to_string();
     let r: GeoResp = net::get_json(
         net,
         "https://geocoding-api.open-meteo.com/v1/search",
-        &[("name", name), ("count", "1"), ("language", "en"), ("format", "json")],
+        &[("name", query), ("count", &count), ("language", "en"), ("format", "json")],
     )?;
-    Ok(r.results.into_iter().next())
+    Ok(r.results)
+}
+
+/// The best match for a city name.
+pub fn geocode(net: &dyn Net, name: &str) -> Result<Option<Place>> {
+    Ok(search_places(net, name, 1)?.into_iter().next())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::net::fake::FakeNet;
+
+    const LYON: &str = r#"{"results":[
+        {"id":2996944,"name":"Lyon","latitude":45.74846,"longitude":4.84671,"country_code":"FR","admin1":"Auvergne-Rhône-Alpes","country":"France"},
+        {"id":4706045,"name":"Lyons","latitude":43.0,"longitude":-76.9,"country_code":"US","admin1":"New York","country":"United States"}]}"#;
+
+    #[test]
+    fn city_search_for_the_autocomplete() {
+        let net = FakeNet::new().on("https://geocoding-api.open-meteo.com/", LYON);
+        let places = search_places(&net, "Lyo", 6).unwrap();
+        assert_eq!(places.len(), 2);
+        assert_eq!(places[0].display(), "Lyon, Auvergne-Rhône-Alpes, France");
+        assert_eq!(places[0].country_code, "FR");
+        assert!(net.calls()[0].contains("name=Lyo"));
+        assert!(net.calls()[0].contains("count=6"));
+    }
+
+    #[test]
+    fn one_letter_doesnt_search() {
+        let net = FakeNet::new();
+        assert!(search_places(&net, " L ", 6).unwrap().is_empty());
+        assert!(net.calls().is_empty());
+        assert!(search_places(&net, "Lyon", 6).is_err(), "network errors surface");
+    }
+
+    #[test]
+    fn no_results_is_an_empty_list() {
+        let net = FakeNet::new().on("https://geocoding-api.open-meteo.com/", "{}");
+        assert!(search_places(&net, "Nowhere", 6).unwrap().is_empty());
+        assert_eq!(geocode(&net, "Nowhere").unwrap(), None);
+    }
 }

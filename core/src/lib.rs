@@ -10,6 +10,7 @@ pub mod net;
 pub mod model;
 pub mod open;
 pub mod providers;
+pub mod region;
 pub mod scoring;
 pub mod vdf;
 pub mod weather;

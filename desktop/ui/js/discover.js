@@ -1,6 +1,7 @@
 // The main screen: tell it how you feel, get the best thing to do right now.
 
 import { api } from './api.js';
+import { cityPicker, openMeteoCredit } from './city.js';
 import {
   capitalize,
   catVars,
@@ -62,8 +63,10 @@ export function init(root, boot, context) {
   state.req = { ...boot.defaults, ...loadMood(boot.categories) };
 
   els.rate = h('div', { class: 'rate-zone' });
+  els.cityPrompt = h('div', { class: 'city-prompt-zone' });
   els.results = h('section', { class: 'results', 'aria-live': 'polite' });
-  root.replaceChildren(header(), els.rate, h('div', { class: 'discover-grid' }, moodPanel(), els.results));
+  root.replaceChildren(header(), els.cityPrompt, els.rate, h('div', { class: 'discover-grid' }, moodPanel(), els.results));
+  renderCityPrompt();
   renderRate();
   runSuggest();
 }
@@ -90,9 +93,56 @@ export async function settingsChanged() {
     state.online = boot.online;
     renderWeather();
     renderOutsideHint();
+    renderCityPrompt();
   } catch {
     // The next sync event catches up.
   }
+}
+
+// ---------------------------------------------------------------- first launch: where are you?
+
+/** Asked once: the city is only used for the weather, and skipping is fine. */
+function renderCityPrompt() {
+  if (!els.cityPrompt) return;
+  if (!state.setup?.needs_city) {
+    els.cityPrompt.replaceChildren();
+    return;
+  }
+  const answer = async (place) => {
+    try {
+      await api.setCity(place);
+      state.setup.needs_city = false;
+      if (place) {
+        state.setup.city = place.name;
+        state.stale = true;
+        toast(`City set to ${place.name}: checking the weather`, 'ok');
+      }
+      renderCityPrompt();
+      renderWeather();
+      renderOutsideHint();
+    } catch (e) {
+      toast(errText(e), 'error');
+    }
+  };
+  els.cityPrompt.replaceChildren(
+    h(
+      'div',
+      { class: 'city-prompt card' },
+      h(
+        'div',
+        { class: 'city-prompt-text' },
+        h('strong', {}, 'Where are you?'),
+        h('span', {}, 'Your city lets freetime check the weather, so outdoor ideas only show up when it’s nice out. You can change it anytime in Settings.'),
+        openMeteoCredit(),
+      ),
+      h(
+        'div',
+        { class: 'city-prompt-actions' },
+        cityPicker({ onPick: answer }),
+        h('button', { type: 'button', class: 'btn ghost small', onclick: () => answer(null) }, 'Skip'),
+      ),
+    ),
+  );
 }
 
 // ---------------------------------------------------------------- remembered mood

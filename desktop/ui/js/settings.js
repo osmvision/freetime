@@ -1,6 +1,7 @@
 // City, interests, Steam and YouTube connections. API keys are write-only: the UI never sees them.
 
 import { api } from './api.js';
+import { cityPicker, openMeteoCredit } from './city.js';
 import { emptyState, errText, h, pageHead, toast } from './dom.js';
 
 const INTEREST_IDEAS = [
@@ -31,7 +32,6 @@ export async function render(root, ctx) {
 
 function draw(root, ctx, s) {
   const form = {
-    city: s.city ?? '',
     interests: [...s.interests],
     steam_key: '',
     clear_steam_key: false,
@@ -71,7 +71,7 @@ function draw(root, ctx, s) {
       h(
         'div',
         { class: 'settings' },
-        locationSection(s, form),
+        locationSection(s, ctx, root),
         interestsSection(form),
         steamSection(s, form),
         youtubeSection(s, form),
@@ -84,21 +84,29 @@ function draw(root, ctx, s) {
 
 // ---------------------------------------------------------------- sections
 
-function locationSection(s, form) {
+function locationSection(s, ctx, root) {
+  const apply = async (place) => {
+    try {
+      const settings = await api.setCity(place);
+      toast(place ? `City set to ${place.name}` : 'City removed: no weather', 'ok');
+      ctx.settingsSaved?.();
+      draw(root, ctx, settings);
+    } catch (e) {
+      toast(errText(e), 'error');
+    }
+  };
+  const region = s.region?.country
+    ? `Prices and currency follow your Windows region: ${s.region.country}${s.region.currency ? ` · ${s.region.currency}` : ''}.`
+    : 'Prices follow Steam’s own guess (no Windows region found).';
   return section(
     '📍',
     'Location',
-    'Used to check the weather, so outdoor ideas only rank high when it’s nice out.',
-    pill(Boolean(s.city), s.city ? `${s.city} · ${s.country.toUpperCase()}` : 'Not set'),
-    labeled(
-      'City',
-      input({
-        value: form.city,
-        placeholder: 'e.g. Lyon, Montréal, Tokyo',
-        'aria-label': 'City',
-        oninput: (e) => (form.city = e.target.value),
-      }),
-    ),
+    'Your city is only used to check the weather, so outdoor ideas rank high when it’s nice out.',
+    pill(Boolean(s.city), s.city ?? 'Not set'),
+    labeled(s.city ? 'Change city' : 'City', cityPicker({ onPick: apply, placeholder: 'e.g. Lyon, Montréal, Tokyo' })),
+    s.city ? h('div', {}, h('button', { type: 'button', class: 'btn small', onclick: () => apply(null) }, 'Remove city')) : null,
+    h('span', { class: 'hint' }, region),
+    openMeteoCredit(),
   );
 }
 

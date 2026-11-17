@@ -11,8 +11,9 @@ use freetime_core::{
     model::*,
     open,
     providers::{self, steam, Note, Online},
+    region,
     scoring::{self, Ranked},
-    weather::{self, Weather},
+    weather::{self, Place, Weather},
 };
 use serde::{Deserialize, Serialize};
 use std::{
@@ -222,6 +223,8 @@ pub struct CategoryInfo {
 #[derive(Serialize)]
 pub struct SetupState {
     city: Option<String>,
+    /// First launch: ask once where the user is (they can skip).
+    needs_city: bool,
     steam: bool,
     youtube: bool,
 }
@@ -248,6 +251,7 @@ pub fn bootstrap(state: State<'_, AppState>) -> Res<Boot> {
         pending: pending_list(&History::load()),
         setup: SetupState {
             city: cfg.city.clone(),
+            needs_city: cfg.city.is_none() && !cfg.asked_for_city,
             steam: Keys::resolve().steam.is_some(),
             youtube: Keys::resolve().youtube.is_some() || !cfg.youtube.channels.is_empty(),
         },
@@ -458,7 +462,8 @@ pub fn get_history() -> Res<HistoryView> {
 #[derive(Serialize)]
 pub struct SettingsView {
     city: Option<String>,
-    country: String,
+    /// From the Windows regional settings: Steam prices follow it.
+    region: region::Region,
     interests: Vec<String>,
     steam_key_set: bool,
     steam_key_from_env: bool,
@@ -475,7 +480,7 @@ fn settings_view(cfg: &Config) -> SettingsView {
     let from_env = |k: &Option<keys::Key>| k.as_ref().is_some_and(|k| k.source == KeySource::Environment);
     SettingsView {
         city: cfg.city.clone(),
-        country: cfg.country.clone().unwrap_or_default(),
+        region: region::current(),
         interests: cfg.interests.clone(),
         steam_key_set: keys.steam.is_some(),
         steam_key_from_env: from_env(&keys.steam),
@@ -495,7 +500,6 @@ pub fn get_settings() -> Res<SettingsView> {
 
 #[derive(Deserialize)]
 pub struct SettingsInput {
-    city: String,
     interests: Vec<String>,
     /// Empty = keep the saved key.
     steam_key: String,
@@ -536,28 +540,6 @@ pub fn save_settings(app: AppHandle, input: SettingsInput) -> Res<SaveReport> {
     let mut messages = Vec::new();
     let mut say = |ok: bool, text: String| messages.push(Msg { ok, text });
 
-    let city = input.city.trim();
-    if city.is_empty() {
-        cfg.city = None;
-        cfg.country = None;
-        cfg.latitude = None;
-        cfg.longitude = None;
-    } else if !cfg.city.as_deref().is_some_and(|c| c.eq_ignore_ascii_case(city)) || cfg.latitude.is_none() {
-        match weather::geocode(&net, city) {
-            Ok(Some(place)) => {
-                say(true, format!("📍 Location set to {}", place.display()));
-                if !place.country_code.is_empty() {
-                    cfg.country = Some(place.country_code.to_ascii_uppercase());
-                }
-                cfg.latitude = Some(place.latitude);
-                cfg.longitude = Some(place.longitude);
-                cfg.city = Some(place.name);
-            }
-            Ok(None) => say(false, format!("Couldn't find a place called “{city}”.")),
-            Err(e) => say(false, format!("Location lookup failed ({e}).")),
-        }
-    }
-
     cfg.interests = clean_list(input.interests);
 
     // Keys typed here go to %APPDATA%\freetime\.env, never to config.toml.
@@ -579,7 +561,7 @@ pub fn save_settings(app: AppHandle, input: SettingsInput) -> Res<SaveReport> {
             None => say(false, "Add a Steam Web API key to connect a profile by name.".into()),
             Some(key) => match steam::resolve_steam_id(&net, key.value(), profile) {
                 Ok(id) => {
-                    say(true, "🎮 Steam profile connected".into());
+                    say(true, "Steam profile connected".into());
                     cfg.steam.steam_id = Some(id);
                 }
                 Err(e) => say(false, format!("Steam: {e}")),
@@ -593,6 +575,37 @@ pub fn save_settings(app: AppHandle, input: SettingsInput) -> Res<SaveReport> {
     say(true, "Settings saved".into());
     refresh_in_background(&app);
     Ok(SaveReport { settings: settings_view(&cfg), messages })
+}
+
+/// City autocomplete (Open-Meteo geocoding). Only runs while the user types.
+#[tauri::command(async)]
+pub fn search_cities(query: String) -> Res<Vec<Place>> {
+    let net = HttpNet::new().map_err(err)?;
+    weather::search_places(&net, &query, 6).map_err(err)
+}
+
+/// Saves the picked city (None = skip / remove). Either way the question isn't asked again.
+#[tauri::command(async)]
+pub fn set_city(app: AppHandle, place: Option<Place>) -> Res<SettingsView> {
+    let mut cfg = Config::load().map_err(err)?;
+    cfg.asked_for_city = true;
+    match place {
+        Some(p) => {
+            cfg.country = region::country_code(&p.country_code);
+            cfg.latitude = Some(p.latitude);
+            cfg.longitude = Some(p.longitude);
+            cfg.city = Some(p.name);
+        }
+        None => {
+            cfg.city = None;
+            cfg.country = None;
+            cfg.latitude = None;
+            cfg.longitude = None;
+        }
+    }
+    cfg.save().map_err(err)?;
+    refresh_in_background(&app);
+    Ok(settings_view(&cfg))
 }
 
 #[tauri::command(async)]

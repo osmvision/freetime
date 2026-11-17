@@ -1083,6 +1083,7 @@ dependencies = [
  "serde_json",
  "toml 0.8.23",
  "ureq",
+ "windows-sys 0.59.0",
  "winreg 0.55.0",
 ]
 

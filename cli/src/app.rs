@@ -16,8 +16,14 @@ use std::{
 };
 
 pub fn suggest(args: SuggestArgs) -> Result<()> {
-    let cfg = Config::load()?;
+    let mut cfg = Config::load()?;
     let interactive = !args.quick && console::user_attended();
+    // First run: ask once where the user is (for the weather). Skipping is fine.
+    if interactive && !args.offline && cfg.city.is_none() && !cfg.asked_for_city {
+        let net = freetime_core::net::HttpNet::new()?;
+        crate::setup::ask_city(&ColorfulTheme::default(), &net, &mut cfg)?;
+        cfg.save()?;
+    }
     // Network calls run while the user answers the questions.
     let pending = start_fetch(&cfg, args.offline);
     let mut history = History::load();
