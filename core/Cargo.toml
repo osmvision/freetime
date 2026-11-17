@@ -29,5 +29,5 @@ ureq = { version = "2.10", default-features = false, features = ["json", "native
 [target.'cfg(windows)'.dependencies]
 # Country and currency from the regional settings (GetUserDefaultGeoName, GetLocaleInfoEx).
 windows-sys = { version = "0.59", features = ["Win32_Globalization"] }
-# Reads where Steam is installed (HKCU\Software\Valve\Steam\SteamPath).
+# Finds Steam's folder (SteamPath), only when the user clicks "Import my games".
 winreg = "0.55"

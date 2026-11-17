@@ -1,7 +1,7 @@
 //! Everything that needs the network. Each source fails soft: a note, never a crash.
 
 pub mod steam;
-pub mod steam_local;
+pub mod steam_import;
 pub mod youtube;
 
 use crate::{
@@ -66,7 +66,7 @@ pub fn fetch_online(cfg: &Config) -> Online {
         });
         let st = s.spawn(|| {
             let mut notes = Vec::new();
-            let (items, status) = steam::suggestions(net.as_ref(), cfg, &keys, &location, &mut notes);
+            let (items, status) = steam::suggestions(net.as_ref(), &location, &mut notes);
             (items, notes, status)
         });
         let weather = w.join().unwrap_or(None);

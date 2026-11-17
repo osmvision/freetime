@@ -1,5 +1,5 @@
 //! A small parser for Valve's KeyValues text format (VDF/ACF), enough for
-//! `loginusers.vdf`, `libraryfolders.vdf` and `appmanifest_*.acf`.
+//! the files the Steam import reads: `libraryfolders.vdf`, `appmanifest_*.acf`, `localconfig.vdf`.
 
 use anyhow::{bail, Result};
 

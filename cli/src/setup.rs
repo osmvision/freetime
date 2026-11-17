@@ -3,7 +3,7 @@
 use crate::{
     config::{self, Config},
     net,
-    providers::{steam, steam_local},
+    providers::{steam, steam_import},
     weather,
 };
 use anyhow::Result;
@@ -60,6 +60,51 @@ fn split_list(s: &str) -> Vec<String> {
     s.split(',').map(|x| x.trim().to_string()).filter(|x| !x.is_empty()).collect()
 }
 
+/// Opt-in: only now are Steam's folder and the allowed files read (see `steam_import`).
+fn import_steam(theme: &ColorfulTheme, net: &dyn Net, cfg: &Config) -> Result<()> {
+    let id = match &cfg.steam.steam_id {
+        Some(id) => id.clone(),
+        None => {
+            let Some(root) = steam_import::steam_root() else {
+                println!("  {}", style("Steam isn't installed on this PC.").yellow());
+                return Ok(());
+            };
+            let accounts = steam_import::accounts(&root);
+            match accounts.len() {
+                0 => {
+                    println!("  {}", style("No Steam account has used this PC yet.").yellow());
+                    return Ok(());
+                }
+                1 => accounts[0].steam_id64.clone(),
+                _ => {
+                    let labels: Vec<String> = accounts
+                        .iter()
+                        .map(|a| match a.last_used.and_then(|t| chrono::DateTime::from_timestamp(t, 0)) {
+                            Some(d) => format!("{} (last used {})", a.steam_id64, d.format("%d %b %Y")),
+                            None => a.steam_id64.clone(),
+                        })
+                        .collect();
+                    let i = Select::with_theme(theme).with_prompt("Which Steam account?").items(&labels).default(0).interact()?;
+                    accounts[i].steam_id64.clone()
+                }
+            }
+        }
+    };
+    let key = Keys::resolve().steam;
+    let now = chrono::Utc::now().timestamp();
+    match steam_import::run_import(net, key.as_ref().map(|k| k.value()), &id, now) {
+        Ok((lib, notes)) => {
+            let installed = lib.games.iter().filter(|g| g.installed).count();
+            println!("  {} {} games imported ({installed} installed)", style("✓").green(), lib.games.len());
+            for note in notes {
+                println!("  {}", style(note).yellow());
+            }
+        }
+        Err(e) => println!("  {} {e}", style("!").yellow()),
+    }
+    Ok(())
+}
+
 pub fn run() -> Result<()> {
     let theme = ColorfulTheme::default();
     let mut cfg = Config::load()?;
@@ -89,11 +134,10 @@ pub fn run() -> Result<()> {
         .interact_text()?;
     cfg.interests = split_list(&interests);
 
-    // Steam: the account on this PC is used unless you pick another one.
-    let local = steam_local::detect();
-    match &local.account {
-        Some(a) => println!("  Steam account on this PC: {} ({} games installed)", a.persona_name, local.installed.len()),
-        None => println!("  {}", style("No Steam account found on this PC.").dim()),
+    // Steam: nothing of Steam's is read unless you ask for an import.
+    match steam_import::load_library() {
+        Some(lib) => println!("  Steam: {} games imported", lib.games.len()),
+        None => println!("  Steam: no games imported yet"),
     }
     let resolved = Keys::resolve();
     let key_state = |k: &Option<keys::Key>| k.as_ref().map_or("not set".to_string(), |k| format!("set ({})", k.source.label()));
@@ -125,7 +169,7 @@ pub fn run() -> Result<()> {
     }
 
     let who: String = Input::with_theme(&theme)
-        .with_prompt("Another Steam profile (URL, name or SteamID64; empty = this PC's account)")
+        .with_prompt("Your SteamID64 or steamcommunity.com/profiles/… URL (optional)")
         .default(cfg.steam.steam_id.clone().unwrap_or_default())
         .allow_empty(true)
         .interact_text()?;
@@ -133,16 +177,25 @@ pub fn run() -> Result<()> {
     if who.is_empty() {
         cfg.steam.steam_id = None;
     } else if cfg.steam.steam_id.as_deref() != Some(who) {
-        match Keys::resolve().steam {
-            Some(key) => match steam::resolve_steam_id(&net, key.value(), who) {
+        match (steam_import::parse_steam_id(who), Keys::resolve().steam) {
+            (Some(id), _) => cfg.steam.steam_id = Some(id),
+            (None, Some(key)) => match steam::resolve_steam_id(&net, key.value(), who) {
                 Ok(id) => {
                     println!("  {} SteamID64 {id}", style("✓").green());
                     cfg.steam.steam_id = Some(id);
                 }
                 Err(e) => println!("  {} {e}", style("!").yellow()),
             },
-            None => println!("  {}", style("A profile from another account needs a Steam Web API key.").yellow()),
+            (None, None) => println!("  {}", style("Paste a SteamID64 or a /profiles/ URL (custom /id/ names need a key).").yellow()),
         }
+    }
+
+    if Confirm::with_theme(&theme)
+        .with_prompt("Import your games from Steam on this PC now?")
+        .default(steam_import::load_library().is_none())
+        .interact()?
+    {
+        import_steam(&theme, &net, &cfg)?;
     }
 
     println!(

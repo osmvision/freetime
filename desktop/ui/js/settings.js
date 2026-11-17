@@ -73,7 +73,7 @@ function draw(root, ctx, s) {
         { class: 'settings' },
         locationSection(s, ctx, root),
         interestsSection(form),
-        steamSection(s, form),
+        steamSection(s, form, ctx, root),
         youtubeSection(s, form),
         dataSection(s),
       ),
@@ -147,16 +147,107 @@ function interestsSection(form) {
   );
 }
 
-function steamSection(s, form) {
-  const connected = s.steam_key_set && Boolean(s.steam_id);
-  const status = connected ? 'Connected' : s.steam_key_set ? 'Add your profile' : 'Not connected';
+function steamSection(s, form, ctx, root) {
+  const st = s.steam;
+  const day = (unix) => new Date(unix * 1000).toLocaleDateString();
+  const picker = h('div', { class: 'account-picker' });
+  const label = st.imported ? 'Re-import my games from Steam on this PC' : 'Import my games from Steam on this PC';
+  const importBtn = h('button', { type: 'button', class: 'btn', onclick: () => startImport() }, label);
+
+  async function finish(steamId) {
+    importBtn.disabled = true;
+    importBtn.textContent = 'Importing…';
+    try {
+      const done = await api.steamImport(steamId);
+      toast(`${done.status.games} games imported (${done.status.installed} installed)`, 'ok', 4500);
+      for (const note of done.notes) toast(note, 'error', 7000);
+      ctx.settingsSaved?.();
+      render(root, ctx);
+    } catch (e) {
+      toast(errText(e), 'error', 7000);
+      importBtn.disabled = false;
+      importBtn.textContent = label;
+    }
+  }
+
+  // Only now are Steam's folder and the allowed files read.
+  async function startImport() {
+    try {
+      const scan = await api.steamScan();
+      if (scan.chosen) return finish(scan.chosen);
+      if (!scan.found) {
+        toast('Steam isn’t installed on this PC. Paste your SteamID and add a Web API key to import from your account.', 'error', 7000);
+        return;
+      }
+      if (!scan.accounts.length) {
+        toast('No Steam account has used this PC yet.', 'error');
+        return;
+      }
+      if (scan.accounts.length === 1) return finish(scan.accounts[0].steam_id64);
+      picker.replaceChildren(
+        h('div', { class: 'sub-label' }, 'Which account?'),
+        ...scan.accounts.map((a) =>
+          h(
+            'button',
+            {
+              type: 'button',
+              class: 'btn small',
+              onclick: () => {
+                picker.replaceChildren();
+                finish(a.steam_id64);
+              },
+            },
+            a.last_used ? `${a.steam_id64} · last used ${day(a.last_used)}` : a.steam_id64,
+          ),
+        ),
+      );
+    } catch (e) {
+      toast(errText(e), 'error');
+    }
+  }
+
+  async function forget() {
+    try {
+      await api.steamForget();
+      toast('Imported games forgotten', 'ok');
+      ctx.settingsSaved?.();
+      render(root, ctx);
+    } catch (e) {
+      toast(errText(e), 'error');
+    }
+  }
+
   return section(
     '🎮',
     'Steam',
-    'Connect your library to get picks from games you already own: your backlog, old favorites and comfort games.',
-    pill(connected, status),
+    'freetime never reads Steam’s files on its own. Import your games once (installed games and playtime), and re-import after installing new ones.',
+    pill(st.imported, st.imported ? `${st.games} games` : 'Not imported'),
+    h(
+      'div',
+      { class: 'input-row wrap' },
+      importBtn,
+      st.imported ? h('button', { type: 'button', class: 'btn small ghost', onclick: forget }, 'Forget imported games') : null,
+    ),
+    st.imported
+      ? h(
+          'span',
+          { class: 'hint' },
+          `Imported ${day(st.imported_at)} ${st.from_web_api ? 'from your Steam account' : 'from this PC'} · SteamID ${st.steam_id64}`,
+        )
+      : null,
+    picker,
+    labeled(
+      'Or paste your SteamID64 or profile URL',
+      input({
+        value: form.steam_profile,
+        placeholder: '7656119… or steamcommunity.com/profiles/7656119…',
+        'aria-label': 'SteamID64 or profile URL',
+        oninput: (e) => (form.steam_profile = e.target.value),
+      }),
+      'Saved with “Save changes”, then used by the import instead of asking.',
+    ),
     keyField({
-      label: 'Web API key',
+      label: 'Web API key (optional)',
       isSet: s.steam_key_set,
       fromEnv: s.steam_key_from_env,
       envName: 'STEAM_API_KEY',
@@ -164,16 +255,7 @@ function steamSection(s, form) {
       onInput: (v) => (form.steam_key = v),
       onClear: (v) => (form.clear_steam_key = v),
     }),
-    labeled(
-      'Your profile',
-      input({
-        value: form.steam_profile,
-        placeholder: 'Profile URL, custom URL name or SteamID64',
-        'aria-label': 'Steam profile',
-        oninput: (e) => (form.steam_profile = e.target.value),
-      }),
-      'Your Steam profile’s Privacy → Game details must be Public.',
-    ),
+    h('span', { class: 'hint' }, 'With a key, the import also lists every game on your account, with playtime. Game details must be public.'),
   );
 }
 

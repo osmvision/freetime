@@ -1,0 +1,41 @@
+"UserLocalConfigStore"
+{
+	"Software"
+	{
+		"Valve"
+		{
+			"Steam"
+			{
+				"apps"
+				{
+					"570"
+					{
+						"LastPlayed"		"1731000000"
+						"Playtime"		"4200"
+						"Playtime2wks"		"95"
+						"cloud"
+						{
+							"last_sync_state"		"synchronized"
+						}
+					}
+					"413150"
+					{
+						"LastPlayed"		"1600000000"
+						"Playtime"		"30"
+					}
+					"999"
+					{
+						"cloud"
+						{
+							"last_sync_state"		"synchronized"
+						}
+					}
+				}
+			}
+		}
+	}
+	"friends"
+	{
+		"PersonaName"		"never read"
+	}
+}

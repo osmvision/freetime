@@ -10,7 +10,12 @@ use freetime_core::{
     net::HttpNet,
     model::*,
     open,
-    providers::{self, steam, Note, Online},
+    providers::{
+        self,
+        steam::{self, SteamStatus},
+        steam_import::{self, LocalAccount},
+        Note, Online,
+    },
     region,
     scoring::{self, Ranked},
     weather::{self, Place, Weather},
@@ -252,7 +257,7 @@ pub fn bootstrap(state: State<'_, AppState>) -> Res<Boot> {
         setup: SetupState {
             city: cfg.city.clone(),
             needs_city: cfg.city.is_none() && !cfg.asked_for_city,
-            steam: Keys::resolve().steam.is_some(),
+            steam: steam_import::load_library().is_some(),
             youtube: Keys::resolve().youtube.is_some() || !cfg.youtube.channels.is_empty(),
         },
     })
@@ -468,6 +473,8 @@ pub struct SettingsView {
     steam_key_set: bool,
     steam_key_from_env: bool,
     steam_id: Option<String>,
+    /// The last import (freetime's own cache).
+    steam: SteamStatus,
     youtube_key_set: bool,
     youtube_key_from_env: bool,
     channels: Vec<String>,
@@ -485,6 +492,7 @@ fn settings_view(cfg: &Config) -> SettingsView {
         steam_key_set: keys.steam.is_some(),
         steam_key_from_env: from_env(&keys.steam),
         steam_id: cfg.steam.steam_id.clone(),
+        steam: SteamStatus::of(steam_import::load_library().as_ref()),
         youtube_key_set: keys.youtube.is_some(),
         youtube_key_from_env: from_env(&keys.youtube),
         channels: cfg.youtube.channels.clone(),
@@ -553,19 +561,21 @@ pub fn save_settings(app: AppHandle, input: SettingsInput) -> Res<SaveReport> {
     } else if !input.youtube_key.trim().is_empty() {
         keys::save_user_key(keys::YOUTUBE, Some(&input.youtube_key)).map_err(err)?;
     }
+    // A pasted SteamID64 or /profiles/ URL is read locally; only a custom /id/ name needs the API.
     let profile = input.steam_profile.trim();
     if profile.is_empty() {
         cfg.steam.steam_id = None;
     } else if cfg.steam.steam_id.as_deref() != Some(profile) {
-        match Keys::resolve().steam {
-            None => say(false, "Add a Steam Web API key to connect a profile by name.".into()),
-            Some(key) => match steam::resolve_steam_id(&net, key.value(), profile) {
-                Ok(id) => {
-                    say(true, "Steam profile connected".into());
-                    cfg.steam.steam_id = Some(id);
-                }
+        match (steam_import::parse_steam_id(profile), Keys::resolve().steam) {
+            (Some(id), _) => cfg.steam.steam_id = Some(id),
+            (None, Some(key)) => match steam::resolve_steam_id(&net, key.value(), profile) {
+                Ok(id) => cfg.steam.steam_id = Some(id),
                 Err(e) => say(false, format!("Steam: {e}")),
             },
+            (None, None) => say(
+                false,
+                "Paste a SteamID64 or a steamcommunity.com/profiles/… URL (custom /id/ names need a Steam Web API key).".into(),
+            ),
         }
     }
 
@@ -575,6 +585,56 @@ pub fn save_settings(app: AppHandle, input: SettingsInput) -> Res<SaveReport> {
     say(true, "Settings saved".into());
     refresh_in_background(&app);
     Ok(SaveReport { settings: settings_view(&cfg), messages })
+}
+
+// ---------------------------------------------------------------- Steam import (opt-in)
+
+#[derive(Serialize)]
+pub struct SteamScan {
+    /// Steam's folder was found (registry SteamPath or the default folder).
+    found: bool,
+    /// Accounts from the folder names under userdata\ (no file is opened).
+    accounts: Vec<LocalAccount>,
+    /// A SteamID typed in the settings, used instead of asking.
+    chosen: Option<String>,
+}
+
+/// First half of "Import my games from Steam on this PC": which accounts used Steam here.
+#[tauri::command(async)]
+pub fn steam_scan() -> Res<SteamScan> {
+    let cfg = Config::load().map_err(err)?;
+    let root = steam_import::steam_root();
+    Ok(SteamScan {
+        found: root.is_some(),
+        accounts: root.as_deref().map(steam_import::accounts).unwrap_or_default(),
+        chosen: cfg.steam.steam_id,
+    })
+}
+
+#[derive(Serialize)]
+pub struct SteamImported {
+    status: SteamStatus,
+    notes: Vec<String>,
+}
+
+/// Second half: imports that account's games and saves them to freetime's cache.
+#[tauri::command(async)]
+pub fn steam_import(app: AppHandle, steam_id64: String) -> Res<SteamImported> {
+    let net = HttpNet::new().map_err(err)?;
+    let key = Keys::resolve().steam;
+    let now = chrono::Utc::now().timestamp();
+    let (library, notes) =
+        steam_import::run_import(&net, key.as_ref().map(|k| k.value()), &steam_id64, now).map_err(err)?;
+    refresh_in_background(&app);
+    Ok(SteamImported { status: SteamStatus::of(Some(&library)), notes })
+}
+
+/// Deletes the imported list (freetime's cache only; Steam's files are never touched).
+#[tauri::command(async)]
+pub fn steam_forget(app: AppHandle) -> Res<()> {
+    steam_import::forget_library().map_err(err)?;
+    refresh_in_background(&app);
+    Ok(())
 }
 
 /// City autocomplete (Open-Meteo geocoding). Only runs while the user types.

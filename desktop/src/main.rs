@@ -24,6 +24,9 @@ fn main() {
             commands::get_settings,
             commands::save_settings,
             commands::search_cities,
+            commands::steam_scan,
+            commands::steam_import,
+            commands::steam_forget,
             commands::set_city,
             commands::open_data_dir,
         ])

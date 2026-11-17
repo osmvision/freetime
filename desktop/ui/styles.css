@@ -1588,6 +1588,20 @@ input[type="range"]:active::-webkit-slider-thumb {
   gap: 8px;
 }
 
+.input-row.wrap {
+  flex-wrap: wrap;
+}
+
+.account-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.account-picker:empty {
+  display: none;
+}
+
 .input-row .input {
   flex: 1;
   min-width: 0;
