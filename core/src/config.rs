@@ -20,16 +20,15 @@ pub struct Config {
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(default)]
 pub struct SteamConfig {
-    pub api_key: Option<String>,
-    /// SteamID64 (17 digits).
+    /// SteamID64 typed in the settings. Empty = the account last logged in on this PC.
     pub steam_id: Option<String>,
 }
 
+/// API keys don't live here: see `keys` (environment, `.env` files, build time).
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(default)]
 pub struct YoutubeConfig {
-    pub api_key: Option<String>,
-    /// Channel IDs (UC…) whose new uploads are suggested. Works without an API key.
+    /// Extra channel IDs (UC…) whose new uploads are suggested. Works without an API key.
     pub channels: Vec<String>,
 }
 
@@ -71,10 +70,6 @@ pub fn data_dir() -> PathBuf {
         .unwrap_or_else(|| PathBuf::from(".freetime"))
 }
 
-fn env_nonempty(name: &str) -> Option<String> {
-    env::var(name).ok().filter(|v| !v.trim().is_empty())
-}
-
 impl Config {
     pub fn load() -> Result<Config> {
         let path = config_path();
@@ -91,13 +86,5 @@ impl Config {
             fs::create_dir_all(dir)?;
         }
         fs::write(&path, toml::to_string_pretty(self)?).with_context(|| format!("writing {}", path.display()))
-    }
-
-    pub fn steam_key(&self) -> Option<String> {
-        env_nonempty("STEAM_API_KEY").or_else(|| self.steam.api_key.clone().filter(|k| !k.trim().is_empty()))
-    }
-
-    pub fn youtube_key(&self) -> Option<String> {
-        env_nonempty("YOUTUBE_API_KEY").or_else(|| self.youtube.api_key.clone().filter(|k| !k.trim().is_empty()))
     }
 }

@@ -1,3 +1,5 @@
 /target
 /desktop/gen
 /desktop/node_modules
+# API keys stay local (see .env.example)
+.env

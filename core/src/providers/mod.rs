@@ -6,6 +6,7 @@ pub mod youtube;
 
 use crate::{
     config::Config,
+    keys::Keys,
     location::{self, Location},
     model::Suggestion,
     net::HttpNet,
@@ -53,10 +54,11 @@ pub fn fetch_online(cfg: &Config) -> Online {
         }
     };
     let now = chrono::Utc::now().timestamp();
+    let keys = Keys::resolve();
     std::thread::scope(|s| {
         let yt = s.spawn(|| {
             let mut notes = Vec::new();
-            (youtube::suggestions(net.as_ref(), cfg, &mut notes), notes)
+            (youtube::suggestions(net.as_ref(), cfg, &keys, &mut notes), notes)
         });
 
         let location = location::resolve(&net, cfg, now);
@@ -66,7 +68,7 @@ pub fn fetch_online(cfg: &Config) -> Online {
             });
             let st = s2.spawn(|| {
                 let mut notes = Vec::new();
-                let (items, status) = steam::suggestions(net.as_ref(), cfg, &location, &mut notes);
+                let (items, status) = steam::suggestions(net.as_ref(), cfg, &keys, &location, &mut notes);
                 (items, notes, status)
             });
             (w.join().unwrap_or(None), st.join())

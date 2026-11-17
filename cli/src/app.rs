@@ -131,6 +131,7 @@ pub fn show_history(limit: usize) -> Result<()> {
 
 pub fn paths() {
     println!("config:  {}", config::config_path().display());
+    println!("keys:    {}", freetime_core::keys::user_env_path().display());
     println!("data:    {}", config::data_dir().display());
 }
 

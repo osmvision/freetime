@@ -1,7 +1,16 @@
-use crate::{config::{self, Config}, net, providers::steam, weather};
+//! `freetime setup`: optional overrides. Everything is detected automatically; this only
+//! changes what you want different.
+
+use crate::{
+    config::{self, Config},
+    net,
+    providers::{steam, steam_local},
+    weather,
+};
 use anyhow::Result;
 use console::style;
 use dialoguer::{theme::ColorfulTheme, Confirm, Input, Password};
+use freetime_core::keys::{self, Keys};
 
 fn split_list(s: &str) -> Vec<String> {
     s.split(',').map(|x| x.trim().to_string()).filter(|x| !x.is_empty()).collect()
@@ -12,11 +21,14 @@ pub fn run() -> Result<()> {
     let mut cfg = Config::load()?;
     let net = net::HttpNet::new()?;
     println!("{}", style("freetime setup").bold());
-    println!("{}\n", style("Press Enter to keep the current value. Everything is optional.").dim());
+    println!(
+        "{}\n",
+        style("Everything is optional and detected automatically. Press Enter to keep the current value.").dim()
+    );
 
-    // City → weather-aware outdoor ideas.
+    // Location: empty = detected from your connection.
     let city: String = Input::with_theme(&theme)
-        .with_prompt("Your city (for weather-aware outdoor ideas)")
+        .with_prompt("City (empty = detect automatically)")
         .default(cfg.city.clone().unwrap_or_default())
         .allow_empty(true)
         .interact_text()?;
@@ -48,64 +60,68 @@ pub fn run() -> Result<()> {
         .interact_text()?;
     cfg.interests = split_list(&interests);
 
-    // Steam library.
+    // Steam: the account on this PC is used unless you pick another one.
+    let local = steam_local::detect();
+    match &local.account {
+        Some(a) => println!("  Steam account on this PC: {} ({} games installed)", a.persona_name, local.installed.len()),
+        None => println!("  {}", style("No Steam account found on this PC.").dim()),
+    }
+    let resolved = Keys::resolve();
+    let key_state = |k: &Option<keys::Key>| k.as_ref().map_or("not set".to_string(), |k| format!("set ({})", k.source.label()));
+    println!("  Steam Web API key: {}", key_state(&resolved.steam));
+    println!("  YouTube API key: {}", key_state(&resolved.youtube));
+
     if Confirm::with_theme(&theme)
-        .with_prompt("Connect your Steam library? (needs a free Steam Web API key)")
-        .default(cfg.steam.api_key.is_some())
+        .with_prompt("Add or change an API key? (optional: more personal picks)")
+        .default(false)
         .interact()?
     {
-        println!("  Get a key at {}", style("https://steamcommunity.com/dev/apikey").cyan());
-        let key = Password::with_theme(&theme)
-            .with_prompt("Steam Web API key (Enter to keep the current one)")
+        println!("  Steam: {}", style("https://steamcommunity.com/dev/apikey").cyan());
+        let steam_key = Password::with_theme(&theme)
+            .with_prompt("Steam Web API key (Enter to keep)")
             .allow_empty_password(true)
             .interact()?;
-        if !key.trim().is_empty() {
-            cfg.steam.api_key = Some(key.trim().to_string());
+        if !steam_key.trim().is_empty() {
+            keys::save_user_key(keys::STEAM, Some(&steam_key))?;
         }
-        let who: String = Input::with_theme(&theme)
-            .with_prompt("Your Steam profile URL, custom URL name or SteamID64")
-            .default(cfg.steam.steam_id.clone().unwrap_or_default())
-            .allow_empty(true)
-            .interact_text()?;
-        if let (false, Some(key)) = (who.trim().is_empty(), cfg.steam_key()) {
-            match steam::resolve_steam_id(&net, &key, &who) {
+        println!("  YouTube: {}", style("https://console.cloud.google.com/apis/library/youtube.googleapis.com").cyan());
+        let youtube_key = Password::with_theme(&theme)
+            .with_prompt("YouTube Data API key (Enter to keep)")
+            .allow_empty_password(true)
+            .interact()?;
+        if !youtube_key.trim().is_empty() {
+            keys::save_user_key(keys::YOUTUBE, Some(&youtube_key))?;
+        }
+        println!("  {} {}", style("Saved to").dim(), keys::user_env_path().display());
+    }
+
+    let who: String = Input::with_theme(&theme)
+        .with_prompt("Another Steam profile (URL, name or SteamID64; empty = this PC's account)")
+        .default(cfg.steam.steam_id.clone().unwrap_or_default())
+        .allow_empty(true)
+        .interact_text()?;
+    let who = who.trim();
+    if who.is_empty() {
+        cfg.steam.steam_id = None;
+    } else if cfg.steam.steam_id.as_deref() != Some(who) {
+        match Keys::resolve().steam {
+            Some(key) => match steam::resolve_steam_id(&net, key.value(), who) {
                 Ok(id) => {
                     println!("  {} SteamID64 {id}", style("✓").green());
                     cfg.steam.steam_id = Some(id);
                 }
                 Err(e) => println!("  {} {e}", style("!").yellow()),
-            }
+            },
+            None => println!("  {}", style("A profile from another account needs a Steam Web API key.").yellow()),
         }
-        println!(
-            "  {}",
-            style("Your profile's Privacy → Game details must be Public for this to work.").dim()
-        );
     }
 
-    // YouTube.
-    if Confirm::with_theme(&theme)
-        .with_prompt("Use the YouTube Data API for video picks? (free key from Google Cloud)")
-        .default(cfg.youtube.api_key.is_some())
-        .interact()?
-    {
-        println!(
-            "  Enable \"YouTube Data API v3\" and create an API key: {}",
-            style("https://console.cloud.google.com/apis/library/youtube.googleapis.com").cyan()
-        );
-        let key = Password::with_theme(&theme)
-            .with_prompt("YouTube API key (Enter to keep the current one)")
-            .allow_empty_password(true)
-            .interact()?;
-        if !key.trim().is_empty() {
-            cfg.youtube.api_key = Some(key.trim().to_string());
-        }
-    }
     println!(
         "  {}",
-        style("Channels you follow work without a key. A channel ID starts with UC (channel page → About → Share → Copy channel ID).").dim()
+        style("Extra channels work without a key. A channel ID starts with UC (channel page → About → Share → Copy channel ID).").dim()
     );
     let channels: String = Input::with_theme(&theme)
-        .with_prompt("YouTube channel IDs for new uploads (comma separated)")
+        .with_prompt("Extra YouTube channel IDs (comma separated)")
         .default(cfg.youtube.channels.join(", "))
         .allow_empty(true)
         .interact_text()?;
@@ -113,10 +129,6 @@ pub fn run() -> Result<()> {
 
     cfg.save()?;
     println!("\n{} Saved to {}", style("✓").green(), config::config_path().display());
-    println!(
-        "  {}",
-        style("API keys are stored in plain text there. You can use the STEAM_API_KEY / YOUTUBE_API_KEY env vars instead.").dim()
-    );
     println!("  Now just run {}", style("freetime").cyan().bold());
     Ok(())
 }

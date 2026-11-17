@@ -1,7 +1,7 @@
 //! YouTube: Data API search (with a key), channel RSS feeds (no key), and search links (offline).
 
 use super::Note;
-use crate::{config::{self, Config}, model::*, net::{self, Net}};
+use crate::{config::{self, Config}, keys::Keys, model::*, net::{self, Net}};
 use anyhow::Result;
 use chrono::{DateTime, SecondsFormat, Utc};
 use serde::{Deserialize, Serialize};
@@ -12,10 +12,10 @@ use std::{collections::HashMap, fs};
 const CACHE_SECS: i64 = 6 * 3600;
 const MAX_INTERESTS: usize = 5;
 
-pub fn suggestions(net: &dyn Net, cfg: &Config, notes: &mut Vec<Note>) -> Vec<Suggestion> {
+pub fn suggestions(net: &dyn Net, cfg: &Config, keys: &Keys, notes: &mut Vec<Note>) -> Vec<Suggestion> {
     let mut out = Vec::new();
-    if let Some(key) = cfg.youtube_key() {
-        match api_cached(net, &key, &cfg.interests) {
+    if let Some(key) = &keys.youtube {
+        match api_cached(net, key.value(), &cfg.interests) {
             Ok(v) => out.extend(v),
             Err(e) => notes.push(Note::problem(format!("YouTube API unavailable ({e})."))),
         }
@@ -29,7 +29,7 @@ pub fn suggestions(net: &dyn Net, cfg: &Config, notes: &mut Vec<Note>) -> Vec<Su
             )));
         }
     }
-    if cfg.youtube_key().is_none() && cfg.youtube.channels.is_empty() {
+    if keys.youtube.is_none() && cfg.youtube.channels.is_empty() {
         notes.push(Note::tip("Add a YouTube API key or channels you follow to get real video picks."));
     }
     out

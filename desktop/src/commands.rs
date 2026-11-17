@@ -6,6 +6,7 @@
 use freetime_core::{
     config::{self, Config},
     history::{self, History},
+    keys::{self, KeySource, Keys},
     net::HttpNet,
     model::*,
     open,
@@ -247,8 +248,8 @@ pub fn bootstrap(state: State<'_, AppState>) -> Res<Boot> {
         pending: pending_list(&History::load()),
         setup: SetupState {
             city: cfg.city.clone(),
-            steam: cfg.steam_key().is_some() && cfg.steam.steam_id.is_some(),
-            youtube: cfg.youtube_key().is_some() || !cfg.youtube.channels.is_empty(),
+            steam: Keys::resolve().steam.is_some(),
+            youtube: Keys::resolve().youtube.is_some() || !cfg.youtube.channels.is_empty(),
         },
     })
 }
@@ -469,20 +470,18 @@ pub struct SettingsView {
     data_dir: String,
 }
 
-fn env_set(name: &str) -> bool {
-    std::env::var(name).is_ok_and(|v| !v.trim().is_empty())
-}
-
 fn settings_view(cfg: &Config) -> SettingsView {
+    let keys = Keys::resolve();
+    let from_env = |k: &Option<keys::Key>| k.as_ref().is_some_and(|k| k.source == KeySource::Environment);
     SettingsView {
         city: cfg.city.clone(),
         country: cfg.country.clone().unwrap_or_default(),
         interests: cfg.interests.clone(),
-        steam_key_set: cfg.steam_key().is_some(),
-        steam_key_from_env: env_set("STEAM_API_KEY"),
+        steam_key_set: keys.steam.is_some(),
+        steam_key_from_env: from_env(&keys.steam),
         steam_id: cfg.steam.steam_id.clone(),
-        youtube_key_set: cfg.youtube_key().is_some(),
-        youtube_key_from_env: env_set("YOUTUBE_API_KEY"),
+        youtube_key_set: keys.youtube.is_some(),
+        youtube_key_from_env: from_env(&keys.youtube),
         channels: cfg.youtube.channels.clone(),
         config_path: config::config_path().display().to_string(),
         data_dir: config::data_dir().display().to_string(),
@@ -561,18 +560,24 @@ pub fn save_settings(app: AppHandle, input: SettingsInput) -> Res<SaveReport> {
 
     cfg.interests = clean_list(input.interests);
 
+    // Keys typed here go to %APPDATA%reetime\.env, never to config.toml.
     if input.clear_steam_key {
-        cfg.steam.api_key = None;
+        keys::save_user_key(keys::STEAM, None).map_err(err)?;
     } else if !input.steam_key.trim().is_empty() {
-        cfg.steam.api_key = Some(input.steam_key.trim().to_string());
+        keys::save_user_key(keys::STEAM, Some(&input.steam_key)).map_err(err)?;
+    }
+    if input.clear_youtube_key {
+        keys::save_user_key(keys::YOUTUBE, None).map_err(err)?;
+    } else if !input.youtube_key.trim().is_empty() {
+        keys::save_user_key(keys::YOUTUBE, Some(&input.youtube_key)).map_err(err)?;
     }
     let profile = input.steam_profile.trim();
     if profile.is_empty() {
         cfg.steam.steam_id = None;
     } else if cfg.steam.steam_id.as_deref() != Some(profile) {
-        match cfg.steam_key() {
-            None => say(false, "Add a Steam Web API key to connect your profile.".into()),
-            Some(key) => match steam::resolve_steam_id(&net, &key, profile) {
+        match Keys::resolve().steam {
+            None => say(false, "Add a Steam Web API key to connect a profile by name.".into()),
+            Some(key) => match steam::resolve_steam_id(&net, key.value(), profile) {
                 Ok(id) => {
                     say(true, "🎮 Steam profile connected".into());
                     cfg.steam.steam_id = Some(id);
@@ -582,11 +587,6 @@ pub fn save_settings(app: AppHandle, input: SettingsInput) -> Res<SaveReport> {
         }
     }
 
-    if input.clear_youtube_key {
-        cfg.youtube.api_key = None;
-    } else if !input.youtube_key.trim().is_empty() {
-        cfg.youtube.api_key = Some(input.youtube_key.trim().to_string());
-    }
     cfg.youtube.channels = clean_list(input.channels);
 
     cfg.save().map_err(err)?;
