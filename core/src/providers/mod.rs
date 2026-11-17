@@ -1,6 +1,7 @@
 //! Everything that needs the network. Each source fails soft: a note, never a crash.
 
 pub mod steam;
+pub mod steam_local;
 pub mod youtube;
 
 use crate::{
@@ -34,6 +35,7 @@ impl Note {
 pub struct Online {
     pub location: Location,
     pub weather: Option<Weather>,
+    pub steam: steam::SteamStatus,
     pub items: Vec<Suggestion>,
     pub notes: Vec<Note>,
 }
@@ -64,7 +66,8 @@ pub fn fetch_online(cfg: &Config) -> Online {
             });
             let st = s2.spawn(|| {
                 let mut notes = Vec::new();
-                (steam::suggestions(net.as_ref(), cfg, &location, &mut notes), notes)
+                let (items, status) = steam::suggestions(net.as_ref(), cfg, &location, &mut notes);
+                (items, notes, status)
             });
             (w.join().unwrap_or(None), st.join())
         });
@@ -75,11 +78,14 @@ pub fn fetch_online(cfg: &Config) -> Online {
             Some(Err(e)) => out.notes.push(Note::problem(format!("Weather unavailable ({e})."))),
             None => out.notes.push(Note::tip("Couldn't detect your location: set your city to get the weather.")),
         }
-        for joined in [steam, yt.join()] {
-            if let Ok((items, notes)) = joined {
-                out.items.extend(items);
-                out.notes.extend(notes);
-            }
+        if let Ok((items, notes, status)) = steam {
+            out.items.extend(items);
+            out.notes.extend(notes);
+            out.steam = status;
+        }
+        if let Ok((items, notes)) = yt.join() {
+            out.items.extend(items);
+            out.notes.extend(notes);
         }
         out.location = location;
         out

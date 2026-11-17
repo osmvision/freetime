@@ -10,6 +10,7 @@ pub mod model;
 pub mod open;
 pub mod providers;
 pub mod scoring;
+pub mod vdf;
 pub mod weather;
 
 use config::Config;

@@ -1,6 +1,10 @@
-//! Steam: your own library (with a Web API key) and the public store front.
+//! Steam: the client on this PC (account and installed games, no key needed), the owned-games
+//! list (with a Web API key) and the public store front.
 
-use super::Note;
+use super::{
+    steam_local::{self, Account, InstalledGame, LocalSteam},
+    Note,
+};
 use crate::{config::{self, Config}, location::Location, model::*, net::{self, Net}};
 use anyhow::{anyhow, Result};
 use rand::seq::SliceRandom;
@@ -17,29 +21,62 @@ const STORE_MIN_MINUTES: u32 = 45;
 /// appdetails is rate limited; results are cached so this only bites on the first runs.
 const MAX_DETAIL_FETCHES: usize = 12;
 
-pub fn suggestions(net: &dyn Net, cfg: &Config, loc: &Location, notes: &mut Vec<Note>) -> Vec<Suggestion> {
-    let mut items = Vec::new();
-    let steam_id = cfg.steam.steam_id.as_deref().filter(|s| !s.trim().is_empty());
-    match (cfg.steam_key(), steam_id) {
-        (Some(key), Some(id)) => match library(net, &key, id) {
-            Ok(v) if v.is_empty() => notes.push(Note::problem(
-                "Steam returned no games: set your Steam profile's Privacy → Game details to Public.",
-            )),
-            Ok(v) => items = v,
-            Err(e) => notes.push(Note::problem(format!("Steam library unavailable ({e})."))),
-        },
-        _ => notes.push(Note::tip("Connect your Steam library to get picks from games you already own.")),
-    }
+/// What the UI shows about Steam.
+#[derive(Debug, Clone, Default, Serialize)]
+pub struct SteamStatus {
+    /// The Steam client is installed on this PC.
+    pub found: bool,
+    /// The account that logged in last on this PC.
+    pub account: Option<Account>,
+    pub installed: usize,
+    /// Games on the account, when a Web API key could list them.
+    pub owned: Option<usize>,
+}
+
+pub fn suggestions(net: &dyn Net, cfg: &Config, loc: &Location, notes: &mut Vec<Note>) -> (Vec<Suggestion>, SteamStatus) {
+    let local = steam_local::detect();
+    let (mut items, status) = library(net, cfg, &local, notes);
     let cc = loc.steam_cc();
     match store(net, cc.as_deref()) {
         Ok(v) => {
-            let owned: HashSet<String> = items.iter().map(|s| s.id.clone()).collect();
-            items.extend(v.into_iter().filter(|s| !owned.contains(&s.id)));
+            let mine: HashSet<String> = items.iter().map(|s| s.id.clone()).collect();
+            items.extend(v.into_iter().filter(|s| !mine.contains(&s.id)));
         }
         Err(e) => notes.push(Note::problem(format!("Steam store unavailable ({e})."))),
     }
     enrich(net, &mut items, cc.as_deref());
-    items
+    (items, status)
+}
+
+/// Games you can play: owned games when a key can list them, merged with what's installed.
+/// Without a key (or with private game details), the installed games stand in for the library.
+fn library(net: &dyn Net, cfg: &Config, local: &LocalSteam, notes: &mut Vec<Note>) -> (Vec<Suggestion>, SteamStatus) {
+    let mut status = SteamStatus {
+        found: local.root.is_some(),
+        account: local.account.clone(),
+        installed: local.installed.len(),
+        owned: None,
+    };
+    let steam_id = cfg
+        .steam
+        .steam_id
+        .clone()
+        .filter(|s| !s.trim().is_empty())
+        .or_else(|| local.account.as_ref().map(|a| a.steam_id64.clone()));
+    if let (Some(key), Some(id)) = (cfg.steam_key(), steam_id) {
+        match owned_games(net, &key, &id) {
+            Ok(games) if games.is_empty() => notes.push(Note::problem(
+                "Your Steam game details are private, so only installed games are suggested (Steam: Profile → Privacy).",
+            )),
+            Ok(games) => {
+                status.owned = Some(games.len());
+                let now = chrono::Utc::now().timestamp();
+                return (owned_picks(&games, &local.installed, now), status);
+            }
+            Err(e) => notes.push(Note::problem(format!("Steam library unavailable ({e})."))),
+        }
+    }
+    (installed_picks(&local.installed, &HashSet::new(), 10), status)
 }
 
 #[derive(Deserialize)]
@@ -66,15 +103,15 @@ struct OwnedGame {
     rtime_last_played: i64,
 }
 
-fn owned(g: &OwnedGame, detail: String, quality: f64, tag: &str) -> Suggestion {
+/// A game you can launch: the link starts it straight from Steam.
+fn game(appid: u32, name: &str, detail: String, quality: f64, tag: &str) -> Suggestion {
     Suggestion {
-        id: format!("steam:{}", g.appid),
+        id: format!("steam:{appid}"),
         category: Category::Game,
-        title: g.name.clone(),
+        title: name.to_string(),
         detail,
-        // Launches the game straight from Steam.
-        link: Some(format!("steam://rungameid/{}", g.appid)),
-        image: Some(format!("https://cdn.akamai.steamstatic.com/steam/apps/{}/header.jpg", g.appid)),
+        link: Some(format!("steam://rungameid/{appid}")),
+        image: Some(format!("https://cdn.akamai.steamstatic.com/steam/apps/{appid}/header.jpg")),
         min_minutes: 30,
         max_minutes: 120,
         energy: Energy::Medium,
@@ -86,7 +123,21 @@ fn owned(g: &OwnedGame, detail: String, quality: f64, tag: &str) -> Suggestion {
     }
 }
 
-fn library(net: &dyn Net, key: &str, steam_id: &str) -> Result<Vec<Suggestion>> {
+/// Installed games: no download, ready the moment you sit down.
+fn installed_picks(installed: &[InstalledGame], skip: &HashSet<u32>, count: usize) -> Vec<Suggestion> {
+    let mut pool: Vec<&InstalledGame> = installed.iter().filter(|g| !skip.contains(&g.appid)).collect();
+    pool.shuffle(&mut rand::thread_rng());
+    pool.into_iter()
+        .take(count)
+        .map(|g| {
+            let mut s = game(g.appid, &g.name, "Installed · ready to play".into(), 0.62, "installed");
+            s.min_minutes = 20;
+            s
+        })
+        .collect()
+}
+
+fn owned_games(net: &dyn Net, key: &str, steam_id: &str) -> Result<Vec<OwnedGame>> {
     let resp: Owned = net::get_json(
         net,
         "https://api.steampowered.com/IPlayerService/GetOwnedGames/v1/",
@@ -98,8 +149,22 @@ fn library(net: &dyn Net, key: &str, steam_id: &str) -> Result<Vec<Suggestion>> 
             ("format", "json"),
         ],
     )?;
-    let now = chrono::Utc::now().timestamp();
-    let games: Vec<OwnedGame> = resp.response.games.into_iter().filter(|g| !g.name.is_empty()).collect();
+    Ok(resp.response.games.into_iter().filter(|g| !g.name.is_empty()).collect())
+}
+
+/// Comfort picks, old favorites and the backlog from the owned list. Installed games get a
+/// small boost (no download), and a few more installed games fill in.
+fn owned_picks(games: &[OwnedGame], installed: &[InstalledGame], now: i64) -> Vec<Suggestion> {
+    let is_installed: HashSet<u32> = installed.iter().map(|g| g.appid).collect();
+    let owned = |g: &OwnedGame, detail: String, quality: f64, tag: &str| {
+        let mut s = game(g.appid, &g.name, detail, quality, tag);
+        if is_installed.contains(&g.appid) {
+            s.detail.push_str(" · Installed");
+            s.quality = (s.quality + 0.05).min(0.95);
+            s.tags.push("installed".into());
+        }
+        s
+    };
     let mut out = Vec::new();
 
     let mut recent: Vec<&OwnedGame> = games.iter().filter(|g| g.playtime_2weeks > 0).collect();
@@ -141,7 +206,9 @@ fn library(net: &dyn Net, key: &str, steam_id: &str) -> Result<Vec<Suggestion>> 
 
     let mut seen = HashSet::new();
     out.retain(|s| seen.insert(s.id.clone()));
-    Ok(out)
+    let chosen: HashSet<u32> = out.iter().filter_map(|s| s.id.strip_prefix("steam:")?.parse().ok()).collect();
+    out.extend(installed_picks(installed, &chosen, 4));
+    out
 }
 
 /// Query for a store.steampowered.com call: every one of them carries the user's country,
@@ -471,5 +538,82 @@ mod tests {
         assert_eq!(detail(&items, "steam:1145360"), "Top seller");
         assert_eq!(detail(&items, "steam:413150"), "On sale · -40%");
         assert_eq!(detail(&items, "steam:730"), "Top seller · Free to play");
+    }
+}
+
+#[cfg(test)]
+mod library_tests {
+    use super::*;
+    use crate::net::fake::FakeNet;
+    use std::path::PathBuf;
+
+    const OWNED_URL: &str = "https://api.steampowered.com/IPlayerService/GetOwnedGames";
+
+    fn local_with(installed: &[(u32, &str)]) -> LocalSteam {
+        LocalSteam {
+            root: Some(PathBuf::from("C:/Steam")),
+            account: Some(Account { steam_id64: "76561198012345678".into(), persona_name: "Player".into() }),
+            installed: installed.iter().map(|(id, n)| InstalledGame { appid: *id, name: n.to_string() }).collect(),
+        }
+    }
+
+    fn with_key() -> Config {
+        let mut cfg = Config::default();
+        cfg.steam.api_key = Some("secret".into());
+        cfg
+    }
+
+    #[test]
+    fn without_a_key_installed_games_are_the_library() {
+        let net = FakeNet::new();
+        let mut notes = Vec::new();
+        let local = local_with(&[(570, "Dota 2"), (413150, "Stardew Valley")]);
+        let (items, status) = library(&net, &Config::default(), &local, &mut notes);
+        assert_eq!(items.len(), 2);
+        assert!(items.iter().all(|s| s.detail == "Installed · ready to play"));
+        assert!(items.iter().all(|s| s.link.as_deref().unwrap().starts_with("steam://rungameid/")));
+        assert!(status.found);
+        assert_eq!(status.installed, 2);
+        assert_eq!(status.owned, None);
+        assert_eq!(status.account.unwrap().persona_name, "Player");
+        assert!(net.calls().is_empty(), "no key, no Web API call");
+        assert!(notes.is_empty());
+    }
+
+    #[test]
+    fn with_a_key_owned_games_use_the_detected_account() {
+        let owned = r#"{"response":{"game_count":2,"games":[
+            {"appid":570,"name":"Dota 2","playtime_forever":30,"playtime_2weeks":0},
+            {"appid":1145360,"name":"Hades","playtime_forever":0}]}}"#;
+        let net = FakeNet::new().on(OWNED_URL, owned);
+        let (items, status) = library(&net, &with_key(), &local_with(&[(570, "Dota 2")]), &mut Vec::new());
+        assert_eq!(status.owned, Some(2));
+        assert!(net.calls()[0].contains("steamid=76561198012345678"));
+        assert!(net.calls()[0].contains("include_appinfo=1"));
+        assert!(net.calls()[0].contains("include_played_free_games=1"));
+        let dota = items.iter().find(|s| s.id == "steam:570").unwrap();
+        assert!(dota.detail.ends_with("· Installed"), "{}", dota.detail);
+        assert!(items.iter().any(|s| s.id == "steam:1145360"));
+    }
+
+    #[test]
+    fn a_typed_steam_id_overrides_the_detected_one() {
+        let net = FakeNet::new().on(OWNED_URL, r#"{"response":{"games":[{"appid":10,"name":"CS"}]}}"#);
+        let mut cfg = with_key();
+        cfg.steam.steam_id = Some("76561197960287930".into());
+        library(&net, &cfg, &local_with(&[]), &mut Vec::new());
+        assert!(net.calls()[0].contains("steamid=76561197960287930"));
+    }
+
+    #[test]
+    fn private_profile_keeps_installed_games_with_a_hint() {
+        let net = FakeNet::new().on(OWNED_URL, r#"{"response":{}}"#);
+        let mut notes = Vec::new();
+        let (items, status) = library(&net, &with_key(), &local_with(&[(570, "Dota 2")]), &mut notes);
+        assert_eq!(items.len(), 1);
+        assert_eq!(items[0].detail, "Installed · ready to play");
+        assert_eq!(status.owned, None);
+        assert_eq!(notes.len(), 1);
+        assert!(notes[0].text.contains("private"));
     }
 }
