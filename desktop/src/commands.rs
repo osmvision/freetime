@@ -560,7 +560,7 @@ pub fn save_settings(app: AppHandle, input: SettingsInput) -> Res<SaveReport> {
 
     cfg.interests = clean_list(input.interests);
 
-    // Keys typed here go to %APPDATA%reetime\.env, never to config.toml.
+    // Keys typed here go to %APPDATA%\freetime\.env, never to config.toml.
     if input.clear_steam_key {
         keys::save_user_key(keys::STEAM, None).map_err(err)?;
     } else if !input.steam_key.trim().is_empty() {

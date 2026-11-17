@@ -8,6 +8,9 @@ license = "MIT"
 [features]
 # Lets the CLI parse categories, energy and budget straight from flags.
 clap = ["dep:clap"]
+# Bakes the keys from the workspace .env into the binary. Off by default: keys are read at
+# runtime, so a build that leaves this PC carries none. Only for personal builds.
+embed-keys = []
 
 [dependencies]
 anyhow = "1"

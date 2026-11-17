@@ -1,15 +1,18 @@
-//! Bakes STEAM_API_KEY and YOUTUBE_API_KEY from the workspace `.env` into the build, so
-//! `cargo run` picks them up with no extra step (read at runtime with `option_env!`).
-//! Only those two keys are read; nothing is printed except to cargo.
+//! Opt-in only (`--features freetime-core/embed-keys`): bakes STEAM_API_KEY and YOUTUBE_API_KEY
+//! from the workspace `.env` into the build. Default builds skip this entirely and read keys at
+//! runtime, so binaries that leave this PC carry no key. Only those two keys are ever read.
 
 use std::{env, fs, path::PathBuf};
 
 const KEYS: [&str; 2] = ["STEAM_API_KEY", "YOUTUBE_API_KEY"];
 
 fn main() {
+    println!("cargo:rerun-if-changed=build.rs");
+    if env::var_os("CARGO_FEATURE_EMBED_KEYS").is_none() {
+        return;
+    }
     let manifest = PathBuf::from(env::var("CARGO_MANIFEST_DIR").expect("set by cargo"));
     let dotenv = manifest.parent().expect("core/ sits in the workspace").join(".env");
-    println!("cargo:rerun-if-changed=build.rs");
     println!("cargo:rerun-if-changed={}", dotenv.display());
 
     let Ok(text) = fs::read_to_string(&dotenv) else { return };

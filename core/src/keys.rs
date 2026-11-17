@@ -1,7 +1,8 @@
-//! API keys, found without asking. Lookup order for each key:
+//! API keys, read at runtime. Lookup order for each key:
 //! 1. the process environment,
 //! 2. a `.env` file: the workspace's, then the one in the config folder (`%APPDATA%\freetime`),
-//! 3. the value baked in at build time (`build.rs` reads the workspace `.env`).
+//! 3. only in builds made with the opt-in `embed-keys` feature: the value baked in at build time.
+//!    Default builds never carry a key, so a binary that leaves this PC holds none.
 //!
 //! Key values are never logged or shown: `Debug` redacts them and the UI only gets "set" / "not set".
 
@@ -84,12 +85,18 @@ pub fn user_env_path() -> PathBuf {
     config::config_dir().join(".env")
 }
 
+#[cfg(feature = "embed-keys")]
 fn built_in(name: &str) -> Option<&'static str> {
     match name {
         STEAM => option_env!("STEAM_API_KEY"),
         YOUTUBE => option_env!("YOUTUBE_API_KEY"),
         _ => None,
     }
+}
+
+#[cfg(not(feature = "embed-keys"))]
+fn built_in(_name: &str) -> Option<&'static str> {
+    None
 }
 
 /// The first non-empty value: environment, then each `.env` file in order, then build time.
