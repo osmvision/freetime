@@ -3,7 +3,13 @@
 pub mod steam;
 pub mod youtube;
 
-use crate::{config::Config, model::Suggestion, net::HttpNet, weather::{self, Weather}};
+use crate::{
+    config::Config,
+    location::{self, Location},
+    model::Suggestion,
+    net::HttpNet,
+    weather::{self, Weather},
+};
 use serde::Serialize;
 
 /// Something worth telling the user about the online sources.
@@ -26,15 +32,17 @@ impl Note {
 
 #[derive(Default)]
 pub struct Online {
+    pub location: Location,
     pub weather: Option<Weather>,
     pub items: Vec<Suggestion>,
     pub notes: Vec<Note>,
 }
 
-/// Fetches weather, Steam and YouTube in parallel.
+/// Fetches everything concurrently: YouTube right away, the location meanwhile,
+/// then the weather and Steam (which need the location) in parallel.
 pub fn fetch_online(cfg: &Config) -> Online {
-    let net = match HttpNet::new() {
-        Ok(a) => a,
+    let net = match HttpNet::shared() {
+        Ok(net) => net,
         Err(e) => {
             return Online {
                 notes: vec![Note::problem(format!("Online sources disabled: TLS setup failed ({e})."))],
@@ -42,29 +50,38 @@ pub fn fetch_online(cfg: &Config) -> Online {
             }
         }
     };
+    let now = chrono::Utc::now().timestamp();
     std::thread::scope(|s| {
-        let w = s.spawn(|| cfg.location().map(|(lat, lon, place)| weather::fetch(&net, lat, lon, &place)));
-        let st = s.spawn(|| {
-            let mut notes = Vec::new();
-            (steam::suggestions(&net, cfg, &mut notes), notes)
-        });
         let yt = s.spawn(|| {
             let mut notes = Vec::new();
-            (youtube::suggestions(&net, cfg, &mut notes), notes)
+            (youtube::suggestions(net.as_ref(), cfg, &mut notes), notes)
+        });
+
+        let location = location::resolve(&net, cfg, now);
+        let (weather, steam) = std::thread::scope(|s2| {
+            let w = s2.spawn(|| {
+                location.coords().map(|(lat, lon)| weather::fetch(net.as_ref(), lat, lon, &location.label()))
+            });
+            let st = s2.spawn(|| {
+                let mut notes = Vec::new();
+                (steam::suggestions(net.as_ref(), cfg, &location, &mut notes), notes)
+            });
+            (w.join().unwrap_or(None), st.join())
         });
 
         let mut out = Online::default();
-        match w.join().unwrap_or(None) {
+        match weather {
             Some(Ok(w)) => out.weather = Some(w),
             Some(Err(e)) => out.notes.push(Note::problem(format!("Weather unavailable ({e})."))),
-            None => out.notes.push(Note::tip("Set your city so outdoor ideas follow the weather.")),
+            None => out.notes.push(Note::tip("Couldn't detect your location: set your city to get the weather.")),
         }
-        for handle in [st, yt] {
-            if let Ok((items, notes)) = handle.join() {
+        for joined in [steam, yt.join()] {
+            if let Ok((items, notes)) = joined {
                 out.items.extend(items);
                 out.notes.extend(notes);
             }
         }
+        out.location = location;
         out
     })
 }

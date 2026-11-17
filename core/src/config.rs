@@ -5,11 +5,12 @@ use std::{env, fs, path::PathBuf};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Config {
+    /// A city the user typed. Empty = detect the location automatically.
     pub city: Option<String>,
     pub latitude: Option<f64>,
     pub longitude: Option<f64>,
-    /// Two-letter country code, used for Steam store prices.
-    pub country: String,
+    /// Two-letter country code of the typed city.
+    pub country: Option<String>,
     /// Topics used to find YouTube videos.
     pub interests: Vec<String>,
     pub steam: SteamConfig,
@@ -38,7 +39,7 @@ impl Default for Config {
             city: None,
             latitude: None,
             longitude: None,
-            country: "us".into(),
+            country: None,
             interests: ["science explained", "history", "game design", "cooking", "travel"]
                 .map(String::from)
                 .to_vec(),
@@ -53,11 +54,15 @@ fn home_override() -> Option<PathBuf> {
     env::var_os("FREETIME_HOME").map(PathBuf::from)
 }
 
-pub fn config_path() -> PathBuf {
+/// `%APPDATA%\freetime` on Windows.
+pub fn config_dir() -> PathBuf {
     home_override()
         .or_else(|| dirs::config_dir().map(|d| d.join("freetime")))
         .unwrap_or_else(|| PathBuf::from(".freetime"))
-        .join("config.toml")
+}
+
+pub fn config_path() -> PathBuf {
+    config_dir().join("config.toml")
 }
 
 pub fn data_dir() -> PathBuf {
@@ -94,13 +99,5 @@ impl Config {
 
     pub fn youtube_key(&self) -> Option<String> {
         env_nonempty("YOUTUBE_API_KEY").or_else(|| self.youtube.api_key.clone().filter(|k| !k.trim().is_empty()))
-    }
-
-    pub fn location(&self) -> Option<(f64, f64, String)> {
-        Some((
-            self.latitude?,
-            self.longitude?,
-            self.city.clone().unwrap_or_else(|| "Your area".into()),
-        ))
     }
 }

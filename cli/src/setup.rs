@@ -23,6 +23,7 @@ pub fn run() -> Result<()> {
     let city = city.trim();
     if city.is_empty() {
         cfg.city = None;
+        cfg.country = None;
         cfg.latitude = None;
         cfg.longitude = None;
     } else if Some(city) != cfg.city.as_deref() || cfg.latitude.is_none() {
@@ -33,7 +34,7 @@ pub fn run() -> Result<()> {
                 cfg.latitude = Some(p.latitude);
                 cfg.longitude = Some(p.longitude);
                 if !p.country_code.is_empty() {
-                    cfg.country = p.country_code.to_lowercase();
+                    cfg.country = Some(p.country_code.to_ascii_uppercase());
                 }
             }
             Ok(None) => println!("  {} couldn't find '{city}', keeping the previous location", style("!").yellow()),

@@ -476,7 +476,7 @@ fn env_set(name: &str) -> bool {
 fn settings_view(cfg: &Config) -> SettingsView {
     SettingsView {
         city: cfg.city.clone(),
-        country: cfg.country.clone(),
+        country: cfg.country.clone().unwrap_or_default(),
         interests: cfg.interests.clone(),
         steam_key_set: cfg.steam_key().is_some(),
         steam_key_from_env: env_set("STEAM_API_KEY"),
@@ -540,6 +540,7 @@ pub fn save_settings(app: AppHandle, input: SettingsInput) -> Res<SaveReport> {
     let city = input.city.trim();
     if city.is_empty() {
         cfg.city = None;
+        cfg.country = None;
         cfg.latitude = None;
         cfg.longitude = None;
     } else if !cfg.city.as_deref().is_some_and(|c| c.eq_ignore_ascii_case(city)) || cfg.latitude.is_none() {
@@ -547,7 +548,7 @@ pub fn save_settings(app: AppHandle, input: SettingsInput) -> Res<SaveReport> {
             Ok(Some(place)) => {
                 say(true, format!("📍 Location set to {}", place.display()));
                 if !place.country_code.is_empty() {
-                    cfg.country = place.country_code.to_lowercase();
+                    cfg.country = Some(place.country_code.to_ascii_uppercase());
                 }
                 cfg.latitude = Some(place.latitude);
                 cfg.longitude = Some(place.longitude);

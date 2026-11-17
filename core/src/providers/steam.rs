@@ -1,7 +1,7 @@
 //! Steam: your own library (with a Web API key) and the public store front.
 
 use super::Note;
-use crate::{config::{self, Config}, model::*, net::{self, Net}};
+use crate::{config::{self, Config}, location::Location, model::*, net::{self, Net}};
 use anyhow::{anyhow, Result};
 use rand::seq::SliceRandom;
 use serde::{Deserialize, Serialize};
@@ -17,7 +17,7 @@ const STORE_MIN_MINUTES: u32 = 45;
 /// appdetails is rate limited; results are cached so this only bites on the first runs.
 const MAX_DETAIL_FETCHES: usize = 12;
 
-pub fn suggestions(net: &dyn Net, cfg: &Config, notes: &mut Vec<Note>) -> Vec<Suggestion> {
+pub fn suggestions(net: &dyn Net, cfg: &Config, loc: &Location, notes: &mut Vec<Note>) -> Vec<Suggestion> {
     let mut items = Vec::new();
     let steam_id = cfg.steam.steam_id.as_deref().filter(|s| !s.trim().is_empty());
     match (cfg.steam_key(), steam_id) {
@@ -30,7 +30,7 @@ pub fn suggestions(net: &dyn Net, cfg: &Config, notes: &mut Vec<Note>) -> Vec<Su
         },
         _ => notes.push(Note::tip("Connect your Steam library to get picks from games you already own.")),
     }
-    match store(net, &cfg.country) {
+    match store(net, loc.steam_cc().as_deref()) {
         Ok(v) => {
             let owned: HashSet<String> = items.iter().map(|s| s.id.clone()).collect();
             items.extend(v.into_iter().filter(|s| !owned.contains(&s.id)));
@@ -143,11 +143,15 @@ fn library(net: &dyn Net, key: &str, steam_id: &str) -> Result<Vec<Suggestion>> 
     Ok(out)
 }
 
-fn store(net: &dyn Net, country: &str) -> Result<Vec<Suggestion>> {
+fn store(net: &dyn Net, cc: Option<&str>) -> Result<Vec<Suggestion>> {
+    let mut query = vec![("l", "english")];
+    if let Some(cc) = cc {
+        query.push(("cc", cc));
+    }
     let v: Value = net::get_json(
         net,
         "https://store.steampowered.com/api/featuredcategories",
-        &[("cc", country), ("l", "english")],
+        &query,
     )?;
     let mut out = Vec::new();
     let mut seen = HashSet::new();
