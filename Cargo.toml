@@ -1,0 +1,10 @@
+[workspace]
+resolver = "2"
+members = ["core", "cli", "desktop"]
+# `cargo run` at the root starts the terminal app; the desktop app is `cargo run -p freetime-desktop`.
+default-members = ["core", "cli"]
+
+[profile.release]
+lto = true
+codegen-units = 1
+strip = true
