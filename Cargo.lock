@@ -1094,7 +1094,6 @@ dependencies = [
  "chrono",
  "freetime-core",
  "serde",
- "serde_json",
  "tauri",
  "tauri-build",
 ]
