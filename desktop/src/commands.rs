@@ -6,7 +6,7 @@
 use freetime_core::{
     config::{self, Config},
     history::{self, History},
-    http,
+    net::HttpNet,
     model::*,
     open,
     providers::{self, steam, Note, Online},
@@ -533,7 +533,7 @@ fn clean_list(items: Vec<String>) -> Vec<String> {
 #[tauri::command(async)]
 pub fn save_settings(app: AppHandle, input: SettingsInput) -> Res<SaveReport> {
     let mut cfg = Config::load().map_err(err)?;
-    let agent = http::agent().map_err(err)?;
+    let net = HttpNet::new().map_err(err)?;
     let mut messages = Vec::new();
     let mut say = |ok: bool, text: String| messages.push(Msg { ok, text });
 
@@ -543,7 +543,7 @@ pub fn save_settings(app: AppHandle, input: SettingsInput) -> Res<SaveReport> {
         cfg.latitude = None;
         cfg.longitude = None;
     } else if !cfg.city.as_deref().is_some_and(|c| c.eq_ignore_ascii_case(city)) || cfg.latitude.is_none() {
-        match weather::geocode(&agent, city) {
+        match weather::geocode(&net, city) {
             Ok(Some(place)) => {
                 say(true, format!("📍 Location set to {}", place.display()));
                 if !place.country_code.is_empty() {
@@ -571,7 +571,7 @@ pub fn save_settings(app: AppHandle, input: SettingsInput) -> Res<SaveReport> {
     } else if cfg.steam.steam_id.as_deref() != Some(profile) {
         match cfg.steam_key() {
             None => say(false, "Add a Steam Web API key to connect your profile.".into()),
-            Some(key) => match steam::resolve_steam_id(&agent, &key, profile) {
+            Some(key) => match steam::resolve_steam_id(&net, &key, profile) {
                 Ok(id) => {
                     say(true, "🎮 Steam profile connected".into());
                     cfg.steam.steam_id = Some(id);

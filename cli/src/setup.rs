@@ -1,4 +1,4 @@
-use crate::{config::{self, Config}, http, providers::steam, weather};
+use crate::{config::{self, Config}, net, providers::steam, weather};
 use anyhow::Result;
 use console::style;
 use dialoguer::{theme::ColorfulTheme, Confirm, Input, Password};
@@ -10,7 +10,7 @@ fn split_list(s: &str) -> Vec<String> {
 pub fn run() -> Result<()> {
     let theme = ColorfulTheme::default();
     let mut cfg = Config::load()?;
-    let agent = http::agent()?;
+    let net = net::HttpNet::new()?;
     println!("{}", style("freetime setup").bold());
     println!("{}\n", style("Press Enter to keep the current value. Everything is optional.").dim());
 
@@ -26,7 +26,7 @@ pub fn run() -> Result<()> {
         cfg.latitude = None;
         cfg.longitude = None;
     } else if Some(city) != cfg.city.as_deref() || cfg.latitude.is_none() {
-        match weather::geocode(&agent, city) {
+        match weather::geocode(&net, city) {
             Ok(Some(p)) => {
                 println!("  {} {}", style("✓").green(), p.display());
                 cfg.city = Some(p.name.clone());
@@ -67,7 +67,7 @@ pub fn run() -> Result<()> {
             .allow_empty(true)
             .interact_text()?;
         if let (false, Some(key)) = (who.trim().is_empty(), cfg.steam_key()) {
-            match steam::resolve_steam_id(&agent, &key, &who) {
+            match steam::resolve_steam_id(&net, &key, &who) {
                 Ok(id) => {
                     println!("  {} SteamID64 {id}", style("✓").green());
                     cfg.steam.steam_id = Some(id);

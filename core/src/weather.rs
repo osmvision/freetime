@@ -1,6 +1,6 @@
 //! Current weather from Open-Meteo (free, no API key).
 
-use crate::http;
+use crate::net::{self, Net};
 use anyhow::Result;
 use serde::Deserialize;
 
@@ -28,10 +28,10 @@ struct Current {
     is_day: u8,
 }
 
-pub fn fetch(agent: &ureq::Agent, lat: f64, lon: f64, place: &str) -> Result<Weather> {
+pub fn fetch(net: &dyn Net, lat: f64, lon: f64, place: &str) -> Result<Weather> {
     let (lat, lon) = (lat.to_string(), lon.to_string());
-    let r: Resp = http::get_json(
-        agent,
+    let r: Resp = net::get_json(
+        net,
         "https://api.open-meteo.com/v1/forecast",
         &[
             ("latitude", &lat),
@@ -151,9 +151,9 @@ impl Place {
     }
 }
 
-pub fn geocode(agent: &ureq::Agent, name: &str) -> Result<Option<Place>> {
-    let r: GeoResp = http::get_json(
-        agent,
+pub fn geocode(net: &dyn Net, name: &str) -> Result<Option<Place>> {
+    let r: GeoResp = net::get_json(
+        net,
         "https://geocoding-api.open-meteo.com/v1/search",
         &[("name", name), ("count", "1"), ("language", "en"), ("format", "json")],
     )?;

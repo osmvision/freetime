@@ -4,7 +4,7 @@
 pub mod catalog;
 pub mod config;
 pub mod history;
-pub mod http;
+pub mod net;
 pub mod model;
 pub mod open;
 pub mod providers;

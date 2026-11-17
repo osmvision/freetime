@@ -3,7 +3,7 @@
 pub mod steam;
 pub mod youtube;
 
-use crate::{config::Config, http, model::Suggestion, weather::{self, Weather}};
+use crate::{config::Config, model::Suggestion, net::HttpNet, weather::{self, Weather}};
 use serde::Serialize;
 
 /// Something worth telling the user about the online sources.
@@ -33,7 +33,7 @@ pub struct Online {
 
 /// Fetches weather, Steam and YouTube in parallel.
 pub fn fetch_online(cfg: &Config) -> Online {
-    let agent = match http::agent() {
+    let net = match HttpNet::new() {
         Ok(a) => a,
         Err(e) => {
             return Online {
@@ -43,14 +43,14 @@ pub fn fetch_online(cfg: &Config) -> Online {
         }
     };
     std::thread::scope(|s| {
-        let w = s.spawn(|| cfg.location().map(|(lat, lon, place)| weather::fetch(&agent, lat, lon, &place)));
+        let w = s.spawn(|| cfg.location().map(|(lat, lon, place)| weather::fetch(&net, lat, lon, &place)));
         let st = s.spawn(|| {
             let mut notes = Vec::new();
-            (steam::suggestions(&agent, cfg, &mut notes), notes)
+            (steam::suggestions(&net, cfg, &mut notes), notes)
         });
         let yt = s.spawn(|| {
             let mut notes = Vec::new();
-            (youtube::suggestions(&agent, cfg, &mut notes), notes)
+            (youtube::suggestions(&net, cfg, &mut notes), notes)
         });
 
         let mut out = Online::default();

@@ -1,7 +1,7 @@
 //! YouTube: Data API search (with a key), channel RSS feeds (no key), and search links (offline).
 
 use super::Note;
-use crate::{config::{self, Config}, http, model::*};
+use crate::{config::{self, Config}, model::*, net::{self, Net}};
 use anyhow::Result;
 use chrono::{DateTime, SecondsFormat, Utc};
 use serde::{Deserialize, Serialize};
@@ -12,16 +12,16 @@ use std::{collections::HashMap, fs};
 const CACHE_SECS: i64 = 6 * 3600;
 const MAX_INTERESTS: usize = 5;
 
-pub fn suggestions(agent: &ureq::Agent, cfg: &Config, notes: &mut Vec<Note>) -> Vec<Suggestion> {
+pub fn suggestions(net: &dyn Net, cfg: &Config, notes: &mut Vec<Note>) -> Vec<Suggestion> {
     let mut out = Vec::new();
     if let Some(key) = cfg.youtube_key() {
-        match api_cached(agent, &key, &cfg.interests) {
+        match api_cached(net, &key, &cfg.interests) {
             Ok(v) => out.extend(v),
             Err(e) => notes.push(Note::problem(format!("YouTube API unavailable ({e})."))),
         }
     }
     if !cfg.youtube.channels.is_empty() {
-        let (v, failed) = channels(agent, &cfg.youtube.channels);
+        let (v, failed) = channels(net, &cfg.youtube.channels);
         out.extend(v);
         if failed > 0 {
             notes.push(Note::problem(format!(
@@ -46,7 +46,7 @@ struct Cache {
     items: Vec<Suggestion>,
 }
 
-fn api_cached(agent: &ureq::Agent, key: &str, interests: &[String]) -> Result<Vec<Suggestion>> {
+fn api_cached(net: &dyn Net, key: &str, interests: &[String]) -> Result<Vec<Suggestion>> {
     let path = config::data_dir().join("youtube_cache.json");
     let now = Utc::now().timestamp();
     let cached: Option<Cache> = fs::read_to_string(&path).ok().and_then(|s| serde_json::from_str(&s).ok());
@@ -55,7 +55,7 @@ fn api_cached(agent: &ureq::Agent, key: &str, interests: &[String]) -> Result<Ve
             return Ok(c.items);
         }
     }
-    let items = api(agent, key, interests)?;
+    let items = api(net, key, interests)?;
     let _ = fs::create_dir_all(config::data_dir());
     let cache = Cache { ts: now, interests: interests.to_vec(), items: items.clone() };
     if let Ok(json) = serde_json::to_string(&cache) {
@@ -64,13 +64,13 @@ fn api_cached(agent: &ureq::Agent, key: &str, interests: &[String]) -> Result<Ve
     Ok(items)
 }
 
-fn api(agent: &ureq::Agent, key: &str, interests: &[String]) -> Result<Vec<Suggestion>> {
+fn api(net: &dyn Net, key: &str, interests: &[String]) -> Result<Vec<Suggestion>> {
     let after = (Utc::now() - chrono::Duration::days(365)).to_rfc3339_opts(SecondsFormat::Secs, true);
     // (video id, title, channel, interest)
     let mut found: Vec<(String, String, String, String)> = Vec::new();
     for interest in interests.iter().take(MAX_INTERESTS) {
-        let v: Value = http::get_json(
-            agent,
+        let v: Value = net::get_json(
+            net,
             "https://www.googleapis.com/youtube/v3/search",
             &[
                 ("part", "snippet"),
@@ -100,8 +100,8 @@ fn api(agent: &ureq::Agent, key: &str, interests: &[String]) -> Result<Vec<Sugge
     }
 
     let ids = found.iter().map(|f| f.0.as_str()).collect::<Vec<_>>().join(",");
-    let v: Value = http::get_json(
-        agent,
+    let v: Value = net::get_json(
+        net,
         "https://www.googleapis.com/youtube/v3/videos",
         &[("part", "contentDetails,statistics"), ("id", &ids), ("key", key)],
     )?;
@@ -147,7 +147,7 @@ fn video_quality(views: u64, likes: u64) -> f64 {
     (reach + love).min(0.95)
 }
 
-fn channels(agent: &ureq::Agent, ids: &[String]) -> (Vec<Suggestion>, usize) {
+fn channels(net: &dyn Net, ids: &[String]) -> (Vec<Suggestion>, usize) {
     let now = Utc::now();
     std::thread::scope(|s| {
         let handles: Vec<_> = ids
@@ -157,9 +157,9 @@ fn channels(agent: &ureq::Agent, ids: &[String]) -> (Vec<Suggestion>, usize) {
                 s.spawn(move || {
                     let url = format!(
                         "https://www.youtube.com/feeds/videos.xml?channel_id={}",
-                        http::url_encode(id.trim())
+                        net::url_encode(id.trim())
                     );
-                    http::get_text(agent, &url).map(|xml| parse_feed(&xml, now))
+                    net.get_text(&url, &[]).map(|xml| parse_feed(&xml, now))
                 })
             })
             .collect();
@@ -248,7 +248,7 @@ pub fn search_links(cfg: &Config, minutes: u32) -> Vec<Suggestion> {
             detail: format!("Opens a search filtered to {label} videos"),
             link: Some(format!(
                 "https://www.youtube.com/results?search_query={}&sp={sp}",
-                http::url_encode(i)
+                net::url_encode(i)
             )),
             image: None,
             min_minutes: 1,

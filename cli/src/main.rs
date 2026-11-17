@@ -4,7 +4,7 @@ mod setup;
 mod ui;
 
 // The core modules, imported at the crate root so `crate::model` & co. work in every module.
-use freetime_core::{config, history, http, model, providers, scoring, weather};
+use freetime_core::{config, history, model, net, providers, scoring, weather};
 
 use clap::Parser;
 use cli::{Cli, Command};

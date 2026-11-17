@@ -1,7 +1,7 @@
 //! Steam: your own library (with a Web API key) and the public store front.
 
 use super::Note;
-use crate::{config::{self, Config}, http, model::*};
+use crate::{config::{self, Config}, model::*, net::{self, Net}};
 use anyhow::{anyhow, Result};
 use rand::seq::SliceRandom;
 use serde::{Deserialize, Serialize};
@@ -17,11 +17,11 @@ const STORE_MIN_MINUTES: u32 = 45;
 /// appdetails is rate limited; results are cached so this only bites on the first runs.
 const MAX_DETAIL_FETCHES: usize = 12;
 
-pub fn suggestions(agent: &ureq::Agent, cfg: &Config, notes: &mut Vec<Note>) -> Vec<Suggestion> {
+pub fn suggestions(net: &dyn Net, cfg: &Config, notes: &mut Vec<Note>) -> Vec<Suggestion> {
     let mut items = Vec::new();
     let steam_id = cfg.steam.steam_id.as_deref().filter(|s| !s.trim().is_empty());
     match (cfg.steam_key(), steam_id) {
-        (Some(key), Some(id)) => match library(agent, &key, id) {
+        (Some(key), Some(id)) => match library(net, &key, id) {
             Ok(v) if v.is_empty() => notes.push(Note::problem(
                 "Steam returned no games: set your Steam profile's Privacy → Game details to Public.",
             )),
@@ -30,14 +30,14 @@ pub fn suggestions(agent: &ureq::Agent, cfg: &Config, notes: &mut Vec<Note>) -> 
         },
         _ => notes.push(Note::tip("Connect your Steam library to get picks from games you already own.")),
     }
-    match store(agent, &cfg.country) {
+    match store(net, &cfg.country) {
         Ok(v) => {
             let owned: HashSet<String> = items.iter().map(|s| s.id.clone()).collect();
             items.extend(v.into_iter().filter(|s| !owned.contains(&s.id)));
         }
         Err(e) => notes.push(Note::problem(format!("Steam store unavailable ({e})."))),
     }
-    enrich(agent, &mut items);
+    enrich(net, &mut items);
     items
 }
 
@@ -85,9 +85,9 @@ fn owned(g: &OwnedGame, detail: String, quality: f64, tag: &str) -> Suggestion {
     }
 }
 
-fn library(agent: &ureq::Agent, key: &str, steam_id: &str) -> Result<Vec<Suggestion>> {
-    let resp: Owned = http::get_json(
-        agent,
+fn library(net: &dyn Net, key: &str, steam_id: &str) -> Result<Vec<Suggestion>> {
+    let resp: Owned = net::get_json(
+        net,
         "https://api.steampowered.com/IPlayerService/GetOwnedGames/v1/",
         &[
             ("key", key),
@@ -143,9 +143,9 @@ fn library(agent: &ureq::Agent, key: &str, steam_id: &str) -> Result<Vec<Suggest
     Ok(out)
 }
 
-fn store(agent: &ureq::Agent, country: &str) -> Result<Vec<Suggestion>> {
-    let v: Value = http::get_json(
-        agent,
+fn store(net: &dyn Net, country: &str) -> Result<Vec<Suggestion>> {
+    let v: Value = net::get_json(
+        net,
         "https://store.steampowered.com/api/featuredcategories",
         &[("cc", country), ("l", "english")],
     )?;
@@ -215,7 +215,7 @@ struct AppInfo {
 }
 
 /// Uses genres to guess session length, energy and whether it's multiplayer.
-fn enrich(agent: &ureq::Agent, items: &mut [Suggestion]) {
+fn enrich(net: &dyn Net, items: &mut [Suggestion]) {
     let path = config::data_dir().join("steam_apps.json");
     let mut cache: HashMap<String, AppInfo> = fs::read_to_string(&path)
         .ok()
@@ -229,7 +229,7 @@ fn enrich(agent: &ureq::Agent, items: &mut [Suggestion]) {
                 continue;
             }
             fetched += 1;
-            match app_details(agent, &appid) {
+            match app_details(net, &appid) {
                 Ok(info) => {
                     cache.insert(appid.clone(), info);
                 }
@@ -246,9 +246,9 @@ fn enrich(agent: &ureq::Agent, items: &mut [Suggestion]) {
     }
 }
 
-fn app_details(agent: &ureq::Agent, appid: &str) -> Result<AppInfo> {
-    let v: Value = http::get_json(
-        agent,
+fn app_details(net: &dyn Net, appid: &str) -> Result<AppInfo> {
+    let v: Value = net::get_json(
+        net,
         "https://store.steampowered.com/api/appdetails",
         &[("appids", appid), ("filters", "genres,categories,metacritic")],
     )?;
@@ -318,14 +318,14 @@ fn apply(s: &mut Suggestion, info: &AppInfo) {
 }
 
 /// Accepts a SteamID64, a profile URL, or a custom URL name.
-pub fn resolve_steam_id(agent: &ureq::Agent, key: &str, input: &str) -> Result<String> {
+pub fn resolve_steam_id(net: &dyn Net, key: &str, input: &str) -> Result<String> {
     let s = input.trim().trim_end_matches('/');
     let s = s.rsplit('/').next().unwrap_or(s);
     if s.len() == 17 && s.chars().all(|c| c.is_ascii_digit()) {
         return Ok(s.to_string());
     }
-    let v: Value = http::get_json(
-        agent,
+    let v: Value = net::get_json(
+        net,
         "https://api.steampowered.com/ISteamUser/ResolveVanityURL/v1/",
         &[("key", key), ("vanityurl", s)],
     )?;
