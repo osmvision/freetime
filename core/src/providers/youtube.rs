@@ -1,16 +1,28 @@
-//! YouTube: Data API search (with a key), channel RSS feeds (no key), and search links (offline).
+//! YouTube, best source first:
+//! 1. with a YOUTUBE_API_KEY: Data API search on your interests (videos that fit your time),
+//! 2. without a key: the latest uploads of channels picked per idea category (public RSS feeds),
+//! 3. offline: search links, as a last resort (see `crate::candidates`).
 
 use super::Note;
 use crate::{config::{self, Config}, keys::Keys, model::*, net::{self, Net}};
 use anyhow::Result;
 use chrono::{DateTime, SecondsFormat, Utc};
+use quick_xml::{
+    events::{BytesStart, Event},
+    Reader,
+};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::{collections::HashMap, fs};
 
-/// Each search costs 100 of the 10,000 free daily quota units, so results are reused for a while.
-const CACHE_SECS: i64 = 6 * 3600;
+/// Each API search costs 100 of the 10,000 free daily quota units, so results are reused for a while.
+const API_CACHE_SECS: i64 = 6 * 3600;
 const MAX_INTERESTS: usize = 5;
+/// Channel feeds are re-read at most this often.
+const FEED_CACHE_SECS: i64 = 2 * 3600;
+/// Older uploads aren't "new" anymore.
+const MAX_VIDEO_AGE_SECS: i64 = 365 * 86_400;
+const DEFAULT_CHANNELS: &str = include_str!("../../data/youtube_channels.toml");
 
 pub fn suggestions(net: &dyn Net, cfg: &Config, keys: &Keys, notes: &mut Vec<Note>) -> Vec<Suggestion> {
     let mut out = Vec::new();
@@ -20,17 +32,22 @@ pub fn suggestions(net: &dyn Net, cfg: &Config, keys: &Keys, notes: &mut Vec<Not
             Err(e) => notes.push(Note::problem(format!("YouTube API unavailable ({e})."))),
         }
     }
-    if !cfg.youtube.channels.is_empty() {
-        let (v, failed) = channels(net, &cfg.youtube.channels);
-        out.extend(v);
-        if failed > 0 {
-            notes.push(Note::problem(format!(
-                "YouTube: {failed} channel feed(s) failed. Check the channel IDs."
-            )));
-        }
+
+    let mut channels = channel_config();
+    let extra: Vec<String> = cfg.youtube.channels.iter().map(|c| c.trim().to_string()).filter(|c| is_channel_id(c)).collect();
+    if !extra.is_empty() {
+        channels.push((Category::Video, extra.clone()));
     }
-    if keys.youtube.is_none() && cfg.youtube.channels.is_empty() {
-        notes.push(Note::tip("Add a YouTube API key or channels you follow to get real video picks."));
+    let ids: Vec<String> = channels.iter().flat_map(|(_, ids)| ids.iter().cloned()).collect();
+    let now = Utc::now().timestamp();
+    let (feeds, failed) = cached_feeds(net, &ids, now);
+    out.extend(video_picks(&channels, &feeds, now));
+
+    let failed_extra = extra.iter().filter(|id| failed.contains(id)).count();
+    if failed_extra > 0 {
+        notes.push(Note::problem(format!(
+            "YouTube: {failed_extra} of your channel feeds couldn't be read. Check the channel IDs."
+        )));
     }
     out
 }
@@ -39,8 +56,255 @@ fn thumbnail(id: &str) -> Option<String> {
     Some(format!("https://i.ytimg.com/vi/{id}/mqdefault.jpg"))
 }
 
+// ---------------------------------------------------------------- channels (no key)
+
+/// A channel ID: "UC" + 22 characters.
+pub fn is_channel_id(s: &str) -> bool {
+    s.len() == 24 && s.starts_with("UC") && s.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_')
+}
+
+/// The user's copy of `youtube_channels.toml` (created from the bundled one on first run).
+pub fn channels_path() -> std::path::PathBuf {
+    config::config_dir().join("youtube_channels.toml")
+}
+
+fn channel_config() -> Vec<(Category, Vec<String>)> {
+    let path = channels_path();
+    if !path.exists() {
+        let _ = fs::create_dir_all(config::config_dir());
+        let _ = fs::write(&path, DEFAULT_CHANNELS);
+    }
+    fs::read_to_string(&path)
+        .ok()
+        .and_then(|text| parse_channels(&text))
+        .or_else(|| parse_channels(DEFAULT_CHANNELS))
+        .unwrap_or_default()
+}
+
+/// `category = ["UC…", …]` per line; unknown categories and malformed IDs are skipped.
+pub fn parse_channels(text: &str) -> Option<Vec<(Category, Vec<String>)>> {
+    let table: toml::Table = toml::from_str(text).ok()?;
+    let mut out = Vec::new();
+    for (key, value) in table {
+        let Some(category) = Category::from_id(&key) else { continue };
+        let Some(list) = value.as_array() else { continue };
+        let ids: Vec<String> = list
+            .iter()
+            .filter_map(|v| v.as_str())
+            .map(|s| s.trim().to_string())
+            .filter(|s| is_channel_id(s))
+            .collect();
+        out.push((category, ids));
+    }
+    Some(out)
+}
+
+/// One upload from a channel's feed.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+pub struct FeedVideo {
+    pub id: String,
+    pub title: String,
+    pub channel: String,
+    /// Unix time.
+    pub published: i64,
+    pub views: u64,
+    pub short: bool,
+}
+
+/// Parses a channel's Atom feed (`youtube.com/feeds/videos.xml?channel_id=…`).
+pub fn parse_feed(xml: &str) -> Result<Vec<FeedVideo>> {
+    let mut reader = Reader::from_str(xml);
+    reader.config_mut().trim_text(true);
+    let mut out = Vec::new();
+    let mut current: Option<FeedVideo> = None;
+    let mut path: Vec<Vec<u8>> = Vec::new();
+    loop {
+        match reader.read_event()? {
+            Event::Start(e) => {
+                if e.name().as_ref() == b"entry" {
+                    current = Some(FeedVideo::default());
+                }
+                if let Some(video) = current.as_mut() {
+                    read_attributes(&e, video);
+                }
+                path.push(e.name().as_ref().to_vec());
+            }
+            Event::Empty(e) => {
+                if let Some(video) = current.as_mut() {
+                    read_attributes(&e, video);
+                }
+            }
+            Event::Text(t) => {
+                let (Some(video), Some(element)) = (current.as_mut(), path.last()) else { continue };
+                let parent = path.len().checked_sub(2).map(|i| path[i].as_slice());
+                let text = t.unescape()?.into_owned();
+                match element.as_slice() {
+                    b"yt:videoId" => video.id = text,
+                    // entry/title, not media:group/media:title
+                    b"title" if parent == Some(b"entry") => video.title = text,
+                    b"name" if parent == Some(b"author") => video.channel = text,
+                    b"published" if parent == Some(b"entry") => {
+                        video.published = DateTime::parse_from_rfc3339(&text).map(|d| d.timestamp()).unwrap_or(0)
+                    }
+                    _ => {}
+                }
+            }
+            Event::End(e) => {
+                if e.name().as_ref() == b"entry" {
+                    if let Some(video) = current.take().filter(|v| !v.id.is_empty() && !v.title.is_empty()) {
+                        out.push(video);
+                    }
+                }
+                path.pop();
+            }
+            Event::Eof => break,
+            _ => {}
+        }
+    }
+    Ok(out)
+}
+
+fn read_attributes(e: &BytesStart, video: &mut FeedVideo) {
+    let attr = |key: &[u8]| {
+        e.attributes()
+            .flatten()
+            .find(|a| a.key.as_ref() == key)
+            .and_then(|a| a.unescape_value().ok().map(|v| v.into_owned()))
+    };
+    match e.name().as_ref() {
+        b"link" if attr(b"rel").as_deref() == Some("alternate") => {
+            video.short |= attr(b"href").is_some_and(|h| h.contains("/shorts/"));
+        }
+        b"media:statistics" => video.views = attr(b"views").and_then(|v| v.parse().ok()).unwrap_or(0),
+        _ => {}
+    }
+}
+
+/// Fetches feeds concurrently (8 at a time). Returns what was read, and the IDs that failed.
+fn fetch_feeds(net: &dyn Net, ids: &[String]) -> (HashMap<String, Vec<FeedVideo>>, Vec<String>) {
+    let mut feeds = HashMap::new();
+    let mut failed = Vec::new();
+    for batch in ids.chunks(8) {
+        let results: Vec<(String, Result<Vec<FeedVideo>>)> = std::thread::scope(|s| {
+            let handles: Vec<_> = batch
+                .iter()
+                .map(|id| {
+                    s.spawn(move || {
+                        let xml = net.get_text("https://www.youtube.com/feeds/videos.xml", &[("channel_id", id)]);
+                        (id.clone(), xml.and_then(|x| parse_feed(&x)))
+                    })
+                })
+                .collect();
+            handles.into_iter().filter_map(|h| h.join().ok()).collect()
+        });
+        for (id, result) in results {
+            match result {
+                Ok(videos) => {
+                    feeds.insert(id, videos);
+                }
+                Err(_) => failed.push(id),
+            }
+        }
+    }
+    (feeds, failed)
+}
+
+#[derive(Default, Serialize, Deserialize)]
+struct FeedCache {
+    feeds: HashMap<String, (i64, Vec<FeedVideo>)>,
+}
+
+/// Feeds read in the last two hours come from disk; the rest from the network.
+/// A feed that fails keeps its last copy.
+fn cached_feeds(net: &dyn Net, ids: &[String], now: i64) -> (HashMap<String, Vec<FeedVideo>>, Vec<String>) {
+    let path = config::data_dir().join("youtube_feeds.json");
+    let mut cache: FeedCache = fs::read_to_string(&path).ok().and_then(|s| serde_json::from_str(&s).ok()).unwrap_or_default();
+    let stale: Vec<String> = ids
+        .iter()
+        .filter(|id| !cache.feeds.get(*id).is_some_and(|(at, _)| (0..FEED_CACHE_SECS).contains(&(now - at))))
+        .cloned()
+        .collect();
+    let (fresh, failed) = fetch_feeds(net, &stale);
+    if !fresh.is_empty() {
+        for (id, videos) in fresh {
+            cache.feeds.insert(id, (now, videos));
+        }
+        let _ = fs::create_dir_all(config::data_dir());
+        if let Ok(json) = serde_json::to_string(&cache) {
+            let _ = fs::write(&path, json);
+        }
+    }
+    let feeds = ids.iter().filter_map(|id| Some((id.clone(), cache.feeds.get(id)?.1.clone()))).collect();
+    (feeds, failed)
+}
+
+/// The newest real uploads (no Shorts) of each channel, in the category its channel belongs to.
+pub fn video_picks(
+    channels: &[(Category, Vec<String>)],
+    feeds: &HashMap<String, Vec<FeedVideo>>,
+    now: i64,
+) -> Vec<Suggestion> {
+    let mut out: Vec<Suggestion> = Vec::new();
+    for (category, ids) in channels {
+        let per_channel = if matches!(category, Category::Video | Category::Learn) { 2 } else { 1 };
+        for id in ids {
+            let Some(videos) = feeds.get(id) else { continue };
+            let fresh = videos.iter().filter(|v| !v.short && v.published > 0 && now - v.published <= MAX_VIDEO_AGE_SECS);
+            for v in fresh.take(per_channel) {
+                if !out.iter().any(|s| s.id == format!("yt:{}", v.id)) {
+                    out.push(channel_video(v, *category, now));
+                }
+            }
+        }
+    }
+    out
+}
+
+fn channel_video(v: &FeedVideo, category: Category, now: i64) -> Suggestion {
+    let age_days = ((now - v.published) / 86_400).max(0);
+    let when = match age_days {
+        0 => "today".to_string(),
+        1 => "yesterday".to_string(),
+        d if d < 30 => format!("{d} days ago"),
+        d if d < 60 => "last month".to_string(),
+        d => format!("{} months ago", d / 30),
+    };
+    let freshness = match age_days {
+        0..=3 => 0.2,
+        4..=10 => 0.12,
+        11..=30 => 0.06,
+        _ => 0.0,
+    };
+    // Follow-along videos for doing things; plain watching otherwise.
+    let (energy, min, max) = match category {
+        Category::Sport => (Energy::High, 10, 45),
+        Category::Learn | Category::Create => (Energy::Medium, 10, 40),
+        Category::Food => (Energy::Medium, 10, 30),
+        Category::Chill => (Energy::Low, 15, 120),
+        _ => (Energy::Low, 8, 30),
+    };
+    Suggestion {
+        id: format!("yt:{}", v.id),
+        category,
+        title: v.title.clone(),
+        detail: format!("{} · {when} · YouTube", v.channel),
+        link: Some(format!("https://youtu.be/{}", v.id)),
+        image: thumbnail(&v.id),
+        min_minutes: min,
+        max_minutes: max,
+        energy,
+        outdoor: false,
+        social: Social::Either,
+        cost: Cost::Free,
+        quality: (0.5 + freshness + 0.02 * (v.views.max(1) as f64).log10()).min(0.9),
+        tags: vec!["youtube".into(), "channel".into(), category.id().into()],
+    }
+}
+
+// ---------------------------------------------------------------- Data API (with a key)
+
 #[derive(Serialize, Deserialize)]
-struct Cache {
+struct ApiCache {
     ts: i64,
     interests: Vec<String>,
     items: Vec<Suggestion>,
@@ -49,15 +313,15 @@ struct Cache {
 fn api_cached(net: &dyn Net, key: &str, interests: &[String]) -> Result<Vec<Suggestion>> {
     let path = config::data_dir().join("youtube_cache.json");
     let now = Utc::now().timestamp();
-    let cached: Option<Cache> = fs::read_to_string(&path).ok().and_then(|s| serde_json::from_str(&s).ok());
+    let cached: Option<ApiCache> = fs::read_to_string(&path).ok().and_then(|s| serde_json::from_str(&s).ok());
     if let Some(c) = cached {
-        if c.interests == interests && now - c.ts < CACHE_SECS {
+        if c.interests == interests && now - c.ts < API_CACHE_SECS {
             return Ok(c.items);
         }
     }
     let items = api(net, key, interests)?;
     let _ = fs::create_dir_all(config::data_dir());
-    let cache = Cache { ts: now, interests: interests.to_vec(), items: items.clone() };
+    let cache = ApiCache { ts: now, interests: interests.to_vec(), items: items.clone() };
     if let Ok(json) = serde_json::to_string(&cache) {
         let _ = fs::write(&path, json);
     }
@@ -147,87 +411,7 @@ fn video_quality(views: u64, likes: u64) -> f64 {
     (reach + love).min(0.95)
 }
 
-fn channels(net: &dyn Net, ids: &[String]) -> (Vec<Suggestion>, usize) {
-    let now = Utc::now();
-    std::thread::scope(|s| {
-        let handles: Vec<_> = ids
-            .iter()
-            .take(10)
-            .map(|id| {
-                s.spawn(move || {
-                    let url = format!(
-                        "https://www.youtube.com/feeds/videos.xml?channel_id={}",
-                        net::url_encode(id.trim())
-                    );
-                    net.get_text(&url, &[]).map(|xml| parse_feed(&xml, now))
-                })
-            })
-            .collect();
-        let mut out = Vec::new();
-        let mut failed = 0;
-        for h in handles {
-            match h.join() {
-                Ok(Ok(items)) => out.extend(items.into_iter().take(3)),
-                _ => failed += 1,
-            }
-        }
-        (out, failed)
-    })
-}
-
-fn between<'a>(s: &'a str, start: &str, end: &str) -> Option<&'a str> {
-    let from = s.find(start)? + start.len();
-    let len = s[from..].find(end)?;
-    Some(&s[from..from + len])
-}
-
-fn parse_feed(xml: &str, now: DateTime<Utc>) -> Vec<Suggestion> {
-    xml.split("<entry>")
-        .skip(1)
-        .filter_map(|entry| {
-            if entry.contains("/shorts/") {
-                return None;
-            }
-            let id = between(entry, "<yt:videoId>", "</yt:videoId>")?;
-            let title = unescape(between(entry, "<title>", "</title>")?);
-            let channel = between(entry, "<name>", "</name>").map(unescape).unwrap_or_default();
-            let published = DateTime::parse_from_rfc3339(between(entry, "<published>", "</published>")?).ok()?;
-            let age_days = (now - published.with_timezone(&Utc)).num_days().max(0);
-            if age_days > 45 {
-                return None;
-            }
-            let views = between(entry, "<media:statistics views=\"", "\"")
-                .and_then(|v| v.parse::<u64>().ok())
-                .unwrap_or(0);
-            let freshness = match age_days {
-                0..=3 => 0.2,
-                4..=10 => 0.1,
-                _ => 0.0,
-            };
-            let when = match age_days {
-                0 => "today".to_string(),
-                1 => "yesterday".to_string(),
-                d => format!("{d} days ago"),
-            };
-            Some(Suggestion {
-                id: format!("yt:{id}"),
-                category: Category::Video,
-                title,
-                detail: format!("New from {channel} · {when} · {} views", compact(views)),
-                link: Some(format!("https://youtu.be/{id}")),
-                image: thumbnail(id),
-                min_minutes: 5,
-                max_minutes: 40,
-                energy: Energy::Low,
-                outdoor: false,
-                social: Social::Either,
-                cost: Cost::Free,
-                quality: (0.55 + freshness + 0.02 * (views.max(1) as f64).log10()).min(0.95),
-                tags: vec!["youtube".into(), "subscriptions".into()],
-            })
-        })
-        .collect()
-}
+// ---------------------------------------------------------------- search links (last resort)
 
 /// Works offline: a YouTube search per interest, pre-filtered to a length that fits.
 pub fn search_links(cfg: &Config, minutes: u32) -> Vec<Suggestion> {
@@ -310,6 +494,14 @@ fn compact(n: u64) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::net::fake::FakeNet;
+
+    const FEED: &str = include_str!("../../fixtures/youtube_feed.xml");
+    const FIRESHIP: &str = "UCsBjURrPoezykLs9EqgamOA";
+
+    fn ts(rfc3339: &str) -> i64 {
+        DateTime::parse_from_rfc3339(rfc3339).unwrap().timestamp()
+    }
 
     #[test]
     fn durations() {
@@ -320,23 +512,67 @@ mod tests {
     }
 
     #[test]
-    fn reads_channel_feed() {
-        let now = DateTime::parse_from_rfc3339("2026-11-17T12:00:00+00:00").unwrap().with_timezone(&Utc);
-        let xml = r#"<feed><title>Chan</title>
-<entry><yt:videoId>abc123</yt:videoId><title>Rust &amp; you</title>
-<link rel="alternate" href="https://www.youtube.com/watch?v=abc123"/>
-<author><name>Chan</name></author><published>2026-11-15T10:00:00+00:00</published>
-<media:statistics views="12345"/></entry>
-<entry><yt:videoId>short1</yt:videoId><title>A short</title>
-<link rel="alternate" href="https://www.youtube.com/shorts/short1"/>
-<published>2026-11-16T10:00:00+00:00</published></entry>
-<entry><yt:videoId>old</yt:videoId><title>Old</title>
-<link rel="alternate" href="https://www.youtube.com/watch?v=old"/>
-<published>2025-01-01T10:00:00+00:00</published></entry></feed>"#;
-        let items = parse_feed(xml, now);
-        assert_eq!(items.len(), 1);
-        assert_eq!(items[0].title, "Rust & you");
-        assert_eq!(items[0].id, "yt:abc123");
-        assert!(items[0].detail.contains("2 days ago"));
+    fn parses_a_channel_feed() {
+        let videos = parse_feed(FEED).unwrap();
+        assert_eq!(videos.len(), 4);
+        assert_eq!(
+            videos[0],
+            FeedVideo {
+                id: "abc123DEF45".into(),
+                title: "Rust in 100 Seconds & more".into(),
+                channel: "Fireship".into(),
+                published: ts("2026-11-15T16:00:00+00:00"),
+                views: 1_234_567,
+                short: false,
+            }
+        );
+        assert!(videos[1].short, "the /shorts/ link marks a Short");
+        assert_eq!(videos[3].title, "It's fine");
+        assert!(parse_feed("<feed><entry><title>x</broken></feed>").is_err());
+    }
+
+    #[test]
+    fn picks_skip_shorts_and_old_uploads() {
+        let now = ts("2026-11-17T12:00:00+00:00");
+        let feeds = HashMap::from([(FIRESHIP.to_string(), parse_feed(FEED).unwrap())]);
+        let picks = video_picks(&[(Category::Learn, vec![FIRESHIP.into()])], &feeds, now);
+        let ids: Vec<&str> = picks.iter().map(|s| s.id.as_str()).collect();
+        assert_eq!(ids, vec!["yt:abc123DEF45", "yt:quote000001"]);
+        let first = &picks[0];
+        assert_eq!(first.category, Category::Learn);
+        assert_eq!(first.detail, "Fireship · yesterday · YouTube");
+        assert_eq!(first.link.as_deref(), Some("https://youtu.be/abc123DEF45"));
+        assert_eq!(first.image.as_deref(), Some("https://i.ytimg.com/vi/abc123DEF45/mqdefault.jpg"));
+
+        let sport = video_picks(&[(Category::Sport, vec![FIRESHIP.into()])], &feeds, now);
+        assert_eq!(sport.len(), 1, "one upload per channel outside videos and learning");
+        assert_eq!(sport[0].energy, Energy::High);
+    }
+
+    #[test]
+    fn feeds_come_from_the_network_without_a_key() {
+        let net = FakeNet::new()
+            .on("https://www.youtube.com/feeds/videos.xml", FEED);
+        let (feeds, failed) = fetch_feeds(&net, &[FIRESHIP.to_string()]);
+        assert!(failed.is_empty());
+        assert_eq!(feeds[FIRESHIP].len(), 4);
+        assert!(net.calls()[0].contains(&format!("channel_id={FIRESHIP}")));
+
+        let dead = FakeNet::new();
+        let (feeds, failed) = fetch_feeds(&dead, &[FIRESHIP.to_string()]);
+        assert!(feeds.is_empty());
+        assert_eq!(failed, vec![FIRESHIP.to_string()]);
+    }
+
+    #[test]
+    fn channel_file_maps_categories() {
+        let parsed = parse_channels(DEFAULT_CHANNELS).unwrap();
+        assert!(parsed.iter().any(|(c, ids)| *c == Category::Chill && !ids.is_empty()), "relax = chill");
+        assert!(parsed.iter().all(|(_, ids)| ids.iter().all(|id| is_channel_id(id))));
+        assert!(parsed.iter().map(|(_, ids)| ids.len()).sum::<usize>() >= 20);
+
+        let custom = parse_channels("sport = [\"UCFKE7WVJfvaHW5q283SxchA\", \"not-an-id\"]\nnope = [\"UCFKE7WVJfvaHW5q283SxchA\"]").unwrap();
+        assert_eq!(custom, vec![(Category::Sport, vec!["UCFKE7WVJfvaHW5q283SxchA".to_string()])]);
+        assert_eq!(parse_channels("this is = not toml ["), None);
     }
 }

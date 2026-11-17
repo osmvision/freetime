@@ -1,0 +1,55 @@
+# Channels whose latest uploads freetime suggests, grouped by the idea category they fit.
+# No API key needed: freetime reads each channel's public feed.
+#
+# This file is yours to edit. freetime copies it to its config folder on first run
+# (%APPDATA%\freetime\youtube_channels.toml on Windows) and reads it from there.
+#
+# Categories: video, learn, sport, food, create, relax (game and social work too).
+# A channel ID starts with "UC". On a channel page: About → Share channel → Copy channel ID.
+
+video = [
+  "UCsXVk37bltHxD1rDPwtNM8Q", # Kurzgesagt – In a Nutshell
+  "UCHnyfMqiRRG1u-2MsSQLbXA", # Veritasium
+  "UCBa659QWEk1AI4Tg--mrJ2A", # Tom Scott
+  "UC9RM-iSvTu1uPJb8X5yp3EQ", # Wendover Productions
+  "UCY1kMZp36IQSyNx_9h4mpCg", # Mark Rober
+  "UCqJ-Xo29CKyLTjn6z2XwYAw", # Game Maker's Toolkit
+  "UCR1IuLEqb6UEA_zQ81kwXfg", # Real Engineering
+]
+
+learn = [
+  "UCYO_jab_esuFRV4b17AJtAw", # 3Blue1Brown
+  "UCsooa4yRKGN_zEE8iknghZA", # TED-Ed
+  "UCX6b17PVsYBQ0ip5gyeme-Q", # CrashCourse
+  "UCsBjURrPoezykLs9EqgamOA", # Fireship
+  "UCoxcjq-8xIDTYp3uz647V5A", # Numberphile
+  "UCmtyQOKKmrMVaKuRXz02jbQ", # Sebastian Lague
+  "UCQHX6ViZmPsWiYSFAyS0a3Q", # GothamChess
+]
+
+sport = [
+  "UCFKE7WVJfvaHW5q283SxchA", # Yoga With Adriene
+  "UC68TLK0mAEzUyHx5x5k-S1Q", # Jeff Nippard
+  "UCpQ34afVgk8cRQBjSJ1xuJQ", # MadFit
+  "UChVRfsT_ASBZk10o0An7Ucg", # Pamela Reif
+  "UCCgLoMYIyP0U56dEhEL1wXQ", # Chloe Ting
+]
+
+food = [
+  "UChBEbMKI1eCcejTtmI32UEw", # Joshua Weissman
+  "UCJHA_jMfCvEnv-3kRjTCQXw", # Binging with Babish
+  "UCqqJQ_cXSat0KIAVfIfKkVA", # J. Kenji López-Alt
+  "UCbpMy0Fg74eXXkvxJrtEn3w", # Bon Appétit
+]
+
+create = [
+  "UCdcemy56JtVTrsFIOoqvV8g", # Andrew Huang
+  "UCOKHwx1VCdgnxwbjyb9Iu1g", # Blender Guru
+  "UClM2LuQ1q5WEc23462tQzBg", # Proko
+  "UCHu2KNu6TtJ0p4hpSW7Yv7Q", # Jazza
+]
+
+relax = [
+  "UCSJ4gkVC6NrvII8umztf0Ow", # Lofi Girl
+  "UCAL3JXZSzSm8AlZyD3nQdBA", # Primitive Technology
+]

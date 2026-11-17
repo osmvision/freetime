@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns:yt="http://www.youtube.com/xml/schemas/2015" xmlns:media="http://search.yahoo.com/mrss/" xmlns="http://www.w3.org/2005/Atom">
+ <link rel="self" href="http://www.youtube.com/feeds/videos.xml?channel_id=UCsBjURrPoezykLs9EqgamOA"/>
+ <id>yt:channel:sBjURrPoezykLs9EqgamOA</id>
+ <yt:channelId>sBjURrPoezykLs9EqgamOA</yt:channelId>
+ <title>Fireship</title>
+ <link rel="alternate" href="https://www.youtube.com/channel/UCsBjURrPoezykLs9EqgamOA"/>
+ <author>
+  <name>Fireship</name>
+  <uri>https://www.youtube.com/channel/UCsBjURrPoezykLs9EqgamOA</uri>
+ </author>
+ <published>2017-04-07T00:23:53+00:00</published>
+ <entry>
+  <id>yt:video:abc123DEF45</id>
+  <yt:videoId>abc123DEF45</yt:videoId>
+  <yt:channelId>UCsBjURrPoezykLs9EqgamOA</yt:channelId>
+  <title>Rust in 100 Seconds &amp; more</title>
+  <link rel="alternate" href="https://www.youtube.com/watch?v=abc123DEF45"/>
+  <author>
+   <name>Fireship</name>
+   <uri>https://www.youtube.com/channel/UCsBjURrPoezykLs9EqgamOA</uri>
+  </author>
+  <published>2026-11-15T16:00:00+00:00</published>
+  <updated>2026-11-16T01:00:00+00:00</updated>
+  <media:group>
+   <media:title>Rust in 100 Seconds &amp; more</media:title>
+   <media:content url="https://www.youtube.com/v/abc123DEF45?version=3" type="application/x-shockwave-flash" width="640" height="390"/>
+   <media:thumbnail url="https://i2.ytimg.com/vi/abc123DEF45/hqdefault.jpg" width="480" height="360"/>
+   <media:description>Learn Rust.</media:description>
+   <media:community>
+    <media:starRating count="45000" average="5.00" min="1" max="5"/>
+    <media:statistics views="1234567"/>
+   </media:community>
+  </media:group>
+ </entry>
+ <entry>
+  <id>yt:video:short000001</id>
+  <yt:videoId>short000001</yt:videoId>
+  <yt:channelId>UCsBjURrPoezykLs9EqgamOA</yt:channelId>
+  <title>A quick tip</title>
+  <link rel="alternate" href="https://www.youtube.com/shorts/short000001"/>
+  <author>
+   <name>Fireship</name>
+   <uri>https://www.youtube.com/channel/UCsBjURrPoezykLs9EqgamOA</uri>
+  </author>
+  <published>2026-11-16T10:00:00+00:00</published>
+  <updated>2026-11-16T10:00:00+00:00</updated>
+  <media:group>
+   <media:title>A quick tip</media:title>
+   <media:community>
+    <media:statistics views="900000"/>
+   </media:community>
+  </media:group>
+ </entry>
+ <entry>
+  <id>yt:video:old00000001</id>
+  <yt:videoId>old00000001</yt:videoId>
+  <yt:channelId>UCsBjURrPoezykLs9EqgamOA</yt:channelId>
+  <title>Something from long ago</title>
+  <link rel="alternate" href="https://www.youtube.com/watch?v=old00000001"/>
+  <author>
+   <name>Fireship</name>
+  </author>
+  <published>2024-01-02T10:00:00+00:00</published>
+  <media:group>
+   <media:title>Something from long ago</media:title>
+   <media:community>
+    <media:statistics views="5000000"/>
+   </media:community>
+  </media:group>
+ </entry>
+ <entry>
+  <id>yt:video:quote000001</id>
+  <yt:videoId>quote000001</yt:videoId>
+  <yt:channelId>UCsBjURrPoezykLs9EqgamOA</yt:channelId>
+  <title>It&#39;s fine</title>
+  <link rel="alternate" href="https://www.youtube.com/watch?v=quote000001"/>
+  <author>
+   <name>Fireship</name>
+  </author>
+  <published>2026-10-20T10:00:00+00:00</published>
+  <media:group>
+   <media:title>It&#39;s fine</media:title>
+   <media:community>
+    <media:statistics views="250000"/>
+   </media:community>
+  </media:group>
+ </entry>
+</feed>
