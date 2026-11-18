@@ -8,6 +8,9 @@ license = "MIT"
 [features]
 # Lets the CLI parse categories, energy and budget straight from flags.
 clap = ["dep:clap"]
+# Bakes the keys from the workspace .env into the binary. Off by default: keys are read at
+# runtime, so a build that leaves this PC carries none. Only for personal builds.
+embed-keys = []
 
 [dependencies]
 anyhow = "1"
@@ -15,9 +18,20 @@ chrono = "0.4"
 clap = { version = "4.5", features = ["derive"], optional = true }
 dirs = "5"
 native-tls = "0.2"
+quick-xml = "0.37"
 rand = "0.8"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+# PKCE code challenge for sign-in (SHA-256).
+sha2 = "0.10"
 toml = "0.8"
 # native-tls uses the OS TLS stack (SChannel on Windows): no C compiler needed.
 ureq = { version = "2.10", default-features = false, features = ["json", "native-tls"] }
+
+[target.'cfg(windows)'.dependencies]
+# Country and currency from the regional settings (GetUserDefaultGeoName, GetLocaleInfoEx).
+windows-sys = { version = "0.59", features = ["Win32_Globalization"] }
+# Finds Steam's folder (SteamPath), only when the user clicks "Import my games".
+winreg = "0.55"
+# Keeps the sign-in session in Windows Credential Manager, not in a file.
+keyring = { version = "3", features = ["windows-native"] }

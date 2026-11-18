@@ -26,6 +26,29 @@ impl Category {
         Category::Food,
     ];
 
+    /// The id used in files and by the UI ("game", "chill"...).
+    pub fn id(self) -> &'static str {
+        match self {
+            Category::Game => "game",
+            Category::Video => "video",
+            Category::Sport => "sport",
+            Category::Learn => "learn",
+            Category::Create => "create",
+            Category::Chill => "chill",
+            Category::Social => "social",
+            Category::Food => "food",
+        }
+    }
+
+    /// Parses an id, ignoring case; "relax" also means chill.
+    pub fn from_id(id: &str) -> Option<Category> {
+        let id = id.trim().to_ascii_lowercase();
+        if id == "relax" {
+            return Some(Category::Chill);
+        }
+        Category::ALL.into_iter().find(|c| c.id() == id)
+    }
+
     pub fn label(self) -> &'static str {
         match self {
             Category::Game => "Games",

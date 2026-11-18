@@ -1,0 +1,10 @@
+Fonts bundled with freetime (copied from @fontsource by scripts/vendor-assets.mjs).
+All are licensed under the SIL Open Font License, Version 1.1: https://openfontlicense.org
+
+Barlow, Barlow Condensed
+  Copyright 2017 The Barlow Project Authors (https://github.com/jpt/barlow)
+
+Courier Prime
+  Copyright 2015 The Courier Prime Project Authors (https://github.com/quoteunquoteapps/CourierPrime)
+
+Icons in ui/js/icons.js come from Lucide (https://lucide.dev), ISC license.

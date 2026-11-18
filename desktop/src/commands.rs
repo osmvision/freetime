@@ -4,14 +4,23 @@
 //! never freeze the window.
 
 use freetime_core::{
+    account::{self, Client, ConversationEntry, FriendEntry, Message as ChatMessage, OnlineProfile, ProfileEdit, Session},
     config::{self, Config},
     history::{self, History},
-    http,
+    keys::{self, KeySource, Keys},
+    net::HttpNet,
     model::*,
     open,
-    providers::{self, steam, Note, Online},
+    party::{self, Avatar, Friend},
+    providers::{
+        self,
+        steam::{self, SteamStatus},
+        steam_import::{self, LocalAccount},
+        Note, Online,
+    },
+    region,
     scoring::{self, Ranked},
-    weather::{self, Weather},
+    weather::{self, Place, Weather},
 };
 use serde::{Deserialize, Serialize};
 use std::{
@@ -40,6 +49,8 @@ pub struct AppState {
     online: Mutex<OnlineSlot>,
     /// Every suggestion sent to the UI, so `pick` can find it again by id.
     shown: Mutex<HashMap<String, Suggestion>>,
+    /// The signed-in session (opt-in). Only in memory; the refresh token is in Credential Manager.
+    account: Mutex<Option<Session>>,
 }
 
 #[derive(Default)]
@@ -177,10 +188,20 @@ fn remember<'a>(state: &AppState, cards: impl Iterator<Item = &'a Card>) {
     }
 }
 
-fn rank(cfg: &Config, req: &Request, online: &Online, exclude: &[String]) -> Vec<Ranked> {
+/// `party`: names of saved friends you're with (from their friend codes). Only used when the
+/// request is "with friends"; otherwise this is the solo ranking.
+fn rank(cfg: &Config, req: &Request, online: &Online, exclude: &[String], party: &[String]) -> Vec<Ranked> {
     let prefs = History::load().prefs(history::now());
     let exclude: HashSet<String> = exclude.iter().cloned().collect();
-    freetime_core::rank(cfg, req, online, &prefs, &exclude)
+    if !req.with_friends || party.is_empty() {
+        return freetime_core::rank(cfg, req, online, &prefs, &exclude);
+    }
+    let chosen: Vec<Friend> = party::load_friends()
+        .into_iter()
+        .filter(|f| party.iter().any(|n| n.eq_ignore_ascii_case(&f.name)))
+        .collect();
+    let party = party::Party::new(chosen, steam_import::load_library().as_ref());
+    freetime_core::rank_together(cfg, req, online, &prefs, &exclude, Some(&party))
 }
 
 #[derive(Serialize)]
@@ -221,6 +242,10 @@ pub struct CategoryInfo {
 #[derive(Serialize)]
 pub struct SetupState {
     city: Option<String>,
+    /// First launch: ask once where the user is (they can skip).
+    needs_city: bool,
+    /// The first-run welcome hasn't been finished or skipped yet.
+    needs_welcome: bool,
     steam: bool,
     youtube: bool,
 }
@@ -247,8 +272,10 @@ pub fn bootstrap(state: State<'_, AppState>) -> Res<Boot> {
         pending: pending_list(&History::load()),
         setup: SetupState {
             city: cfg.city.clone(),
-            steam: cfg.steam_key().is_some() && cfg.steam.steam_id.is_some(),
-            youtube: cfg.youtube_key().is_some() || !cfg.youtube.channels.is_empty(),
+            needs_city: cfg.city.is_none() && !cfg.asked_for_city,
+            needs_welcome: !cfg.onboarded,
+            steam: steam_import::load_library().is_some(),
+            youtube: Keys::resolve().youtube.is_some() || !cfg.youtube.channels.is_empty(),
         },
     })
 }
@@ -289,10 +316,11 @@ pub fn suggest(
     req: Request,
     exclude: Vec<String>,
     per_category: Option<usize>,
+    party: Option<Vec<String>>,
 ) -> Res<Results> {
     let cfg = Config::load().map_err(err)?;
     let (online, partial) = current_online(&state, ONLINE_WAIT);
-    let ranked = rank(&cfg, &req, &online, &exclude);
+    let ranked = rank(&cfg, &req, &online, &exclude, &party.unwrap_or_default());
     let per = per_category.unwrap_or(4).clamp(1, 12);
 
     let best = ranked.first().map(card);
@@ -320,7 +348,7 @@ pub struct SurpriseView {
 pub fn surprise(state: State<'_, AppState>, exclude: Vec<String>) -> Res<SurpriseView> {
     let cfg = Config::load().map_err(err)?;
     let (online, _) = current_online(&state, ONLINE_WAIT);
-    let ranked = rank(&cfg, &Request::for_now(), &online, &exclude);
+    let ranked = rank(&cfg, &Request::for_now(), &online, &exclude, &[]);
     let Some(i) = scoring::weighted_pick(&ranked, 6) else {
         return Ok(SurpriseView { pick: None, alternatives: Vec::new() });
     };
@@ -457,11 +485,14 @@ pub fn get_history() -> Res<HistoryView> {
 #[derive(Serialize)]
 pub struct SettingsView {
     city: Option<String>,
-    country: String,
+    /// From the Windows regional settings: Steam prices follow it.
+    region: region::Region,
     interests: Vec<String>,
     steam_key_set: bool,
     steam_key_from_env: bool,
     steam_id: Option<String>,
+    /// The last import (freetime's own cache).
+    steam: SteamStatus,
     youtube_key_set: bool,
     youtube_key_from_env: bool,
     channels: Vec<String>,
@@ -469,20 +500,19 @@ pub struct SettingsView {
     data_dir: String,
 }
 
-fn env_set(name: &str) -> bool {
-    std::env::var(name).is_ok_and(|v| !v.trim().is_empty())
-}
-
 fn settings_view(cfg: &Config) -> SettingsView {
+    let keys = Keys::resolve();
+    let from_env = |k: &Option<keys::Key>| k.as_ref().is_some_and(|k| k.source == KeySource::Environment);
     SettingsView {
         city: cfg.city.clone(),
-        country: cfg.country.clone(),
+        region: region::current(),
         interests: cfg.interests.clone(),
-        steam_key_set: cfg.steam_key().is_some(),
-        steam_key_from_env: env_set("STEAM_API_KEY"),
+        steam_key_set: keys.steam.is_some(),
+        steam_key_from_env: from_env(&keys.steam),
         steam_id: cfg.steam.steam_id.clone(),
-        youtube_key_set: cfg.youtube_key().is_some(),
-        youtube_key_from_env: env_set("YOUTUBE_API_KEY"),
+        steam: SteamStatus::of(steam_import::load_library().as_ref()),
+        youtube_key_set: keys.youtube.is_some(),
+        youtube_key_from_env: from_env(&keys.youtube),
         channels: cfg.youtube.channels.clone(),
         config_path: config::config_path().display().to_string(),
         data_dir: config::data_dir().display().to_string(),
@@ -496,7 +526,6 @@ pub fn get_settings() -> Res<SettingsView> {
 
 #[derive(Deserialize)]
 pub struct SettingsInput {
-    city: String,
     interests: Vec<String>,
     /// Empty = keep the saved key.
     steam_key: String,
@@ -533,65 +562,406 @@ fn clean_list(items: Vec<String>) -> Vec<String> {
 #[tauri::command(async)]
 pub fn save_settings(app: AppHandle, input: SettingsInput) -> Res<SaveReport> {
     let mut cfg = Config::load().map_err(err)?;
-    let agent = http::agent().map_err(err)?;
+    let net = HttpNet::new().map_err(err)?;
     let mut messages = Vec::new();
     let mut say = |ok: bool, text: String| messages.push(Msg { ok, text });
 
-    let city = input.city.trim();
-    if city.is_empty() {
-        cfg.city = None;
-        cfg.latitude = None;
-        cfg.longitude = None;
-    } else if !cfg.city.as_deref().is_some_and(|c| c.eq_ignore_ascii_case(city)) || cfg.latitude.is_none() {
-        match weather::geocode(&agent, city) {
-            Ok(Some(place)) => {
-                say(true, format!("📍 Location set to {}", place.display()));
-                if !place.country_code.is_empty() {
-                    cfg.country = place.country_code.to_lowercase();
-                }
-                cfg.latitude = Some(place.latitude);
-                cfg.longitude = Some(place.longitude);
-                cfg.city = Some(place.name);
-            }
-            Ok(None) => say(false, format!("Couldn't find a place called “{city}”.")),
-            Err(e) => say(false, format!("Location lookup failed ({e}).")),
-        }
-    }
-
     cfg.interests = clean_list(input.interests);
 
+    // Keys typed here go to %APPDATA%\freetime\.env, never to config.toml.
     if input.clear_steam_key {
-        cfg.steam.api_key = None;
+        keys::save_user_key(keys::STEAM, None).map_err(err)?;
     } else if !input.steam_key.trim().is_empty() {
-        cfg.steam.api_key = Some(input.steam_key.trim().to_string());
+        keys::save_user_key(keys::STEAM, Some(&input.steam_key)).map_err(err)?;
     }
+    if input.clear_youtube_key {
+        keys::save_user_key(keys::YOUTUBE, None).map_err(err)?;
+    } else if !input.youtube_key.trim().is_empty() {
+        keys::save_user_key(keys::YOUTUBE, Some(&input.youtube_key)).map_err(err)?;
+    }
+    // A pasted SteamID64 or /profiles/ URL is read locally; only a custom /id/ name needs the API.
     let profile = input.steam_profile.trim();
     if profile.is_empty() {
         cfg.steam.steam_id = None;
     } else if cfg.steam.steam_id.as_deref() != Some(profile) {
-        match cfg.steam_key() {
-            None => say(false, "Add a Steam Web API key to connect your profile.".into()),
-            Some(key) => match steam::resolve_steam_id(&agent, &key, profile) {
-                Ok(id) => {
-                    say(true, "🎮 Steam profile connected".into());
-                    cfg.steam.steam_id = Some(id);
-                }
+        match (steam_import::parse_steam_id(profile), Keys::resolve().steam) {
+            (Some(id), _) => cfg.steam.steam_id = Some(id),
+            (None, Some(key)) => match steam::resolve_steam_id(&net, key.value(), profile) {
+                Ok(id) => cfg.steam.steam_id = Some(id),
                 Err(e) => say(false, format!("Steam: {e}")),
             },
+            (None, None) => say(
+                false,
+                "Paste a SteamID64 or a steamcommunity.com/profiles/… URL (custom /id/ names need a Steam Web API key).".into(),
+            ),
         }
     }
 
-    if input.clear_youtube_key {
-        cfg.youtube.api_key = None;
-    } else if !input.youtube_key.trim().is_empty() {
-        cfg.youtube.api_key = Some(input.youtube_key.trim().to_string());
-    }
     cfg.youtube.channels = clean_list(input.channels);
 
     cfg.save().map_err(err)?;
     say(true, "Settings saved".into());
     refresh_in_background(&app);
     Ok(SaveReport { settings: settings_view(&cfg), messages })
+}
+
+// ---------------------------------------------------------------- Steam import (opt-in)
+
+#[derive(Serialize)]
+pub struct SteamScan {
+    /// Steam's folder was found (registry SteamPath or the default folder).
+    found: bool,
+    /// Accounts from the folder names under userdata\ (no file is opened).
+    accounts: Vec<LocalAccount>,
+    /// A SteamID typed in the settings, used instead of asking.
+    chosen: Option<String>,
+}
+
+/// First half of "Import my games from Steam on this PC": which accounts used Steam here.
+#[tauri::command(async)]
+pub fn steam_scan() -> Res<SteamScan> {
+    let cfg = Config::load().map_err(err)?;
+    let root = steam_import::steam_root();
+    Ok(SteamScan {
+        found: root.is_some(),
+        accounts: root.as_deref().map(steam_import::accounts).unwrap_or_default(),
+        chosen: cfg.steam.steam_id,
+    })
+}
+
+#[derive(Serialize)]
+pub struct SteamImported {
+    status: SteamStatus,
+    notes: Vec<String>,
+}
+
+/// Second half: imports that account's games and saves them to freetime's cache.
+#[tauri::command(async)]
+pub fn steam_import(app: AppHandle, steam_id64: String) -> Res<SteamImported> {
+    let net = HttpNet::new().map_err(err)?;
+    let key = Keys::resolve().steam;
+    let now = chrono::Utc::now().timestamp();
+    let (library, notes) =
+        steam_import::run_import(&net, key.as_ref().map(|k| k.value()), &steam_id64, now).map_err(err)?;
+    refresh_in_background(&app);
+    Ok(SteamImported { status: SteamStatus::of(Some(&library)), notes })
+}
+
+/// Deletes the imported list (freetime's cache only; Steam's files are never touched).
+#[tauri::command(async)]
+pub fn steam_forget(app: AppHandle) -> Res<()> {
+    steam_import::forget_library().map_err(err)?;
+    refresh_in_background(&app);
+    Ok(())
+}
+
+/// City autocomplete (Open-Meteo geocoding). Only runs while the user types.
+#[tauri::command(async)]
+pub fn search_cities(query: String) -> Res<Vec<Place>> {
+    let net = HttpNet::new().map_err(err)?;
+    weather::search_places(&net, &query, 6).map_err(err)
+}
+
+/// Saves the picked city (None = skip / remove). Either way the question isn't asked again.
+#[tauri::command(async)]
+pub fn set_city(app: AppHandle, place: Option<Place>) -> Res<SettingsView> {
+    let mut cfg = Config::load().map_err(err)?;
+    cfg.asked_for_city = true;
+    match place {
+        Some(p) => {
+            cfg.country = region::country_code(&p.country_code);
+            cfg.latitude = Some(p.latitude);
+            cfg.longitude = Some(p.longitude);
+            cfg.city = Some(p.name);
+        }
+        None => {
+            cfg.city = None;
+            cfg.country = None;
+            cfg.latitude = None;
+            cfg.longitude = None;
+        }
+    }
+    cfg.save().map_err(err)?;
+    refresh_in_background(&app);
+    Ok(settings_view(&cfg))
+}
+
+// ---------------------------------------------------------------- first-run welcome
+
+/// Ends the welcome (finished or skipped). `interests`, if given, become the YouTube topics.
+#[tauri::command(async)]
+pub fn finish_welcome(interests: Option<Vec<String>>) -> Res<()> {
+    let mut cfg = Config::load().map_err(err)?;
+    if let Some(list) = interests {
+        let mut clean: Vec<String> = Vec::new();
+        for i in list {
+            let t: String = i.chars().filter(|c| !c.is_control()).collect::<String>().trim().chars().take(40).collect();
+            if !t.is_empty() && !clean.iter().any(|c| c.eq_ignore_ascii_case(&t)) {
+                clean.push(t);
+            }
+        }
+        clean.truncate(12);
+        if !clean.is_empty() {
+            cfg.interests = clean;
+        }
+    }
+    cfg.onboarded = true;
+    cfg.save().map_err(err)
+}
+
+// ---------------------------------------------------------------- account (opt-in, Supabase)
+
+#[derive(Serialize)]
+pub struct AccountView {
+    signed_in: bool,
+    email: Option<String>,
+    profile: Option<OnlineProfile>,
+}
+
+/// A usable session: the one in memory if still fresh, else refreshed from the saved token.
+/// The lock is held during the refresh so two calls can't both spend the (rotating) token.
+fn live_session(state: &AppState) -> Res<Session> {
+    let now = history::now();
+    let mut slot = lock(&state.account);
+    if let Some(s) = slot.as_ref().filter(|s| s.fresh(now)) {
+        return Ok(s.clone());
+    }
+    let token = slot
+        .as_ref()
+        .map(|s| s.refresh_token.clone())
+        .or_else(account::stored_refresh_token)
+        .ok_or_else(|| "you're not signed in".to_string())?;
+    let client = Client::new().map_err(err)?;
+    match client.refresh(&token, now) {
+        Ok(s) => {
+            *slot = Some(s.clone());
+            Ok(s)
+        }
+        Err(e) if e.to_string().contains("(HTTP 4") => {
+            // Revoked or expired: forget it rather than retrying forever.
+            *slot = None;
+            let _ = account::forget_refresh_token();
+            Err("your session has ended: sign in again".to_string())
+        }
+        Err(e) => Err(err(e)),
+    }
+}
+
+/// Signed in or not, without touching the network.
+#[tauri::command(async)]
+pub fn account_status(state: State<'_, AppState>) -> Res<AccountView> {
+    let slot = lock(&state.account);
+    Ok(AccountView {
+        signed_in: slot.is_some() || account::has_saved_session(),
+        email: slot.as_ref().and_then(|s| s.email.clone()),
+        profile: None,
+    })
+}
+
+/// Opens the browser to sign in, waits for it to come back (up to 3 minutes), then loads the
+/// online profile. The first time, the name and avatar chosen in the app are copied to it.
+#[tauri::command(async)]
+pub fn sign_in(state: State<'_, AppState>, provider: String) -> Res<AccountView> {
+    if provider != "google" {
+        return Err("unknown sign-in provider".to_string());
+    }
+    let client = Client::new().map_err(err)?;
+    let session = client.sign_in(&provider, |url| open::open_link(url), history::now).map_err(err)?;
+    *lock(&state.account) = Some(session.clone());
+
+    let mut profile = client.profile(&session).map_err(err)?;
+    let untouched = profile.display_name == "Friend" && profile.avatar_icon == 0 && profile.avatar_color == 0 && profile.bio.is_empty();
+    let cfg = Config::load().map_err(err)?;
+    if untouched && (cfg.display_name.is_some() || cfg.avatar != Default::default()) {
+        let edit = ProfileEdit {
+            display_name: cfg.display_name.clone().unwrap_or_else(|| "Friend".to_string()),
+            avatar_icon: cfg.avatar.icon as i16,
+            avatar_color: cfg.avatar.color as i16,
+            bio: String::new(),
+            status_text: String::new(),
+        };
+        if let Ok(p) = client.update_profile(&session, &edit) {
+            profile = p;
+        }
+    }
+    Ok(AccountView { signed_in: true, email: session.email.clone(), profile: Some(profile) })
+}
+
+#[tauri::command(async)]
+pub fn sign_out(state: State<'_, AppState>) -> Res<()> {
+    let session = lock(&state.account).take();
+    Client::new().map_err(err)?.sign_out(session.as_ref()).map_err(err)
+}
+
+/// The online profile (refreshes the session if needed).
+#[tauri::command(async)]
+pub fn get_account(state: State<'_, AppState>) -> Res<AccountView> {
+    let session = live_session(&state)?;
+    let profile = Client::new().map_err(err)?.profile(&session).map_err(err)?;
+    Ok(AccountView { signed_in: true, email: session.email.clone(), profile: Some(profile) })
+}
+
+/// Saves the online profile, and keeps the friend code's name and avatar in step with it.
+#[tauri::command(async)]
+pub fn save_profile(state: State<'_, AppState>, edit: ProfileEdit) -> Res<OnlineProfile> {
+    let session = live_session(&state)?;
+    let profile = Client::new().map_err(err)?.update_profile(&session, &edit).map_err(err)?;
+    let mut cfg = Config::load().map_err(err)?;
+    cfg.display_name = Some(party::clean_name(&profile.display_name));
+    cfg.avatar = Avatar { icon: profile.avatar_icon.clamp(0, 255) as u8, color: profile.avatar_color.clamp(0, 255) as u8 }.checked();
+    cfg.save().map_err(err)?;
+    Ok(profile)
+}
+
+/// A new friend tag, if the old one was shared too widely.
+#[tauri::command(async)]
+pub fn reset_friend_tag(state: State<'_, AppState>) -> Res<String> {
+    let session = live_session(&state)?;
+    Client::new().map_err(err)?.reset_friend_tag(&session).map_err(err)
+}
+
+// ---------------------------------------------------------------- online friends and messages
+
+#[derive(Serialize)]
+pub struct SocialView {
+    /// Your account id, so the UI knows which messages are yours.
+    me: String,
+    friends: Vec<FriendEntry>,
+    conversations: Vec<ConversationEntry>,
+}
+
+#[tauri::command(async)]
+pub fn social_overview(state: State<'_, AppState>) -> Res<SocialView> {
+    let s = live_session(&state)?;
+    let client = Client::new().map_err(err)?;
+    Ok(SocialView { me: s.user_id.clone(), friends: client.friends(&s).map_err(err)?, conversations: client.conversations(&s).map_err(err)? })
+}
+
+#[tauri::command(async)]
+pub fn friend_request(state: State<'_, AppState>, tag: String) -> Res<String> {
+    let s = live_session(&state)?;
+    Client::new().map_err(err)?.send_friend_request(&s, &tag).map_err(err)
+}
+
+#[tauri::command(async)]
+pub fn accept_friend(state: State<'_, AppState>, user_id: String) -> Res<()> {
+    let s = live_session(&state)?;
+    Client::new().map_err(err)?.accept_friend(&s, &user_id).map_err(err)
+}
+
+/// Unfriend, decline a request or cancel yours.
+#[tauri::command(async)]
+pub fn unfriend(state: State<'_, AppState>, user_id: String) -> Res<()> {
+    let s = live_session(&state)?;
+    Client::new().map_err(err)?.remove_friend(&s, &user_id).map_err(err)
+}
+
+#[tauri::command(async)]
+pub fn block_user(state: State<'_, AppState>, user_id: String) -> Res<()> {
+    let s = live_session(&state)?;
+    Client::new().map_err(err)?.block(&s, &user_id).map_err(err)
+}
+
+#[tauri::command(async)]
+pub fn open_chat(state: State<'_, AppState>, friend: String) -> Res<String> {
+    let s = live_session(&state)?;
+    Client::new().map_err(err)?.open_direct(&s, &friend).map_err(err)
+}
+
+#[tauri::command(async)]
+pub fn chat_messages(state: State<'_, AppState>, conversation: String, after: i64) -> Res<Vec<ChatMessage>> {
+    let s = live_session(&state)?;
+    Client::new().map_err(err)?.messages(&s, &conversation, after).map_err(err)
+}
+
+#[tauri::command(async)]
+pub fn send_message(state: State<'_, AppState>, conversation: String, body: String) -> Res<ChatMessage> {
+    let s = live_session(&state)?;
+    Client::new().map_err(err)?.send_message(&s, &conversation, &body).map_err(err)
+}
+
+#[tauri::command(async)]
+pub fn mark_read(state: State<'_, AppState>, conversation: String, up_to: i64) -> Res<()> {
+    let s = live_session(&state)?;
+    Client::new().map_err(err)?.mark_read(&s, &conversation, up_to).map_err(err)
+}
+
+// ---------------------------------------------------------------- friends (friend codes, no server)
+
+#[derive(Serialize)]
+pub struct FriendView {
+    name: String,
+    avatar: Avatar,
+    games: usize,
+    /// Steam games you both own (0 until your own games are imported).
+    common: usize,
+    added: i64,
+}
+
+fn friend_views(friends: &[Friend]) -> Vec<FriendView> {
+    let lib = steam_import::load_library();
+    friends
+        .iter()
+        .map(|f| FriendView {
+            name: f.name.clone(),
+            avatar: f.avatar.checked(),
+            games: f.games.len(),
+            common: lib.as_ref().map_or(0, |l| l.games.iter().filter(|g| f.owns(g.appid)).count()),
+            added: f.added,
+        })
+        .collect()
+}
+
+#[derive(Serialize)]
+pub struct MyCode {
+    name: String,
+    avatar: Avatar,
+    code: String,
+    /// How many Steam game ids the code carries (0 = not imported yet).
+    games: usize,
+}
+
+/// Your friend code. `name` and `avatar` (optional) update what's put in it. Nothing is sent:
+/// the user copies the code and shares it themselves.
+#[tauri::command(async)]
+pub fn my_friend_code(name: Option<String>, avatar: Option<Avatar>) -> Res<MyCode> {
+    let mut cfg = Config::load().map_err(err)?;
+    if name.is_some() || avatar.is_some() {
+        if let Some(n) = name {
+            cfg.display_name = Some(party::clean_name(&n));
+        }
+        if let Some(a) = avatar {
+            cfg.avatar = a.checked();
+        }
+        cfg.save().map_err(err)?;
+    }
+    let name = cfg.display_name.clone().unwrap_or_else(|| "Friend".to_string());
+    let me = Friend::mine(&name, cfg.avatar, steam_import::load_library().as_ref(), &History::load().taste());
+    Ok(MyCode { name: me.name.clone(), avatar: me.avatar, code: me.encode(), games: me.games.len() })
+}
+
+#[tauri::command(async)]
+pub fn get_friends() -> Res<Vec<FriendView>> {
+    Ok(friend_views(&party::load_friends()))
+}
+
+/// Adds (or refreshes) a friend from the code they sent. The code is parsed as untrusted input.
+#[tauri::command(async)]
+pub fn add_friend(code: String) -> Res<FriendView> {
+    let mut friend = Friend::decode(&code).map_err(err)?;
+    friend.added = history::now();
+    let mut friends = party::load_friends();
+    party::upsert(&mut friends, friend.clone()).map_err(err)?;
+    party::save_friends(&friends).map_err(err)?;
+    friend_views(&[friend]).pop().ok_or_else(|| "could not add the friend".to_string())
+}
+
+#[tauri::command(async)]
+pub fn remove_friend(name: String) -> Res<Vec<FriendView>> {
+    let mut friends = party::load_friends();
+    friends.retain(|f| !f.name.eq_ignore_ascii_case(&name));
+    party::save_friends(&friends).map_err(err)?;
+    Ok(friend_views(&friends))
 }
 
 #[tauri::command(async)]

@@ -1,0 +1,12 @@
+{
+  "name": "freetime-db-tests",
+  "private": true,
+  "type": "module",
+  "description": "Permission (Row Level Security) tests for the Supabase migrations, run in PGlite.",
+  "scripts": {
+    "test": "node --test"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "^0.3.0"
+  }
+}

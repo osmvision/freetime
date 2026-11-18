@@ -28,28 +28,45 @@ npm run build      # installer in target/release/bundle
 cargo run                              # asks a few questions
 cargo run -- -m 45 -e high --quick     # flags, no questions
 cargo run -- surprise                  # one pick, no questions
-cargo run -- setup                     # city, interests, Steam, YouTube
+cargo run -- setup                     # city, interests, Steam import, YouTube
 cargo run -- history
 ```
 
-## Connect your accounts (optional)
+## What it uses, and when
 
-Everything works offline with built-in ideas. Connecting sources makes the picks personal:
+Nothing is required: the first launch works with built-in ideas, the Steam store's top sellers and
+deals, and new uploads from a set of YouTube channels.
 
-| Source | What you get | How |
+| Source | What you get | When it's read |
 | --- | --- | --- |
-| City | Outdoor ideas follow the live weather (Open-Meteo, no key) | Settings → Location |
-| Steam | Backlog, old favorites and comfort picks from games you own | [Steam Web API key](https://steamcommunity.com/dev/apikey) + your profile. Game details must be public. |
-| YouTube | Real videos that fit your time, from your interests | [YouTube Data API v3 key](https://console.cloud.google.com/apis/library/youtube.googleapis.com) |
-| YouTube channels | New uploads from channels you follow | Channel IDs (`UC…`), no key needed |
+| Windows region | Steam prices in your currency | At startup, from the regional settings (no network) |
+| City | Outdoor ideas follow the live weather ([Open-Meteo](https://open-meteo.com/), no key) | Asked once on first launch (skippable), editable in Settings |
+| Steam games | Backlog, old favorites and comfort picks from games you own | Only when you click **Import my games from Steam on this PC**, then from freetime's own cache |
+| YouTube channels | New uploads, per idea category (`youtube_channels.toml`, editable) | At startup, public RSS feeds, cached 2 h |
+| `YOUTUBE_API_KEY` | Videos matching your interests and your free time | At startup, if set |
+| `STEAM_API_KEY` | Every game on your account, with playtime | Only during an import |
 
-Keys are stored in plain text in the config file (`freetime paths` shows where).
-`STEAM_API_KEY` and `YOUTUBE_API_KEY` environment variables work too.
+**Network at startup:** the Open-Meteo forecast (if a city is set), the Steam store lists and prices
+(with your region's `cc`), and the YouTube feeds. All run in the background with a 5 s timeout.
+Nothing looks up your IP address.
+
+**The Steam import** reads only the `SteamPath` registry value, the folder names under
+`<Steam>\userdata\` (account IDs), `steamapps\libraryfolders.vdf`, each library's
+`appmanifest_*.acf` and `userdata\<id>\config\localconfig.vdf` (playtime only). Nothing in
+`<Steam>\config\` and no `ssfn*` file is ever opened: every read goes through an allow-list
+(`core/src/providers/steam_import.rs`, tested). You can also paste a SteamID64 or a
+`steamcommunity.com/profiles/…` URL.
+
+**Keys** are read at runtime from the environment, the workspace `.env` or
+`%APPDATA%\freetime\.env` (where keys typed in Settings go). Copy `.env.example` to `.env` to start.
+They are never compiled in, unless you build with `--features freetime-core/embed-keys` for a
+personal copy that never leaves your PC.
 
 ## Layout
 
 ```
-core/      shared logic: ideas catalog, scoring, history, Steam, YouTube, weather
+core/      shared logic: ideas catalog, scoring, history, Steam, YouTube, weather, region
+  data/youtube_channels.toml   default channels per idea category
   data/activities.toml   built-in ideas, add your own
 cli/       terminal app
 desktop/   Tauri app
@@ -62,7 +79,7 @@ desktop/   Tauri app
 The Rust toolchain used here is `stable-x86_64-pc-windows-gnu` with MinGW-w64 (WinLibs) on the PATH,
 so no Visual Studio install is needed.
 
-MinGW's `windres` (which embeds the app icon) breaks on paths with spaces, so `.cargo/config.toml`
-sends build output to `a build folder without spaces` instead of `target/`. The built apps are
-there, e.g. `debug\freetime-desktop.exe`. If the project moves to a path without spaces, that file
-can be deleted.
+With the GNU toolchain, MinGW's `windres` (which embeds the app icon) breaks when the project path
+contains spaces. If yours does, copy `.cargo/config.toml.example` to `.cargo/config.toml` and set a
+build folder without spaces. That file is personal and ignored by git. With the MSVC toolchain, or a
+path without spaces, nothing is needed.

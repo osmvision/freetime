@@ -5,30 +5,38 @@ use std::{env, fs, path::PathBuf};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Config {
+    /// The city picked by the user (for the weather). Empty = no weather.
     pub city: Option<String>,
     pub latitude: Option<f64>,
     pub longitude: Option<f64>,
-    /// Two-letter country code, used for Steam store prices.
-    pub country: String,
+    /// Two-letter country code of the typed city.
+    pub country: Option<String>,
+    /// The "where are you?" question was answered or skipped: it isn't asked again.
+    pub asked_for_city: bool,
     /// Topics used to find YouTube videos.
     pub interests: Vec<String>,
     pub steam: SteamConfig,
     pub youtube: YoutubeConfig,
+    /// Nickname put in your friend code (see `party`). Never sent anywhere by itself.
+    pub display_name: Option<String>,
+    /// Avatar icon and color put in your friend code.
+    pub avatar: crate::party::Avatar,
+    /// The first-run welcome was finished or skipped: it isn't shown again.
+    pub onboarded: bool,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(default)]
 pub struct SteamConfig {
-    pub api_key: Option<String>,
-    /// SteamID64 (17 digits).
+    /// SteamID64 typed in the settings. Empty = the account last logged in on this PC.
     pub steam_id: Option<String>,
 }
 
+/// API keys don't live here: see `keys` (environment, `.env` files, build time).
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(default)]
 pub struct YoutubeConfig {
-    pub api_key: Option<String>,
-    /// Channel IDs (UC…) whose new uploads are suggested. Works without an API key.
+    /// Extra channel IDs (UC…) whose new uploads are suggested. Works without an API key.
     pub channels: Vec<String>,
 }
 
@@ -38,12 +46,16 @@ impl Default for Config {
             city: None,
             latitude: None,
             longitude: None,
-            country: "us".into(),
+            country: None,
+            asked_for_city: false,
             interests: ["science explained", "history", "game design", "cooking", "travel"]
                 .map(String::from)
                 .to_vec(),
             steam: SteamConfig::default(),
             youtube: YoutubeConfig::default(),
+            display_name: None,
+            avatar: Default::default(),
+            onboarded: false,
         }
     }
 }
@@ -53,21 +65,21 @@ fn home_override() -> Option<PathBuf> {
     env::var_os("FREETIME_HOME").map(PathBuf::from)
 }
 
-pub fn config_path() -> PathBuf {
+/// `%APPDATA%\freetime` on Windows.
+pub fn config_dir() -> PathBuf {
     home_override()
         .or_else(|| dirs::config_dir().map(|d| d.join("freetime")))
         .unwrap_or_else(|| PathBuf::from(".freetime"))
-        .join("config.toml")
+}
+
+pub fn config_path() -> PathBuf {
+    config_dir().join("config.toml")
 }
 
 pub fn data_dir() -> PathBuf {
     home_override()
         .or_else(|| dirs::data_dir().map(|d| d.join("freetime")))
         .unwrap_or_else(|| PathBuf::from(".freetime"))
-}
-
-fn env_nonempty(name: &str) -> Option<String> {
-    env::var(name).ok().filter(|v| !v.trim().is_empty())
 }
 
 impl Config {
@@ -86,21 +98,5 @@ impl Config {
             fs::create_dir_all(dir)?;
         }
         fs::write(&path, toml::to_string_pretty(self)?).with_context(|| format!("writing {}", path.display()))
-    }
-
-    pub fn steam_key(&self) -> Option<String> {
-        env_nonempty("STEAM_API_KEY").or_else(|| self.steam.api_key.clone().filter(|k| !k.trim().is_empty()))
-    }
-
-    pub fn youtube_key(&self) -> Option<String> {
-        env_nonempty("YOUTUBE_API_KEY").or_else(|| self.youtube.api_key.clone().filter(|k| !k.trim().is_empty()))
-    }
-
-    pub fn location(&self) -> Option<(f64, f64, String)> {
-        Some((
-            self.latitude?,
-            self.longitude?,
-            self.city.clone().unwrap_or_else(|| "Your area".into()),
-        ))
     }
 }

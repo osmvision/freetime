@@ -1,0 +1,37 @@
+{
+  "run-5k": {
+    "title": "File:Jogging couple - legs.jpg",
+    "page": "https://commons.wikimedia.org/wiki/File:Jogging_couple_-_legs.jpg",
+    "author": "Ed Yourdon",
+    "license": "CC BY-SA 2.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/2.0"
+  },
+  "bike-explore": {
+    "title": "File:Rome (Italy), Bicycle -- 2013 -- 4368.jpg",
+    "page": "https://commons.wikimedia.org/wiki/File:Rome_(Italy),_Bicycle_--_2013_--_4368.jpg",
+    "author": "Dietmar Rabich",
+    "license": "CC BY-SA 4.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/4.0"
+  },
+  "shadowboxing": {
+    "title": "File:Boxing gloves.jpg",
+    "page": "https://commons.wikimedia.org/wiki/File:Boxing_gloves.jpg",
+    "author": "en:User:Andman8",
+    "license": "CC BY 2.5",
+    "license_url": "https://creativecommons.org/licenses/by/2.5"
+  },
+  "badminton": {
+    "title": "File:Fence 12, Badminton Horse Trials - geograph.org.uk - 794809.jpg",
+    "page": "https://commons.wikimedia.org/wiki/File:Fence_12,_Badminton_Horse_Trials_-_geograph.org.uk_-_794809.jpg",
+    "author": "Trish Steel",
+    "license": "CC BY-SA 2.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/2.0"
+  },
+  "origami": {
+    "title": "File:Cranes made by Origami paper.jpg",
+    "page": "https://commons.wikimedia.org/wiki/File:Cranes_made_by_Origami_paper.jpg",
+    "author": "Laitche",
+    "license": "Public domain",
+    "license_url": ""
+  }
+}
