@@ -1,6 +1,7 @@
 // Friends without accounts: swap friend codes (over Discord or anywhere), then pick together.
 // Nothing here talks to a server: the code is shown, the user copies and sends it themselves.
 
+import { accountPanel } from './account.js';
 import { api } from './api.js';
 import { AVATAR_COLORS, AVATAR_ICONS, avatar } from './avatars.js';
 import { btn, emptyState, errText, fill, h, icon, pageHead, toast } from './dom.js';
@@ -22,11 +23,23 @@ export async function render(root, ctx) {
 }
 
 function draw(root, ctx, mine, friends) {
+  const accountBox = h('div', { class: 'account-box' });
   root.replaceChildren(
     head(),
+    accountBox,
     h('div', { class: 'friends-grid' }, myCodePanel(mine, ctx), addPanel(root, ctx)),
     friendsList(root, ctx, friends),
   );
+  // A profile save also updates the friend code's name and avatar: redraw the code panel.
+  accountPanel(accountBox, async () => {
+    try {
+      const fresh = await api.myFriendCode();
+      const grid = root.querySelector('.friends-grid');
+      grid?.replaceChild(myCodePanel(fresh, ctx), grid.firstChild);
+    } catch {
+      // The panel keeps its previous code.
+    }
+  });
 }
 
 // ---------------------------------------------------------------- your code

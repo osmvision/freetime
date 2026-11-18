@@ -363,7 +363,8 @@ fn fletcher16(data: &[u8]) -> u16 {
 
 const B64: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
 
-fn b64_encode(data: &[u8]) -> String {
+/// base64url without padding (also used for the sign-in PKCE challenge).
+pub(crate) fn b64_encode(data: &[u8]) -> String {
     let mut out = String::with_capacity(data.len() * 4 / 3 + 3);
     for chunk in data.chunks(3) {
         let n = chunk.iter().enumerate().fold(0u32, |n, (i, b)| n | (*b as u32) << (16 - 8 * i));

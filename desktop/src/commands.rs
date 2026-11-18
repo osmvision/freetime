@@ -4,6 +4,7 @@
 //! never freeze the window.
 
 use freetime_core::{
+    account::{self, Client, OnlineProfile, ProfileEdit, Session},
     config::{self, Config},
     history::{self, History},
     keys::{self, KeySource, Keys},
@@ -48,6 +49,8 @@ pub struct AppState {
     online: Mutex<OnlineSlot>,
     /// Every suggestion sent to the UI, so `pick` can find it again by id.
     shown: Mutex<HashMap<String, Suggestion>>,
+    /// The signed-in session (opt-in). Only in memory; the refresh token is in Credential Manager.
+    account: Mutex<Option<Session>>,
 }
 
 #[derive(Default)]
@@ -678,6 +681,117 @@ pub fn set_city(app: AppHandle, place: Option<Place>) -> Res<SettingsView> {
     cfg.save().map_err(err)?;
     refresh_in_background(&app);
     Ok(settings_view(&cfg))
+}
+
+// ---------------------------------------------------------------- account (opt-in, Supabase)
+
+#[derive(Serialize)]
+pub struct AccountView {
+    signed_in: bool,
+    email: Option<String>,
+    profile: Option<OnlineProfile>,
+}
+
+/// A usable session: the one in memory if still fresh, else refreshed from the saved token.
+/// The lock is held during the refresh so two calls can't both spend the (rotating) token.
+fn live_session(state: &AppState) -> Res<Session> {
+    let now = history::now();
+    let mut slot = lock(&state.account);
+    if let Some(s) = slot.as_ref().filter(|s| s.fresh(now)) {
+        return Ok(s.clone());
+    }
+    let token = slot
+        .as_ref()
+        .map(|s| s.refresh_token.clone())
+        .or_else(account::stored_refresh_token)
+        .ok_or_else(|| "you're not signed in".to_string())?;
+    let client = Client::new().map_err(err)?;
+    match client.refresh(&token, now) {
+        Ok(s) => {
+            *slot = Some(s.clone());
+            Ok(s)
+        }
+        Err(e) if e.to_string().contains("(HTTP 4") => {
+            // Revoked or expired: forget it rather than retrying forever.
+            *slot = None;
+            let _ = account::forget_refresh_token();
+            Err("your session has ended: sign in again".to_string())
+        }
+        Err(e) => Err(err(e)),
+    }
+}
+
+/// Signed in or not, without touching the network.
+#[tauri::command(async)]
+pub fn account_status(state: State<'_, AppState>) -> Res<AccountView> {
+    let slot = lock(&state.account);
+    Ok(AccountView {
+        signed_in: slot.is_some() || account::has_saved_session(),
+        email: slot.as_ref().and_then(|s| s.email.clone()),
+        profile: None,
+    })
+}
+
+/// Opens the browser to sign in, waits for it to come back (up to 3 minutes), then loads the
+/// online profile. The first time, the name and avatar chosen in the app are copied to it.
+#[tauri::command(async)]
+pub fn sign_in(state: State<'_, AppState>, provider: String) -> Res<AccountView> {
+    if provider != "google" {
+        return Err("unknown sign-in provider".to_string());
+    }
+    let client = Client::new().map_err(err)?;
+    let session = client.sign_in(&provider, |url| open::open_link(url), history::now).map_err(err)?;
+    *lock(&state.account) = Some(session.clone());
+
+    let mut profile = client.profile(&session).map_err(err)?;
+    let untouched = profile.display_name == "Friend" && profile.avatar_icon == 0 && profile.avatar_color == 0 && profile.bio.is_empty();
+    let cfg = Config::load().map_err(err)?;
+    if untouched && (cfg.display_name.is_some() || cfg.avatar != Default::default()) {
+        let edit = ProfileEdit {
+            display_name: cfg.display_name.clone().unwrap_or_else(|| "Friend".to_string()),
+            avatar_icon: cfg.avatar.icon as i16,
+            avatar_color: cfg.avatar.color as i16,
+            bio: String::new(),
+            status_text: String::new(),
+        };
+        if let Ok(p) = client.update_profile(&session, &edit) {
+            profile = p;
+        }
+    }
+    Ok(AccountView { signed_in: true, email: session.email.clone(), profile: Some(profile) })
+}
+
+#[tauri::command(async)]
+pub fn sign_out(state: State<'_, AppState>) -> Res<()> {
+    let session = lock(&state.account).take();
+    Client::new().map_err(err)?.sign_out(session.as_ref()).map_err(err)
+}
+
+/// The online profile (refreshes the session if needed).
+#[tauri::command(async)]
+pub fn get_account(state: State<'_, AppState>) -> Res<AccountView> {
+    let session = live_session(&state)?;
+    let profile = Client::new().map_err(err)?.profile(&session).map_err(err)?;
+    Ok(AccountView { signed_in: true, email: session.email.clone(), profile: Some(profile) })
+}
+
+/// Saves the online profile, and keeps the friend code's name and avatar in step with it.
+#[tauri::command(async)]
+pub fn save_profile(state: State<'_, AppState>, edit: ProfileEdit) -> Res<OnlineProfile> {
+    let session = live_session(&state)?;
+    let profile = Client::new().map_err(err)?.update_profile(&session, &edit).map_err(err)?;
+    let mut cfg = Config::load().map_err(err)?;
+    cfg.display_name = Some(party::clean_name(&profile.display_name));
+    cfg.avatar = Avatar { icon: profile.avatar_icon.clamp(0, 255) as u8, color: profile.avatar_color.clamp(0, 255) as u8 }.checked();
+    cfg.save().map_err(err)?;
+    Ok(profile)
+}
+
+/// A new friend tag, if the old one was shared too widely.
+#[tauri::command(async)]
+pub fn reset_friend_tag(state: State<'_, AppState>) -> Res<String> {
+    let session = live_session(&state)?;
+    Client::new().map_err(err)?.reset_friend_tag(&session).map_err(err)
 }
 
 // ---------------------------------------------------------------- friends (friend codes, no server)

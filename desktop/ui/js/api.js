@@ -30,4 +30,11 @@ export const api = {
   friends: () => invoke('get_friends'),
   addFriend: (code) => invoke('add_friend', { code }),
   removeFriend: (name) => invoke('remove_friend', { name }),
+  // Online account (opt-in). Nothing here runs until the user signs in.
+  accountStatus: () => invoke('account_status'),
+  signIn: (provider) => invoke('sign_in', { provider }),
+  signOut: () => invoke('sign_out'),
+  account: () => invoke('get_account'),
+  saveProfile: (edit) => invoke('save_profile', { edit }),
+  resetFriendTag: () => invoke('reset_friend_tag'),
 };

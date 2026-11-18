@@ -1684,6 +1684,26 @@ button.tag:hover {
   margin-bottom: 18px;
 }
 
+.account-box {
+  margin-bottom: 18px;
+}
+
+.friend-tag {
+  display: inline-flex;
+  align-items: center;
+  height: 38px;
+  padding: 0 12px;
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  background: var(--stock);
+  font-size: 17px;
+  letter-spacing: 0.08em;
+}
+
+.tag-row {
+  align-items: center;
+}
+
 /* a friend code: carbon numerals on ruled paper */
 .code {
   width: 100%;

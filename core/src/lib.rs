@@ -1,6 +1,7 @@
 //! freetime core: ideas, scoring, history and online sources. No UI code here:
 //! the terminal app (`cli/`) and the desktop app (`desktop/`) are both built on it.
 
+pub mod account;
 pub mod catalog;
 pub mod config;
 pub mod history;
