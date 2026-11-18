@@ -12,3 +12,6 @@
 # Impeccable's generated reference boards
 /.impeccable/reference/
 /supabase/tests/node_modules
+# Website build output (python site/build.py)
+/_site/
+__pycache__/
