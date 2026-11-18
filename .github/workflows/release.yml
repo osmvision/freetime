@@ -1,0 +1,53 @@
+name: Release
+
+# Push a tag like v0.2.0 (same number as desktop/tauri.conf.json) to build the Windows installer.
+# It lands as a DRAFT release: nobody gets the update until someone presses "Publish".
+# The installer is signed with the updater key (secrets below); the app refuses anything else.
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write # create the release and upload the installer
+
+jobs:
+  windows:
+    name: Windows installer
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Check the tag matches the app version
+        shell: pwsh
+        run: |
+          $version = (Get-Content desktop/tauri.conf.json -Raw | ConvertFrom-Json).version
+          if ("v$version" -ne "${{ github.ref_name }}") {
+            throw "Tag ${{ github.ref_name }} but tauri.conf.json says $version"
+          }
+
+      - name: Core tests
+        run: cargo test -p freetime-core --locked
+
+      - name: Install the Tauri CLI
+        working-directory: desktop
+        run: npm ci
+
+      # Pinned to a commit (action-v1.0.0): this step sees the signing key.
+      - uses: tauri-apps/tauri-action@1deb371b0cd8bd54025b384f1cd735e725c4060f
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          projectPath: desktop
+          tagName: ${{ github.ref_name }}
+          releaseName: freetime ${{ github.ref_name }}
+          releaseBody: See the changes below. The app offers this update by itself once the release is published.
+          releaseDraft: true # latest.json is uploaded too (uploadUpdaterJson defaults to true)

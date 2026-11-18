@@ -1073,6 +1073,67 @@ button.tag:hover {
   height: 44px;
 }
 
+/* No photo: a screen-printed poster in the kind's color, with an oversized icon. */
+.fallback.poster {
+  --poster: var(--navy-3);
+  display: block;
+  overflow: hidden;
+  background:
+    radial-gradient(120% 90% at 0% 0%, rgba(255, 255, 255, 0.16), transparent 60%),
+    var(--poster);
+  color: #fff;
+}
+
+.fallback.poster[data-category="game"] { --poster: #4b2e83; }
+.fallback.poster[data-category="video"] { --poster: #3b4866; }
+.fallback.poster[data-category="sport"] { --poster: #1f6b4a; }
+.fallback.poster[data-category="learn"] { --poster: #1f4fa3; }
+.fallback.poster[data-category="create"] { --poster: #8a5a00; }
+.fallback.poster[data-category="chill"] { --poster: #0f5e63; }
+.fallback.poster[data-category="social"] { --poster: #7a2e5e; }
+.fallback.poster[data-category="food"] { --poster: #9a3f1c; }
+
+.fallback.poster .poster-big {
+  position: absolute;
+  right: -14%;
+  bottom: -22%;
+  width: 78%;
+  height: auto;
+  aspect-ratio: 1;
+  opacity: 0.22;
+  transform: rotate(-12deg);
+}
+
+.fallback.poster .poster-big svg {
+  stroke-width: 1.2;
+}
+
+.fallback.poster .poster-label {
+  position: absolute;
+  left: 16px;
+  top: 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font: 800 20px/1 var(--display);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.fallback.poster .poster-label .icon {
+  width: 22px;
+  height: 22px;
+}
+
+.leaf-photo .fallback.poster .poster-label {
+  font-size: 15px;
+}
+
+.leaf-photo .fallback.poster .poster-label .icon {
+  width: 16px;
+  height: 16px;
+}
+
 .leaf-source {
   position: absolute;
   left: 10px;
@@ -3274,5 +3335,72 @@ button.tag:hover {
 
   .settings {
     grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* ---------------------------------------------------------------- updates */
+
+.update-notice {
+  position: fixed;
+  left: 24px;
+  bottom: 24px;
+  z-index: 80;
+  display: flex;
+  gap: 12px;
+  max-width: 440px;
+  padding: 16px 18px;
+  border-radius: 10px;
+  background: var(--navy);
+  color: var(--on-navy);
+  box-shadow: var(--shadow);
+  animation: issue 0.3s var(--ease) backwards;
+}
+
+.update-notice > .icon {
+  width: 20px;
+  height: 20px;
+  margin-top: 2px;
+  color: #cdbff0;
+}
+
+.update-text {
+  display: grid;
+  gap: 6px;
+  font-size: 14px;
+}
+
+.update-text strong {
+  font-size: 15px;
+}
+
+.update-text .row {
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.update-notice .btn {
+  white-space: nowrap;
+}
+
+.update-version {
+  align-items: center;
+  gap: 12px;
+}
+
+.update-notice .btn.quiet {
+  color: var(--on-navy);
+}
+
+.update-result:empty {
+  display: none;
+}
+
+@media (max-width: 600px) {
+  .update-notice {
+    left: 16px;
+    right: 16px;
+    max-width: none;
   }
 }

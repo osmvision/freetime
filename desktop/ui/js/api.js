@@ -48,6 +48,11 @@ export const api = {
   answerInvite: (id, accept) => invoke('answer_invite', { id, accept }),
   cancelInvite: (id) => invoke('cancel_invite', { id }),
   getNotifyMessages: () => invoke('get_notify_messages'),
+  // Updates: GitHub releases, signed (src/updates.rs).
+  updateStatus: () => invoke('update_status'),
+  setAutoUpdate: (enabled) => invoke('set_auto_update', { enabled }),
+  checkUpdate: () => invoke('check_update'),
+  installUpdate: () => invoke('install_update'),
   setNotifyMessages: (enabled) => invoke('set_notify_messages', { enabled }),
   exportMyData: () => invoke('export_my_data'),
   deleteMyAccount: () => invoke('delete_my_account'),
