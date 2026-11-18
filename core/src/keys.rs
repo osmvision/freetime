@@ -16,6 +16,8 @@ use std::{
 
 pub const STEAM: &str = "STEAM_API_KEY";
 pub const YOUTUBE: &str = "YOUTUBE_API_KEY";
+/// Mistral AI, for the assistant (opt-in): https://console.mistral.ai/api-keys
+pub const MISTRAL: &str = "MISTRAL_API_KEY";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
@@ -63,6 +65,7 @@ impl fmt::Debug for Key {
 pub struct Keys {
     pub steam: Option<Key>,
     pub youtube: Option<Key>,
+    pub mistral: Option<Key>,
 }
 
 impl Keys {
@@ -71,7 +74,7 @@ impl Keys {
         let user = read_env_file(&user_env_path());
         let files = [(KeySource::WorkspaceEnvFile, workspace.as_slice()), (KeySource::UserEnvFile, user.as_slice())];
         let pick = |name: &str| resolve_key(name, std::env::var(name).ok(), &files, built_in(name));
-        Keys { steam: pick(STEAM), youtube: pick(YOUTUBE) }
+        Keys { steam: pick(STEAM), youtube: pick(YOUTUBE), mistral: pick(MISTRAL) }
     }
 }
 
@@ -90,6 +93,7 @@ fn built_in(name: &str) -> Option<&'static str> {
     match name {
         STEAM => option_env!("STEAM_API_KEY"),
         YOUTUBE => option_env!("YOUTUBE_API_KEY"),
+        MISTRAL => option_env!("MISTRAL_API_KEY"),
         _ => None,
     }
 }
@@ -243,7 +247,7 @@ mod tests {
     #[test]
     fn debug_output_never_shows_the_value() {
         let k = Key::new("super-secret", KeySource::Environment);
-        let shown = format!("{k:?} {:?}", Keys { steam: Some(k.clone()), youtube: None });
+        let shown = format!("{k:?} {:?}", Keys { steam: Some(k.clone()), youtube: None, mistral: None });
         assert!(!shown.contains("super-secret"), "{shown}");
     }
 

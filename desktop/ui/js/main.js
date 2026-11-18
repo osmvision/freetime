@@ -10,6 +10,7 @@ import { runWelcome } from './welcome.js';
 import { startI18n } from './i18n.js';
 import * as settingsView from './settings.js';
 import { initDisplay } from './display.js';
+import { assistantSettingsChanged, mountAssistant } from './assistant.js';
 
 initDisplay();
 
@@ -43,6 +44,7 @@ const ctx = {
   },
   settingsSaved: () => {
     discover.settingsChanged();
+    assistantSettingsChanged();
     api.bootstrap().then((b) => {
       city = b.setup.city;
       renderTags(lastOnline);
@@ -54,6 +56,8 @@ function goto(view, options = {}) {
   if (!views[view]) return;
   if (view !== 'messages') messagesView.stop();
   for (const [name, el] of Object.entries(views)) el.hidden = name !== view;
+  // The assistant bubble moves out of the way of the message box on Messages.
+  document.body.dataset.view = view;
   for (const button of document.querySelectorAll('.nav-item')) {
     if (button.dataset.view === view) button.setAttribute('aria-current', 'page');
     else button.removeAttribute('aria-current');
@@ -188,6 +192,8 @@ async function start() {
   city = boot.setup.city;
   renderTags(boot.online);
   discover.init(views.discover, boot, ctx);
+  document.body.dataset.view = 'discover';
+  mountAssistant(ctx);
   if (after === 'profile') goto('settings', { focus: 'profile' });
   await listen('unread-updated', (n) => ctx.setUnread(n));
   await listen('invites-updated', (n) => ctx.setInvites(n));

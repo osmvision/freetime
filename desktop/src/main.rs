@@ -1,6 +1,7 @@
 // No console window in release builds on Windows.
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod assistant;
 mod commands;
 
 fn main() {
@@ -64,6 +65,10 @@ fn main() {
             commands::chat_messages,
             commands::send_message,
             commands::mark_read,
+            assistant::assistant_status,
+            assistant::assistant_models,
+            assistant::assistant_send,
+            assistant::assistant_stop,
         ])
         .run(tauri::generate_context!())
         .expect("error while running freetime");

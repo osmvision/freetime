@@ -2,6 +2,7 @@
 //! the terminal app (`cli/`) and the desktop app (`desktop/`) are both built on it.
 
 pub mod account;
+pub mod assistant;
 pub mod catalog;
 pub mod config;
 pub mod history;

@@ -31,18 +31,18 @@ use std::{
 };
 use tauri::{AppHandle, Emitter, Manager, State};
 
-type Res<T> = Result<T, String>;
+pub(crate) type Res<T> = Result<T, String>;
 
-fn err(e: impl std::fmt::Display) -> String {
+pub(crate) fn err(e: impl std::fmt::Display) -> String {
     format!("{e:#}")
 }
 
-fn lock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
+pub(crate) fn lock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
     m.lock().unwrap_or_else(|poisoned| poisoned.into_inner())
 }
 
 /// How long a suggestion waits for Steam/YouTube/weather on startup before using offline ideas.
-const ONLINE_WAIT: Duration = Duration::from_secs(15);
+pub(crate) const ONLINE_WAIT: Duration = Duration::from_secs(15);
 
 #[derive(Default)]
 pub struct AppState {
@@ -53,6 +53,8 @@ pub struct AppState {
     account: Mutex<Option<Session>>,
     /// Friends' shared game lists (None = they don't share), with when they were fetched.
     libraries: Mutex<HashMap<String, (Instant, Option<account::SharedLibrary>)>>,
+    /// Assistant chats whose answer should stop streaming (the user pressed Stop).
+    pub(crate) assistant_stop: Mutex<HashSet<String>>,
 }
 
 #[derive(Default)]
@@ -94,7 +96,7 @@ pub fn refresh_in_background(app: &AppHandle) {
 }
 
 /// The latest online data, waiting a bit for the first fetch. `true` = offline ideas only.
-fn current_online(state: &AppState, wait: Duration) -> (Arc<Online>, bool) {
+pub(crate) fn current_online(state: &AppState, wait: Duration) -> (Arc<Online>, bool) {
     let start = Instant::now();
     loop {
         {
@@ -166,14 +168,14 @@ fn online_dto(state: &AppState) -> OnlineDto {
 #[derive(Serialize)]
 pub struct Card {
     #[serde(flatten)]
-    s: Suggestion,
+    pub(crate) s: Suggestion,
     reasons: Vec<String>,
-    duration: String,
-    icon: &'static str,
-    category_label: &'static str,
+    pub(crate) duration: String,
+    pub(crate) icon: &'static str,
+    pub(crate) category_label: &'static str,
 }
 
-fn card(r: &Ranked) -> Card {
+pub(crate) fn card(r: &Ranked) -> Card {
     Card {
         s: r.s.clone(),
         reasons: r.reasons.clone(),
@@ -183,7 +185,7 @@ fn card(r: &Ranked) -> Card {
     }
 }
 
-fn remember<'a>(state: &AppState, cards: impl Iterator<Item = &'a Card>) {
+pub(crate) fn remember<'a>(state: &AppState, cards: impl Iterator<Item = &'a Card>) {
     let mut shown = lock(&state.shown);
     for c in cards {
         shown.insert(c.s.id.clone(), c.s.clone());
@@ -237,7 +239,7 @@ fn friend_libraries(state: &AppState, mates: &[OnlineMate]) -> HashMap<String, a
 /// `party`: names of friends added by code; `mates`: online friends. Only used when the request
 /// is "with friends"; otherwise this is the solo ranking. Games everyone owns are looked up on
 /// the Steam store (cached) to tell co-op from versus and single-player.
-fn rank(state: &AppState, cfg: &Config, req: &Request, online: &Online, exclude: &[String], party: &[String], mates: &[OnlineMate]) -> Vec<Ranked> {
+pub(crate) fn rank(state: &AppState, cfg: &Config, req: &Request, online: &Online, exclude: &[String], party: &[String], mates: &[OnlineMate]) -> Vec<Ranked> {
     let prefs = History::load().prefs(history::now());
     let exclude: HashSet<String> = exclude.iter().cloned().collect();
     if !req.with_friends || (party.is_empty() && mates.is_empty()) {
@@ -614,6 +616,10 @@ pub struct SettingsView {
     youtube_key_set: bool,
     youtube_key_from_env: bool,
     channels: Vec<String>,
+    mistral_key_set: bool,
+    mistral_key_from_env: bool,
+    /// The model the assistant uses (the default when none was picked).
+    assistant_model: String,
     config_path: String,
     data_dir: String,
 }
@@ -632,6 +638,9 @@ fn settings_view(cfg: &Config) -> SettingsView {
         youtube_key_set: keys.youtube.is_some(),
         youtube_key_from_env: from_env(&keys.youtube),
         channels: cfg.youtube.channels.clone(),
+        mistral_key_set: keys.mistral.is_some(),
+        mistral_key_from_env: from_env(&keys.mistral),
+        assistant_model: crate::assistant::model_of(cfg),
         config_path: config::config_path().display().to_string(),
         data_dir: config::data_dir().display().to_string(),
     }
@@ -652,6 +661,13 @@ pub struct SettingsInput {
     youtube_key: String,
     clear_youtube_key: bool,
     channels: Vec<String>,
+    #[serde(default)]
+    mistral_key: String,
+    #[serde(default)]
+    clear_mistral_key: bool,
+    /// Empty or None = the default model.
+    #[serde(default)]
+    assistant_model: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -696,6 +712,15 @@ pub fn save_settings(app: AppHandle, input: SettingsInput) -> Res<SaveReport> {
         keys::save_user_key(keys::YOUTUBE, None).map_err(err)?;
     } else if !input.youtube_key.trim().is_empty() {
         keys::save_user_key(keys::YOUTUBE, Some(&input.youtube_key)).map_err(err)?;
+    }
+    if input.clear_mistral_key {
+        keys::save_user_key(keys::MISTRAL, None).map_err(err)?;
+    } else if !input.mistral_key.trim().is_empty() {
+        keys::save_user_key(keys::MISTRAL, Some(&input.mistral_key)).map_err(err)?;
+    }
+    if let Some(model) = input.assistant_model {
+        let model = model.trim();
+        cfg.assistant.model = (!model.is_empty()).then(|| model.to_string());
     }
     // A pasted SteamID64 or /profiles/ URL is read locally; only a custom /id/ name needs the API.
     let profile = input.steam_profile.trim();

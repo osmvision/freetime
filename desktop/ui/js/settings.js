@@ -30,6 +30,7 @@ export async function render(root, ctx, options = {}) {
   try {
     draw(root, ctx, await api.settings());
     if (options.focus === 'profile') root.querySelector('.profile-box')?.scrollIntoView({ block: 'start' });
+    if (options.focus === 'assistant') root.querySelector('.assistant-settings')?.scrollIntoView({ block: 'start' });
   } catch (e) {
     root.replaceChildren(head(), emptyState({ icon: 'triangle-alert', title: 'Could not load your settings', text: errText(e) }));
   }
@@ -44,6 +45,9 @@ function draw(root, ctx, s) {
     youtube_key: '',
     clear_youtube_key: false,
     channels: [...s.channels],
+    mistral_key: '',
+    clear_mistral_key: false,
+    assistant_model: s.assistant_model,
   };
   const save = h('button', { class: 'btn primary', type: 'submit' }, 'Save changes');
 
@@ -88,6 +92,7 @@ function draw(root, ctx, s) {
         interestsSection(form),
         steamSection(s, form, ctx, root),
         youtubeSection(s, form),
+        assistantSection(s, form),
         languageSection(),
         dataSection(s),
         creditsSection(),
@@ -361,6 +366,47 @@ function youtubeSection(s, form) {
       'On a channel page: About → Share channel → Copy channel ID.',
     ),
   );
+}
+
+/** The chat assistant: a Mistral key and the model. Saved with "Save changes". */
+function assistantSection(s, form) {
+  const listId = 'assistant-models';
+  const models = h('datalist', { id: listId });
+  const modelInput = input({
+    value: form.assistant_model,
+    list: listId,
+    placeholder: 'mistral-small-latest',
+    'aria-label': 'Mistral model',
+    oninput: (e) => (form.assistant_model = e.target.value),
+  });
+  // The models this key can use (or a built-in list): suggestions, any id can be typed.
+  api
+    .assistantModels()
+    .then((list) => models.replaceChildren(...list.map((m) => h('option', { value: m }))))
+    .catch(() => {});
+  const box = section(
+    'sparkles',
+    'Assistant',
+    'Chat with an assistant that knows your picks: the bubble at the bottom right of every screen. It uses Mistral AI with your own API key.',
+    pill(s.mistral_key_set, s.mistral_key_set ? s.assistant_model : 'Not connected'),
+    keyField({
+      label: 'Mistral API key',
+      isSet: s.mistral_key_set,
+      fromEnv: s.mistral_key_from_env,
+      envName: 'MISTRAL_API_KEY',
+      getUrl: 'https://console.mistral.ai/api-keys',
+      onInput: (v) => (form.mistral_key = v),
+      onClear: (v) => (form.clear_mistral_key = v),
+    }),
+    labeled('Model', h('div', {}, modelInput, models), 'Pick from the list or type any Mistral model id. Small models answer fastest.'),
+    h(
+      'span',
+      { class: 'hint' },
+      'Only when you write to it, your messages are sent to Mistral with a short context: the date, the weather, what you set on Discover, your interests, your current picks and your last few picks.',
+    ),
+  );
+  box.classList.add('assistant-settings');
+  return box;
 }
 
 /** Automatic (follows Windows), English or French. Changing it reloads the window. */

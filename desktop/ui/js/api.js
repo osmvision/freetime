@@ -59,4 +59,9 @@ export const api = {
   chatMessages: (conversation, after = 0) => invoke('chat_messages', { conversation, after }),
   sendMessage: (conversation, body) => invoke('send_message', { conversation, body }),
   markRead: (conversation, upTo) => invoke('mark_read', { conversation, upTo }),
+  // The chat assistant (Mistral, opt-in). The key never comes back to the UI.
+  assistantStatus: () => invoke('assistant_status'),
+  assistantModels: () => invoke('assistant_models'),
+  assistantSend: (chat, messages, mood, lang) => invoke('assistant_send', { chat, messages, mood, lang }),
+  assistantStop: (chat) => invoke('assistant_stop', { chat }),
 };

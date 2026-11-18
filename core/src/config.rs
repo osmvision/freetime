@@ -27,6 +27,15 @@ pub struct Config {
     pub notify_messages: bool,
     /// Share the imported Steam game list (app ids only) and taste with online friends.
     pub share_library: bool,
+    pub assistant: AssistantConfig,
+}
+
+/// The chat assistant (needs a MISTRAL_API_KEY, see `keys`).
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(default)]
+pub struct AssistantConfig {
+    /// Mistral model id. None = `assistant::DEFAULT_MODEL`.
+    pub model: Option<String>,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -62,6 +71,7 @@ impl Default for Config {
             onboarded: false,
             notify_messages: true,
             share_library: false,
+            assistant: AssistantConfig::default(),
         }
     }
 }
