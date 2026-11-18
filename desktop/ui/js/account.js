@@ -29,11 +29,17 @@ function panel(...children) {
 
 function signedOut(box, onChange, problem = null) {
   const status = h('div', { class: 'city-status' + (problem ? ' warn' : ''), 'aria-live': 'polite' }, problem ?? '');
+  const age = h('input', { type: 'checkbox' });
   const go = btn({
     label: 'Continue with Google',
     icon: 'log-in',
     kind: 'primary',
     onclick: async () => {
+      if (!age.checked) {
+        status.className = 'city-status warn';
+        status.textContent = 'Online profiles are for people aged 15 and over.';
+        return;
+      }
       go.disabled = true;
       status.className = 'city-status';
       status.textContent = 'Finish signing in in your browser. This page updates by itself.';
@@ -59,6 +65,13 @@ function signedOut(box, onChange, problem = null) {
         h('li', {}, icon('check'), 'Opens your browser: freetime never sees your Google password'),
         h('li', {}, icon('check'), 'Your email stays private; others see only the name and avatar you choose'),
         h('li', {}, icon('check'), 'Nothing is sent until you click; signing out removes the session from this PC'),
+      ),
+      h(
+        'label',
+        { class: 'check' },
+        age,
+        'I’m 15 or older and I accept the ',
+        h('button', { type: 'button', class: 'link', onclick: () => api.open(PRIVACY_URL).catch(() => {}) }, 'privacy policy'),
       ),
       h('div', { class: 'row' }, go),
       status,
@@ -134,7 +147,102 @@ function card(box, acc, onChange) {
         ),
         h('span', { class: 'hint' }, 'Friends add you with this tag in the Friends tab.'),
       ),
+      notifications(),
+      yourData(box, onChange),
     ),
+  );
+}
+
+/** The new-message notifications switch. */
+function notifications() {
+  const box = h('input', { type: 'checkbox' });
+  api.getNotifyMessages().then((on) => (box.checked = on)).catch(() => {});
+  box.addEventListener('change', async () => {
+    try {
+      await api.setNotifyMessages(box.checked);
+      toast(box.checked ? 'Notifications on' : 'Notifications off', 'ok');
+    } catch (e) {
+      box.checked = !box.checked;
+      toast(errText(e), 'error');
+    }
+  });
+  return h(
+    'div',
+    { class: 'field' },
+    h('span', { class: 'field-label' }, 'Notifications'),
+    h('label', { class: 'check' }, box, 'Notify me when a friend messages me (freetime checks once a minute while it’s open)'),
+  );
+}
+
+const PRIVACY_URL = 'https://github.com/osmvision/freetime/blob/main/docs/privacy.md';
+
+/** Export, privacy policy, and account deletion (with a typed confirmation). */
+function yourData(box, onChange) {
+  const confirmBox = h('div', { class: 'danger-zone', hidden: true });
+  const exportBtn = btn({
+    label: 'Export my data',
+    icon: 'download',
+    small: true,
+    onclick: async () => {
+      exportBtn.disabled = true;
+      try {
+        const path = await api.exportMyData();
+        toast(`Saved to ${path}`, 'ok', 7000);
+      } catch (e) {
+        toast(errText(e), 'error');
+      } finally {
+        exportBtn.disabled = false;
+      }
+    },
+  });
+
+  const typed = h('input', { class: 'input', type: 'text', placeholder: 'Type DELETE', autocomplete: 'off', spellcheck: 'false', 'aria-label': 'Type DELETE to confirm' });
+  const really = btn({
+    label: 'Delete for good',
+    icon: 'trash-2',
+    kind: 'primary',
+    onclick: async () => {
+      if (typed.value.trim() !== 'DELETE') return;
+      really.disabled = true;
+      try {
+        await api.deleteMyAccount();
+        toast('Your online account is deleted', 'ok', 6000);
+        profileSection(box, onChange);
+        onChange();
+      } catch (e) {
+        toast(errText(e), 'error', 6000);
+        really.disabled = false;
+      }
+    },
+  });
+  really.disabled = true;
+  typed.addEventListener('input', () => (really.disabled = typed.value.trim() !== 'DELETE'));
+  confirmBox.append(
+    h('p', {}, 'This deletes your online profile, friends, requests, blocks and the messages you sent, for good. Your picks and history on this PC stay.'),
+    h('div', { class: 'row' }, typed, really, btn({ label: 'Cancel', kind: 'quiet', onclick: () => (confirmBox.hidden = true) })),
+  );
+
+  return h(
+    'div',
+    { class: 'field' },
+    h('span', { class: 'field-label' }, 'Your data'),
+    h(
+      'div',
+      { class: 'row' },
+      exportBtn,
+      btn({ label: 'Privacy policy', icon: 'shield', small: true, kind: 'quiet', onclick: () => api.open(PRIVACY_URL).catch((e) => toast(errText(e), 'error')) }),
+      btn({
+        label: 'Delete my account',
+        icon: 'trash-2',
+        small: true,
+        kind: 'quiet',
+        onclick: () => {
+          confirmBox.hidden = false;
+          typed.focus();
+        },
+      }),
+    ),
+    confirmBox,
   );
 }
 

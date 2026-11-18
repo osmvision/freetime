@@ -820,6 +820,94 @@ pub fn reset_friend_tag(state: State<'_, AppState>) -> Res<String> {
     Client::new().map_err(err)?.reset_friend_tag(&session).map_err(err)
 }
 
+// ---------------------------------------------------------------- message notifications
+
+/// While signed in (and if enabled), checks for new messages every minute: updates the unread
+/// badge, and shows a Windows notification for messages that arrived since the last check,
+/// unless the freetime window is in front. The first check after starting only takes note of
+/// what's already there.
+pub fn watch_messages(app: AppHandle) {
+    use tauri_plugin_notification::NotificationExt;
+    thread::spawn(move || {
+        let mut seen: HashMap<String, String> = HashMap::new();
+        let mut baseline = true;
+        thread::sleep(Duration::from_secs(8));
+        loop {
+            let enabled = Config::load().map(|c| c.notify_messages).unwrap_or(false);
+            let state = app.state::<AppState>();
+            let signed_in = lock(&state.account).is_some() || account::has_saved_session();
+            if !enabled || !signed_in {
+                seen.clear();
+                baseline = true;
+            } else if let (Ok(s), Ok(client)) = (live_session(&state), Client::new()) {
+                if let Ok(convs) = client.conversations(&s) {
+                    let _ = app.emit("unread-updated", convs.iter().map(|c| c.unread).sum::<i64>());
+                    let focused = app.get_webview_window("main").and_then(|w| w.is_focused().ok()).unwrap_or(false);
+                    let mut fresh = Vec::new();
+                    for c in &convs {
+                        let last = c.last_at.clone().unwrap_or_default();
+                        let before = seen.insert(c.conversation_id.clone(), last.clone());
+                        let from_them = c.last_sender.as_deref().is_some_and(|who| who != s.user_id);
+                        if !baseline && !focused && c.unread > 0 && from_them && before.as_deref() != Some(last.as_str()) {
+                            fresh.push(c.clone());
+                        }
+                    }
+                    if !fresh.is_empty() {
+                        let names: HashMap<String, String> =
+                            client.friends(&s).unwrap_or_default().into_iter().map(|f| (f.user_id, f.display_name)).collect();
+                        for c in fresh.iter().take(3) {
+                            let who = names.get(&c.friend).cloned().unwrap_or_else(|| "A friend".to_string());
+                            let preview: String = c.last_body.clone().unwrap_or_default().split_whitespace().collect::<Vec<_>>().join(" ");
+                            let preview: String = if preview.chars().count() > 120 { preview.chars().take(117).collect::<String>() + "…" } else { preview };
+                            let _ = app.notification().builder().title(format!("{who} on freetime")).body(preview).show();
+                        }
+                    }
+                    baseline = false;
+                }
+            }
+            thread::sleep(Duration::from_secs(60));
+        }
+    });
+}
+
+#[tauri::command(async)]
+pub fn set_notify_messages(enabled: bool) -> Res<()> {
+    let mut cfg = Config::load().map_err(err)?;
+    cfg.notify_messages = enabled;
+    cfg.save().map_err(err)
+}
+
+#[tauri::command(async)]
+pub fn get_notify_messages() -> Res<bool> {
+    Ok(Config::load().map_err(err)?.notify_messages)
+}
+
+// ---------------------------------------------------------------- your data (GDPR) and reports
+
+/// Saves everything stored about you online to Downloads; returns the file path.
+#[tauri::command(async)]
+pub fn export_my_data(state: State<'_, AppState>) -> Res<String> {
+    let s = live_session(&state)?;
+    let data = Client::new().map_err(err)?.export_my_data(&s).map_err(err)?;
+    let path = account::save_export(&data, chrono::Local::now()).map_err(err)?;
+    Ok(path.display().to_string())
+}
+
+/// Deletes the online account for good. The solo app and its data on this PC stay.
+#[tauri::command(async)]
+pub fn delete_my_account(state: State<'_, AppState>) -> Res<()> {
+    let s = live_session(&state)?;
+    Client::new().map_err(err)?.delete_my_account(&s).map_err(err)?;
+    *lock(&state.account) = None;
+    Ok(())
+}
+
+#[tauri::command(async)]
+pub fn report_user(state: State<'_, AppState>, user_id: String, reason: String, details: String, message_ids: Vec<i64>) -> Res<()> {
+    let s = live_session(&state)?;
+    Client::new().map_err(err)?.report(&s, &user_id, &reason, &details, &message_ids).map_err(err)
+}
+
 // ---------------------------------------------------------------- online friends and messages
 
 #[derive(Serialize)]

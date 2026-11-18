@@ -179,6 +179,7 @@ async function start() {
   renderTags(boot.online);
   discover.init(views.discover, boot, ctx);
   if (after === 'profile') goto('settings', { focus: 'profile' });
+  await listen('unread-updated', (n) => ctx.setUnread(n));
   await listen('online-updated', (online) => {
     renderTags(online);
     discover.onOnline(online);

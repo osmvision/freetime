@@ -10,7 +10,9 @@ grant usage on schema auth to anon, authenticated;
 
 create table auth.users (
   id uuid primary key,
-  email text
+  email text,
+  created_at timestamptz default now(),
+  last_sign_in_at timestamptz
 );
 
 -- Same contract as Supabase's auth.uid(): the "sub" claim of the request's JWT.

@@ -1,0 +1,90 @@
+# freetime privacy policy
+
+Last updated: 18 November 2026. In plain words: what freetime stores, where, and how you stay in
+control.
+
+## The short version
+
+- freetime works **without an account**. Used that way, your data stays on your PC.
+- The **online profile is optional**. If you sign in, we store the minimum needed for friends and
+  messages, in the European Union, and you can export or delete it from the app at any time.
+- No ads. Your data is not sold, rented or used to profile you for anyone else.
+
+## On your PC (always)
+
+Settings, your picks history and ratings, imported Steam games, cached store and video lists, and
+friends added by code are stored in your Windows user folders (`%APPDATA%\freetime`). They never
+leave your PC unless you send something yourself. "Open data folder" in Settings shows them;
+deleting that folder removes them.
+
+To work, the app contacts these services, and only for what you see on screen:
+
+| Service | Why | What it receives |
+| --- | --- | --- |
+| Open-Meteo | Weather and the city search | The coordinates of the city you chose, or what you type in the city box |
+| Steam store | Store picks and prices | Your country code |
+| YouTube (RSS) | Video picks | The channels and topics in your settings |
+| Steam on your PC | "Import my games", only when you click it | Read locally: your game list and playtime. No login data |
+
+## Online profile (only if you sign in)
+
+**What we store**
+
+- From Google: an account ID and your email address. The email is only visible to you and is used
+  to run your account. Your real name and Google photo are not copied.
+- What you choose to share: display name, avatar icon and color, bio, status, and your friend tag.
+- Your friend requests, friendships and blocks.
+- Your messages and the conversations you are part of.
+- Reports you make.
+
+**Who sees what**
+
+- Your friends, and people you have a pending request with, see your name, avatar, bio and status.
+- Only the two people in a conversation can read it. Messages are encrypted in transit and stored
+  encrypted on disk by our hosting provider, but they are **not end-to-end encrypted**: the people
+  who run freetime could technically access them. We only do so to handle a report you or the other
+  person made, or when the law requires it.
+- Reports are read only by the freetime team. The reported person is not told who reported them.
+
+**Where**
+
+Data is hosted by Supabase in the European Union (Ireland). Sign-in goes through Google. Both act as
+our processors.
+
+**Legal basis**
+
+Running the service you asked for (your account, friends and messages), and our legitimate interest
+in keeping the service safe (reports, rate limits, blocking).
+
+**How long**
+
+As long as your account exists. Deleting a message removes it. Deleting your account removes your
+login, profile, friendships, blocks and the messages you sent, immediately. Reports are kept for up
+to one year after they are handled.
+
+## Your rights
+
+You can, from the app (Settings → Profile):
+
+- **Export your data** as a file (right of access and portability).
+- **Edit your profile** (right to rectification).
+- **Delete your account** (right to erasure).
+
+For anything else, including objecting to a use of your data, open an issue at
+https://github.com/osmvision/freetime/issues or contact the maintainers. You can also complain to
+your data protection authority (in France, the CNIL: https://www.cnil.fr).
+
+## Age
+
+Online profiles are for people aged 15 and over.
+
+## Security
+
+Sign-in happens in your own browser: freetime never sees your Google password. Your session is kept
+in Windows Credential Manager. Every table in the database is protected by access rules that are
+tested automatically. If you find a security problem, please report it privately to the
+maintainers rather than in a public issue.
+
+## Changes
+
+If this policy changes in a way that matters, the app will tell you before it applies.

@@ -13,3 +13,5 @@ chrono = "0.4"
 freetime-core = { path = "../core" }
 serde = { version = "1", features = ["derive"] }
 tauri = { version = "2", features = [] }
+# Windows notifications for new messages (only while signed in, and only if enabled).
+tauri-plugin-notification = "2"
