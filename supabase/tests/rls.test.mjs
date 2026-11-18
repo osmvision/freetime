@@ -486,3 +486,44 @@ test('invites: blocked people, bad times and text are refused; 30 an hour at mos
     assert.equal((await step(BOB, (q) => q.rows('select * from public.my_invites()'))).length, 0, 'invites from blocked people disappear');
   });
 });
+// ---------------------------------------------------------------- shared game lists
+
+test('game lists: shared only on request, readable by friends only, removable', async () => {
+  await withPeople(async ({ tags, step }) => {
+    await befriend(ALICE, BOB);
+    await step(CAROL, (q) => q.one('select public.send_friend_request($1)', [tags[ALICE]]));
+    assert.equal((await step(BOB, (q) => q.rows('select * from public.game_libraries'))).length, 0, 'nothing until shared');
+    await step(ALICE, (q) => q.one('select public.share_library($1::int[], $2::smallint[])', [[570, 730], [50, 0, 0, 0, 0, 0, 0, 0]]));
+    assert.deepEqual((await step(BOB, (q) => q.one('select app_ids from public.game_libraries where user_id = $1', [ALICE]))).app_ids, [570, 730]);
+    assert.equal((await step(CAROL, (q) => q.rows('select * from public.game_libraries'))).length, 0, 'a pending request is not enough');
+    // Sharing again replaces the list.
+    await step(ALICE, (q) => q.one('select public.share_library($1::int[], $2::smallint[])', [[440], [0, 0, 0, 0, 0, 0, 0, 0]]));
+    assert.deepEqual((await step(ALICE, (q) => q.one('select app_ids from public.game_libraries where user_id = $1', [ALICE]))).app_ids, [440]);
+    await step(ALICE, (q) => q.one('select public.stop_sharing_library()'));
+    assert.equal((await step(BOB, (q) => q.rows('select * from public.game_libraries'))).length, 0, 'stopping deletes it');
+  });
+});
+
+test('game lists: nobody writes directly or for someone else; values are checked; blocks hide them', async () => {
+  await withPeople(async ({ step }) => {
+    await befriend(ALICE, BOB);
+    await step(BOB, async (q) => {
+      await fails(q.rows("insert into public.game_libraries (user_id, app_ids) values ($1, '{1}')", [ALICE]), /permission denied/);
+    });
+    await step(ALICE, async (q) => {
+      await fails(q.one('select public.share_library($1::int[], $2::smallint[])', [[570], [500, 0, 0, 0, 0, 0, 0, 0]]), /check constraint/);
+    });
+    await step(ALICE, async (q) => {
+      await fails(q.one('select public.share_library($1::int[], $2::smallint[])', [[-5], [0, 0, 0, 0, 0, 0, 0, 0]]), /check constraint/);
+    });
+    await step(ALICE, (q) => q.one('select public.share_library($1::int[], $2::smallint[])', [[570], [0, 0, 0, 0, 0, 0, 0, 0]]));
+    await step(BOB, async (q) => {
+      await fails(q.rows('delete from public.game_libraries'), /permission denied/);
+    });
+    await step(BOB, (q) => q.rows('insert into public.blocks (blocker, blocked) values ($1, $2)', [BOB, ALICE]));
+    assert.equal((await step(BOB, (q) => q.rows('select * from public.game_libraries where user_id = $1', [ALICE]))).length, 0);
+    await step(null, async (q) => {
+      await fails(q.one('select public.share_library($1::int[], $2::smallint[])', [[1], [0, 0, 0, 0, 0, 0, 0, 0]]), /permission denied/);
+    });
+  });
+});

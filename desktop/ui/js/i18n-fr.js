@@ -489,6 +489,16 @@ export const exact = {
   'this pick can’t be sent': 'cette idée ne peut pas être envoyée',
   "this pick can't be sent": 'cette idée ne peut pas être envoyée',
 
+  // ------------------------------------------------------------ playing together
+  'co-op: play it together': 'en coop : à faire ensemble',
+  multiplayer: 'multijoueur',
+  'Play together': 'Jouer ensemble',
+  'Share my Steam game list with friends': 'Partager ma liste de jeux Steam avec mes amis',
+  'Import your Steam games below first.': 'Importe d’abord tes jeux Steam plus bas.',
+  'Your game list is shared with your friends': 'Ta liste de jeux est partagée avec tes amis',
+  'Your game list is no longer shared': 'Ta liste de jeux n’est plus partagée',
+  'Add a friend': 'Ajouter un ami',
+
   // ------------------------------------------------------------ server messages
   'no one has that friend tag': 'personne n’a ce tag d’ami',
   'a friend tag looks like 7F3A9-C21DE': 'un tag d’ami ressemble à 7F3A9-C21DE',
@@ -582,6 +592,10 @@ export const patterns = [
   ['YouTube API unavailable ({0}).', 'API YouTube indisponible ({0}).'],
   ['Steam: {0}', 'Steam : {0}'],
   ['I’m free for {0}', 'Je suis libre pendant {0}'],
+  ['{0} · free now', '{0} · libre maintenant'],
+  ['{0} · code', '{0} · code ami'],
+  ['Your friends can see the ids of your {n0} Steam games, so freetime can find what you can play together.', 'Tes amis voient les identifiants de tes {0} jeux Steam, pour que freetime trouve à quoi jouer ensemble.'],
+  ['Shares the ids of your {n0} Steam games and your taste, with your friends only. Turning it off deletes them.', 'Partage les identifiants de tes {0} jeux Steam et tes goûts, avec tes amis seulement. Désactiver les supprime.'],
   ['Free until {0} · Stop', 'Libre jusqu’à {0} · Arrêter'],
   ['Free until {0}', 'Libre jusqu’à {0}'],
   ['until {0}', 'jusqu’à {0}'],

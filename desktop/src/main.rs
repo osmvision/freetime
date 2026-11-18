@@ -43,6 +43,8 @@ fn main() {
             commands::get_account,
             commands::save_profile,
             commands::reset_friend_tag,
+            commands::get_share_library,
+            commands::set_share_library,
             commands::set_free,
             commands::get_invites,
             commands::send_invites,

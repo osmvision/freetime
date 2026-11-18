@@ -148,8 +148,44 @@ function card(box, acc, onChange) {
         h('span', { class: 'hint' }, 'Friends add you with this tag in the Friends tab.'),
       ),
       notifications(),
+      shareGames(),
       yourData(box, onChange),
     ),
+  );
+}
+
+/** Opt-in: share your Steam game list (ids only) and taste with friends, for picks together. */
+function shareGames() {
+  const box = h('input', { type: 'checkbox' });
+  const hint = h('span', { class: 'hint' });
+  const paint = (v) => {
+    box.checked = v.enabled;
+    hint.textContent = v.games
+      ? v.enabled
+        ? `Your friends can see the ids of your ${v.games} Steam games, so freetime can find what you can play together.`
+        : `Shares the ids of your ${v.games} Steam games and your taste, with your friends only. Turning it off deletes them.`
+      : 'Import your Steam games below first.';
+    box.disabled = !v.games && !v.enabled;
+  };
+  api.getShareLibrary().then(paint).catch(() => {});
+  box.addEventListener('change', async () => {
+    box.disabled = true;
+    try {
+      const v = await api.setShareLibrary(box.checked);
+      paint(v);
+      toast(v.enabled ? 'Your game list is shared with your friends' : 'Your game list is no longer shared', 'ok');
+    } catch (e) {
+      box.checked = !box.checked;
+      box.disabled = false;
+      toast(errText(e), 'error');
+    }
+  });
+  return h(
+    'div',
+    { class: 'field' },
+    h('span', { class: 'field-label' }, 'Play together'),
+    h('label', { class: 'check' }, box, 'Share my Steam game list with friends'),
+    hint,
   );
 }
 

@@ -362,6 +362,38 @@ impl Client {
         Ok(())
     }
 
+    // ------------------------------------------------------------ shared game lists (opt-in)
+
+    /// Shares (or refreshes) your Steam app ids and taste with your friends.
+    pub fn share_library(&self, s: &Session, app_ids: &[u32], taste: &[i8; 8]) -> Result<()> {
+        let ids: Vec<u32> = app_ids.iter().copied().filter(|a| *a > 0 && *a <= i32::MAX as u32).take(10_000).collect();
+        let taste: Vec<i16> = taste.iter().map(|t| (*t as i16).clamp(-100, 100)).collect();
+        self.call("POST", "/rest/v1/rpc/share_library", Some(&s.access_token), Some(&json!({ "app_ids": ids, "taste": taste })), None)?;
+        Ok(())
+    }
+
+    /// Deletes your shared list from the server.
+    pub fn stop_sharing_library(&self, s: &Session) -> Result<()> {
+        self.call("POST", "/rest/v1/rpc/stop_sharing_library", Some(&s.access_token), Some(&json!({})), None)?;
+        Ok(())
+    }
+
+    /// The shared lists of these friends (those who share; the database only returns friends').
+    pub fn libraries(&self, s: &Session, user_ids: &[String]) -> Result<Vec<SharedLibrary>> {
+        let ids: Vec<&str> = user_ids.iter().map(String::as_str).filter(|id| ensure_uuid(id).is_ok()).take(20).collect();
+        if ids.is_empty() {
+            return Ok(Vec::new());
+        }
+        let v = self.call(
+            "GET",
+            &format!("/rest/v1/game_libraries?user_id=in.({})&select=user_id,app_ids,taste", ids.join(",")),
+            Some(&s.access_token),
+            None,
+            None,
+        )?;
+        serde_json::from_value(v).context("unexpected game lists response")
+    }
+
     // ------------------------------------------------------------ free now and invites
 
     /// Tells friends you're free for `minutes` (0 = not free any more). Returns the end time.
@@ -531,6 +563,14 @@ pub struct FriendEntry {
     /// Set while this friend is free (only shown for accepted friends).
     #[serde(default)]
     pub free_until: Option<String>,
+}
+
+/// A friend's shared Steam app ids and taste.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SharedLibrary {
+    pub user_id: String,
+    pub app_ids: Vec<u32>,
+    pub taste: Vec<i16>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
