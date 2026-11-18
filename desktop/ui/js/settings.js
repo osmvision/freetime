@@ -1,5 +1,6 @@
 // City, interests, Steam and YouTube connections. API keys are write-only: the UI never sees them.
 
+import { profileSection } from './account.js';
 import { api } from './api.js';
 import { cityPicker, openMeteoCredit } from './city.js';
 import { emptyState, errText, h, icon, pageHead, toast } from './dom.js';
@@ -22,10 +23,11 @@ const INTEREST_IDEAS = [
 
 const head = () => pageHead('Settings', 'Everything here is optional: freetime works offline too.');
 
-export async function render(root, ctx) {
+export async function render(root, ctx, options = {}) {
   root.replaceChildren(head(), h('div', { class: 'ghost', style: 'height:420px' }));
   try {
     draw(root, ctx, await api.settings());
+    if (options.focus === 'profile') root.querySelector('.profile-box')?.scrollIntoView({ block: 'start' });
   } catch (e) {
     root.replaceChildren(head(), emptyState({ icon: 'triangle-alert', title: 'Could not load your settings', text: errText(e) }));
   }
@@ -62,8 +64,11 @@ function draw(root, ctx, s) {
     }
   }
 
+  const profileBox = h('div', { class: 'profile-box' });
+  profileSection(profileBox, () => ctx.accountChanged?.());
   root.replaceChildren(
     head(),
+    profileBox,
     h(
       'form',
       {

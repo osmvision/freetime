@@ -329,6 +329,165 @@ impl Client {
         let v = self.call("POST", "/rest/v1/rpc/reset_friend_tag", Some(&s.access_token), Some(&json!({})), None)?;
         v.as_str().map(str::to_string).ok_or_else(|| anyhow!("unexpected response"))
     }
+
+    // ------------------------------------------------------------ friends
+
+    /// Friends and requests (incoming and outgoing), never anyone else.
+    pub fn friends(&self, s: &Session) -> Result<Vec<FriendEntry>> {
+        let v = self.call("POST", "/rest/v1/rpc/my_friends", Some(&s.access_token), Some(&json!({})), None)?;
+        serde_json::from_value(v).context("unexpected friends response")
+    }
+
+    /// Sends a request to the owner of `tag`. Returns "pending" or "accepted" (they had asked you).
+    pub fn send_friend_request(&self, s: &Session, tag: &str) -> Result<String> {
+        let tag: String = tag.trim().to_uppercase().chars().filter(|c| c.is_ascii_alphanumeric() || *c == '-').take(16).collect();
+        if tag.len() != 11 {
+            bail!("a friend tag looks like 7F3A9-C21DE");
+        }
+        let v = self.call("POST", "/rest/v1/rpc/send_friend_request", Some(&s.access_token), Some(&json!({ "tag": tag })), None)?;
+        v.as_str().map(str::to_string).ok_or_else(|| anyhow!("unexpected response"))
+    }
+
+    /// Accepts a request someone sent you.
+    pub fn accept_friend(&self, s: &Session, requester: &str) -> Result<()> {
+        ensure_uuid(requester)?;
+        ensure_uuid(&s.user_id)?;
+        let v = self.call(
+            "PATCH",
+            &format!("/rest/v1/friendships?requester=eq.{requester}&addressee=eq.{}&status=eq.pending", s.user_id),
+            Some(&s.access_token),
+            Some(&json!({ "status": "accepted" })),
+            Some("return=representation"),
+        )?;
+        if v.as_array().map_or(true, Vec::is_empty) {
+            bail!("that request isn't waiting any more");
+        }
+        Ok(())
+    }
+
+    /// Unfriend, decline or cancel: removes whatever links you two.
+    pub fn remove_friend(&self, s: &Session, other: &str) -> Result<()> {
+        ensure_uuid(other)?;
+        ensure_uuid(&s.user_id)?;
+        let me = &s.user_id;
+        self.call(
+            "DELETE",
+            &format!("/rest/v1/friendships?or=(and(requester.eq.{me},addressee.eq.{other}),and(requester.eq.{other},addressee.eq.{me}))"),
+            Some(&s.access_token),
+            None,
+            None,
+        )?;
+        Ok(())
+    }
+
+    /// Blocks someone: ends any friendship and stops their requests and messages.
+    pub fn block(&self, s: &Session, other: &str) -> Result<()> {
+        ensure_uuid(other)?;
+        self.call("POST", "/rest/v1/blocks", Some(&s.access_token), Some(&json!({ "blocker": s.user_id, "blocked": other })), None)?;
+        Ok(())
+    }
+
+    // ------------------------------------------------------------ messages
+
+    /// The direct chat with a friend (created the first time).
+    pub fn open_direct(&self, s: &Session, friend: &str) -> Result<String> {
+        ensure_uuid(friend)?;
+        let v = self.call("POST", "/rest/v1/rpc/open_direct", Some(&s.access_token), Some(&json!({ "friend": friend })), None)?;
+        let id = v.as_str().map(str::to_string).ok_or_else(|| anyhow!("unexpected response"))?;
+        ensure_uuid(&id)?;
+        Ok(id)
+    }
+
+    pub fn conversations(&self, s: &Session) -> Result<Vec<ConversationEntry>> {
+        let v = self.call("POST", "/rest/v1/rpc/my_conversations", Some(&s.access_token), Some(&json!({})), None)?;
+        serde_json::from_value(v).context("unexpected conversations response")
+    }
+
+    /// Messages after `after` (an id), oldest first; with `after` = 0, the latest 100.
+    pub fn messages(&self, s: &Session, conversation: &str, after: i64) -> Result<Vec<Message>> {
+        ensure_uuid(conversation)?;
+        let cols = "id,sender,body,created_at";
+        let path = if after <= 0 {
+            format!("/rest/v1/messages?conversation_id=eq.{conversation}&select={cols}&order=id.desc&limit=100")
+        } else {
+            format!("/rest/v1/messages?conversation_id=eq.{conversation}&id=gt.{after}&select={cols}&order=id.asc&limit=200")
+        };
+        let v = self.call("GET", &path, Some(&s.access_token), None, None)?;
+        let mut list: Vec<Message> = serde_json::from_value(v).context("unexpected messages response")?;
+        list.sort_by_key(|m| m.id);
+        Ok(list)
+    }
+
+    pub fn send_message(&self, s: &Session, conversation: &str, body: &str) -> Result<Message> {
+        ensure_uuid(conversation)?;
+        let body = clean_message(body)?;
+        let v = self.call(
+            "POST",
+            "/rest/v1/messages?select=id,sender,body,created_at",
+            Some(&s.access_token),
+            Some(&json!({ "conversation_id": conversation, "body": body })),
+            Some("return=representation"),
+        )?;
+        let mut list: Vec<Message> = serde_json::from_value(v).context("unexpected response")?;
+        list.pop().ok_or_else(|| anyhow!("the message wasn't sent"))
+    }
+
+    pub fn mark_read(&self, s: &Session, conversation: &str, up_to: i64) -> Result<()> {
+        ensure_uuid(conversation)?;
+        ensure_uuid(&s.user_id)?;
+        self.call(
+            "PATCH",
+            &format!("/rest/v1/conversation_members?conversation_id=eq.{conversation}&user_id=eq.{}", s.user_id),
+            Some(&s.access_token),
+            Some(&json!({ "last_read_id": up_to.max(0) })),
+            None,
+        )?;
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FriendEntry {
+    pub user_id: String,
+    /// "friend", "incoming" or "outgoing".
+    pub state: String,
+    pub display_name: String,
+    pub avatar_icon: i16,
+    pub avatar_color: i16,
+    pub bio: String,
+    pub status_text: String,
+    pub since: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ConversationEntry {
+    pub conversation_id: String,
+    pub friend: String,
+    pub last_body: Option<String>,
+    pub last_sender: Option<String>,
+    pub last_at: Option<String>,
+    pub unread: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Message {
+    pub id: i64,
+    pub sender: String,
+    pub body: String,
+    pub created_at: String,
+}
+
+/// Same limits as the database: 1 to 2,000 characters, line breaks and tabs allowed.
+pub fn clean_message(body: &str) -> Result<String> {
+    let cleaned: String = body.chars().filter(|c| !c.is_control() || *c == '\n' || *c == '\t').collect();
+    let trimmed = cleaned.trim_matches(|c: char| c == ' ' || c == '\n' || c == '\t' || c == '\r');
+    if trimmed.is_empty() {
+        bail!("the message is empty");
+    }
+    if trimmed.chars().count() > 2000 {
+        bail!("messages are limited to 2,000 characters");
+    }
+    Ok(trimmed.to_string())
 }
 
 fn ensure_uuid(id: &str) -> Result<()> {
@@ -492,6 +651,14 @@ mod tests {
         assert!(ProfileEdit { display_name: "x".repeat(25), ..ok.clone() }.checked().is_err());
         assert!(ProfileEdit { avatar_icon: 24, ..ok.clone() }.checked().is_err());
         assert!(ProfileEdit { bio: "b".repeat(161), ..ok.clone() }.checked().is_err());
+    }
+
+    #[test]
+    fn messages_are_cleaned_like_the_database_does() {
+        assert_eq!(clean_message("  hi\n there \u{7}\r\n").unwrap(), "hi\n there");
+        assert!(clean_message(" \n\t ").is_err());
+        assert!(clean_message(&"x".repeat(2001)).is_err());
+        assert_eq!(clean_message(&"x".repeat(2000)).unwrap().len(), 2000);
     }
 
     #[test]

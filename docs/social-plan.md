@@ -1,8 +1,9 @@
 # freetime social: accounts, friends, chat and communities
 
 Status: phase 1 (friend codes, no server) is built: see `core/src/party.rs` and the Friends tab.
-Phase 0 has started: `supabase/migrations` (profiles, friends, blocks) with permission tests in
-`supabase/tests`. Phases 2 onward are proposals. Read the decisions at the end before starting them.
+Built so far: phase 0 (`supabase/migrations`, permission tests in `supabase/tests`), Google sign-in
+and profiles (phase 2), friends by tag and direct messages (phase 3). Communities (phase 4) onward
+are proposals. Read the decisions at the end before starting them.
 
 ## Goal
 
@@ -13,6 +14,19 @@ working exactly as today, offline and without an account.
 
 Non-goals for now: voice or video calls, file and image sharing in chat, a public directory of
 users, ads, selling anything.
+
+## Where things live in the app (UX)
+
+- **Profile:** a chip in the top bar (your avatar and name, or "Sign in") opens Settings, where
+  the Profile section shows a compact card: avatar, name, status, bio, friend tag (copy, reset),
+  Edit profile and Sign out. The full editor only opens on Edit profile.
+- **Friends tab:** Add a friend by tag, Requests (accept, decline, cancel), Your friends
+  (Message, Remove, Block; remove and block ask for a second click). Friend codes, which need no
+  account, are folded into a "Pick together without an account" section.
+- **Messages tab:** conversations on the left (unread counts, last message), the chat on the
+  right. Enter sends, Shift+Enter adds a line. New messages are fetched every 3 seconds while a
+  chat is open and the window is visible, and the list every 20 seconds; nothing is fetched on
+  other screens. Live delivery (Supabase Realtime) can replace the polling later.
 
 ## Security principles (the rules every phase follows)
 

@@ -39,6 +39,15 @@ fn main() {
             commands::get_account,
             commands::save_profile,
             commands::reset_friend_tag,
+            commands::social_overview,
+            commands::friend_request,
+            commands::accept_friend,
+            commands::unfriend,
+            commands::block_user,
+            commands::open_chat,
+            commands::chat_messages,
+            commands::send_message,
+            commands::mark_read,
         ])
         .run(tauri::generate_context!())
         .expect("error while running freetime");

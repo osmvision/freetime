@@ -1,45 +1,166 @@
-// Friends without accounts: swap friend codes (over Discord or anywhere), then pick together.
-// Nothing here talks to a server: the code is shown, the user copies and sends it themselves.
+// Friends: online friends (signed in, added by friend tag) first; friend codes, which need no
+// account and no server, folded away below.
 
-import { accountPanel } from './account.js';
 import { api } from './api.js';
 import { AVATAR_COLORS, AVATAR_ICONS, avatar } from './avatars.js';
 import { btn, emptyState, errText, fill, h, icon, pageHead, toast } from './dom.js';
 
-const head = () =>
-  pageHead(
-    'Friends',
-    'Pick together without accounts: swap friend codes over Discord or anywhere, then choose “With friends” on Discover.',
-  );
+const head = () => pageHead('Friends', 'Add friends by their tag, answer requests, and message them.');
 
 export async function render(root, ctx) {
-  root.replaceChildren(head(), h('div', { class: 'ghost', style: 'height:360px' }));
+  root.replaceChildren(head(), h('div', { class: 'ghost', style: 'height:300px' }));
+  let status;
+  let mine;
+  let codeFriends;
   try {
-    const [mine, friends] = await Promise.all([api.myFriendCode(), api.friends()]);
-    draw(root, ctx, mine, friends);
+    [status, mine, codeFriends] = await Promise.all([api.accountStatus().catch(() => ({ signed_in: false })), api.myFriendCode(), api.friends()]);
   } catch (e) {
     root.replaceChildren(head(), emptyState({ icon: 'triangle-alert', title: 'Could not load your friends', text: errText(e) }));
+    return;
+  }
+  const online = h('div', { class: 'online-friends' });
+  const codes = h(
+    'details',
+    { class: 'codes' },
+    h('summary', {}, icon('ticket'), h('span', { class: 'codes-title' }, 'Pick together without an account'), h('span', { class: 'hint' }, 'friend codes · no server')),
+    h('p', { class: 'section-desc' }, 'Swap codes over Discord or anywhere, then choose “With friends” on Discover to find games you both own.'),
+    h('div', { class: 'friends-grid' }, myCodePanel(mine, ctx), addPanel(root, ctx)),
+    friendsList(root, ctx, codeFriends),
+  );
+  root.replaceChildren(head(), online, codes);
+  if (status.signed_in) {
+    onlineSection(online, ctx);
+  } else {
+    codes.open = true;
+    fill(
+      online,
+      h(
+        'div',
+        { class: 'strip' },
+        icon('user'),
+        h('div', { class: 'strip-text' }, h('strong', {}, 'Sign in to add friends and message them'), h('span', {}, 'Optional: your profile lives in Settings.')),
+        btn({ label: 'Go to profile', icon: 'log-in', small: true, onclick: () => ctx.goto('settings', { focus: 'profile' }) }),
+      ),
+    );
   }
 }
 
-function draw(root, ctx, mine, friends) {
-  const accountBox = h('div', { class: 'account-box' });
-  root.replaceChildren(
-    head(),
-    accountBox,
-    h('div', { class: 'friends-grid' }, myCodePanel(mine, ctx), addPanel(root, ctx)),
-    friendsList(root, ctx, friends),
+// ---------------------------------------------------------------- online friends
+
+async function onlineSection(box, ctx) {
+  fill(box, h('div', { class: 'ghost', style: 'height:200px;margin-bottom:18px' }));
+  let data;
+  try {
+    data = await api.socialOverview();
+  } catch (e) {
+    fill(box, h('div', { class: 'strip' }, icon('triangle-alert'), h('div', { class: 'strip-text' }, h('strong', {}, 'Could not load your friends'), h('span', {}, errText(e))), btn({ label: 'Try again', small: true, onclick: () => onlineSection(box, ctx) })));
+    return;
+  }
+  ctx.setUnread?.(data.conversations.reduce((n, c) => n + c.unread, 0));
+  const reload = () => onlineSection(box, ctx);
+  const friends = data.friends.filter((f) => f.state === 'friend');
+  const incoming = data.friends.filter((f) => f.state === 'incoming');
+  const outgoing = data.friends.filter((f) => f.state === 'outgoing');
+
+  fill(
+    box,
+    addByTag(reload),
+    incoming.length || outgoing.length
+      ? h(
+          'section',
+          { class: 'panel people' },
+          h('h2', {}, 'Requests'),
+          incoming.map((f) =>
+            person(f, 'wants to be your friend', [
+              btn({ label: 'Accept', icon: 'user-check', small: true, onclick: () => act(api.acceptFriend(f.user_id), `You and ${f.display_name} are friends`, reload) }),
+              btn({ label: 'Decline', kind: 'quiet', small: true, onclick: () => act(api.unfriend(f.user_id), 'Request declined', reload) }),
+            ]),
+          ),
+          outgoing.map((f) => person(f, 'request sent', [btn({ label: 'Cancel', kind: 'quiet', small: true, onclick: () => act(api.unfriend(f.user_id), 'Request cancelled', reload) })])),
+        )
+      : null,
+    h(
+      'section',
+      { class: 'panel people' },
+      h('h2', {}, `Your friends${friends.length ? ` · ${friends.length}` : ''}`),
+      friends.length
+        ? friends.map((f) =>
+            person(f, f.status_text || f.bio || '', [
+              btn({ label: 'Message', icon: 'message-circle', small: true, onclick: () => ctx.openChat(f.user_id) }),
+              confirmBtn(`Remove ${f.display_name}`, 'user-x', () => act(api.unfriend(f.user_id), `${f.display_name} removed`, reload)),
+              confirmBtn(`Block ${f.display_name}`, 'ban', () => act(api.blockUser(f.user_id), `${f.display_name} blocked`, reload)),
+            ]),
+          )
+        : h('p', { class: 'hint' }, 'No friends yet. Send your tag (Settings → Profile) to a friend, or add theirs above.'),
+    ),
   );
-  // A profile save also updates the friend code's name and avatar: redraw the code panel.
-  accountPanel(accountBox, async () => {
+}
+
+function addByTag(reload) {
+  const input = h('input', { class: 'input', type: 'text', placeholder: 'Friend tag, like 7F3A9-C21DE', maxlength: 16, spellcheck: 'false', autocomplete: 'off', 'aria-label': 'Friend tag' });
+  const status = h('div', { class: 'city-status', 'aria-live': 'polite' });
+  const send = async () => {
+    if (!input.value.trim()) return;
+    send.button.disabled = true;
     try {
-      const fresh = await api.myFriendCode();
-      const grid = root.querySelector('.friends-grid');
-      grid?.replaceChild(myCodePanel(fresh, ctx), grid.firstChild);
-    } catch {
-      // The panel keeps its previous code.
+      const result = await api.friendRequest(input.value);
+      toast(result === 'accepted' ? 'You are now friends' : 'Request sent', 'ok');
+      reload();
+    } catch (e) {
+      status.className = 'city-status warn';
+      status.textContent = errText(e);
+      send.button.disabled = false;
     }
+  };
+  send.button = btn({ label: 'Send request', icon: 'user-plus', onclick: send });
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') send();
   });
+  return h('section', { class: 'panel section add-tag' }, h('div', { class: 'section-top' }, icon('user-plus'), h('h2', {}, 'Add a friend')), h('div', { class: 'row' }, input, send.button), status);
+}
+
+function person(f, sub, actions) {
+  return h(
+    'div',
+    { class: 'friend' },
+    avatar({ icon: f.avatar_icon, color: f.avatar_color }),
+    h('div', { class: 'entry-main' }, h('div', { class: 'entry-title' }, f.display_name), sub ? h('div', { class: 'entry-sub' }, sub) : null),
+    h('div', { class: 'person-actions' }, actions),
+  );
+}
+
+/** A small icon button that asks for a second click before acting. */
+function confirmBtn(label, iconName, action) {
+  const b = btn({ label, icon: iconName, kind: 'quiet', small: true, square: true });
+  let armed = null;
+  b.addEventListener('click', () => {
+    if (armed) {
+      clearTimeout(armed);
+      armed = null;
+      action();
+      return;
+    }
+    b.classList.add('armed');
+    b.setAttribute('aria-label', `${label}: click again to confirm`);
+    b.title = 'Click again to confirm';
+    armed = setTimeout(() => {
+      armed = null;
+      b.classList.remove('armed');
+      b.setAttribute('aria-label', label);
+      b.title = label;
+    }, 4000);
+  });
+  return b;
+}
+
+async function act(promise, done, reload) {
+  try {
+    await promise;
+    toast(done, 'ok');
+    reload();
+  } catch (e) {
+    toast(errText(e), 'error', 6000);
+  }
 }
 
 // ---------------------------------------------------------------- your code
@@ -206,7 +327,7 @@ function friendsList(root, ctx, friends) {
     return h(
       'div',
       { class: 'friends-empty' },
-      emptyState({ icon: 'users', title: 'No friends yet', text: 'Swap codes with someone, then pick “With friends” on Discover to find games you both own.' }),
+      emptyState({ icon: 'ticket', title: 'No codes added yet', text: 'Swap codes with someone, then pick “With friends” on Discover to find games you both own.' }),
     );
   }
   const remove = async (f) => {
@@ -222,7 +343,7 @@ function friendsList(root, ctx, friends) {
   return h(
     'section',
     { class: 'panel friends-list', 'aria-label': 'Your friends' },
-    h('h2', {}, 'Your friends'),
+    h('h2', {}, 'Added by code'),
     friends.map((f) =>
       h(
         'div',

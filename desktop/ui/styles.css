@@ -1684,8 +1684,355 @@ button.tag:hover {
   margin-bottom: 18px;
 }
 
-.account-box {
+/* ---------------------------------------------------------------- profile chip and badges */
+
+.me-chip {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 8px;
+  height: 40px;
+  margin-left: 10px;
+  padding: 0 12px 0 4px;
+  border: 1.5px solid rgba(244, 241, 234, 0.25);
+  border-radius: 20px;
+  background: none;
+  color: var(--on-navy);
+  font: 600 15px/1 var(--body);
+}
+
+.me-chip:hover {
+  border-color: var(--lavender);
+  background: var(--navy-2);
+}
+
+.me-chip > .icon {
+  margin-left: 8px;
+}
+
+.me-name {
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nav-badge {
+  display: inline-grid;
+  place-items: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 10px;
+  background: var(--lavender);
+  color: var(--purple);
+  font: 700 12px/1 var(--figures);
+}
+
+/* ---------------------------------------------------------------- profile (settings) */
+
+.profile-box {
   margin-bottom: 18px;
+}
+
+.profile-card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 18px;
+}
+
+.profile-name {
+  font: 800 28px/1.05 var(--display);
+  text-transform: uppercase;
+}
+
+.profile-status {
+  margin-top: 4px;
+  color: var(--purple);
+  font-weight: 600;
+}
+
+.profile-bio {
+  margin-top: 2px;
+  color: var(--text-2);
+}
+
+.profile-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
+/* ---------------------------------------------------------------- friends */
+
+.online-friends {
+  display: grid;
+  gap: 18px;
+  margin-bottom: 18px;
+}
+
+.people h2 {
+  margin-bottom: 6px;
+}
+
+.person-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.btn.armed {
+  border-color: var(--red);
+  background: var(--red);
+  color: #fff;
+}
+
+.add-tag .row .input {
+  font-family: var(--figures);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.codes {
+  padding: 4px 22px;
+  border-radius: var(--r-ticket);
+  background: var(--coupon);
+  box-shadow: var(--shadow);
+}
+
+.codes[open] {
+  padding-bottom: 22px;
+}
+
+.codes summary {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 56px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.codes summary::-webkit-details-marker {
+  display: none;
+}
+
+.codes summary > .icon {
+  width: 22px;
+  height: 22px;
+  color: var(--purple);
+}
+
+.codes-title {
+  font: 800 22px/1 var(--display);
+  text-transform: uppercase;
+}
+
+.codes .friends-grid .panel,
+.codes .friends-list {
+  box-shadow: none;
+  border: 1px solid var(--rule-soft);
+}
+
+/* ---------------------------------------------------------------- messages */
+
+.view.wide {
+  max-width: 1320px;
+  padding-bottom: 28px;
+}
+
+.chat-layout {
+  display: grid;
+  grid-template-columns: 300px minmax(0, 1fr);
+  height: calc(100vh - 64px - 36px - 28px);
+  min-height: 420px;
+  border-radius: var(--r-ticket);
+  background: var(--coupon);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+.chat-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 16px 10px;
+  border-right: 2px dashed rgba(13, 27, 61, 0.2);
+  background: var(--stock);
+  overflow-y: auto;
+}
+
+.chat-list-title {
+  margin: 4px 8px 12px;
+  font: 800 28px/1 var(--display);
+  text-transform: uppercase;
+}
+
+.chat-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  min-height: 56px;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  text-align: left;
+}
+
+.chat-row:hover {
+  background: #e8e8e4;
+}
+
+.chat-row[aria-current="true"] {
+  background: var(--lavender);
+}
+
+.chat-row-text {
+  display: grid;
+  min-width: 0;
+}
+
+.chat-row-name {
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chat-row-preview {
+  color: var(--text-3);
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chat-unread {
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  border-radius: 11px;
+  background: var(--purple);
+  color: #fff;
+  font: 700 12px/22px var(--figures);
+  text-align: center;
+}
+
+.chat-pane {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  min-width: 0;
+  min-height: 0;
+}
+
+.chat-pane > .empty,
+.chat-pane > .chat-empty {
+  grid-row: 1 / -1;
+  align-self: center;
+  margin: 24px;
+}
+
+.chat-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 18px;
+  border-bottom: 1px solid var(--rule-soft);
+}
+
+.chat-messages {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 18px;
+  overflow-y: auto;
+}
+
+.chat-empty {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  margin: auto;
+  color: var(--text-3);
+  text-align: center;
+}
+
+.chat-empty > .icon {
+  width: 40px;
+  height: 40px;
+  color: var(--purple);
+}
+
+.chat-day {
+  align-self: center;
+  margin: 10px 0 4px;
+  font: 700 12px/1 var(--display);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+
+.bubble {
+  align-self: flex-start;
+  max-width: min(70%, 560px);
+  padding: 8px 12px 6px;
+  border: 1px solid var(--rule-soft);
+  border-radius: 12px 12px 12px 4px;
+  background: var(--coupon);
+}
+
+.bubble.mine {
+  align-self: flex-end;
+  border-color: var(--navy);
+  border-radius: 12px 12px 4px 12px;
+  background: var(--navy);
+  color: var(--on-navy);
+}
+
+.bubble-text {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.bubble-time {
+  margin-top: 2px;
+  font: 400 11px/1 var(--figures);
+  color: var(--text-3);
+  text-align: right;
+}
+
+.bubble.mine .bubble-time {
+  color: var(--on-navy-2);
+}
+
+.chat-compose {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  padding: 12px 18px 16px;
+  border-top: 1px solid var(--rule-soft);
+}
+
+.chat-input {
+  flex: 1;
+  min-height: 46px;
+  max-height: 160px;
+  padding: 11px 12px;
+  border: 1.5px solid var(--rule-soft);
+  border-radius: var(--r-control);
+  background: var(--stock);
+  font: 400 15px/1.45 var(--body);
+  resize: none;
+}
+
+.chat-input:focus {
+  border-color: var(--navy);
+  outline: none;
 }
 
 .friend-tag {
@@ -2001,6 +2348,38 @@ button.tag:hover {
 
   .main {
     padding-bottom: 70px;
+  }
+
+  .me-name {
+    display: none;
+  }
+
+  .me-chip {
+    padding-right: 4px;
+  }
+
+  .chat-layout {
+    grid-template-columns: minmax(0, 1fr);
+    height: auto;
+  }
+
+  .chat-list {
+    max-height: 220px;
+    border-right: 0;
+    border-bottom: 2px dashed rgba(13, 27, 61, 0.2);
+  }
+
+  .chat-pane {
+    min-height: 60vh;
+  }
+
+  .profile-card {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .profile-actions {
+    grid-column: 1 / -1;
+    justify-content: flex-start;
   }
 
   .toasts {

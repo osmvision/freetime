@@ -4,11 +4,14 @@ import { loadPhotos } from './photos.js';
 import * as discover from './discover.js';
 import * as friendsView from './friends.js';
 import * as historyView from './history.js';
+import * as messagesView from './messages.js';
+import { avatar } from './avatars.js';
 import * as settingsView from './settings.js';
 
 const views = {
   discover: document.getElementById('view-discover'),
   friends: document.getElementById('view-friends'),
+  messages: document.getElementById('view-messages'),
   history: document.getElementById('view-history'),
   settings: document.getElementById('view-settings'),
 };
@@ -21,6 +24,13 @@ let city = null;
 const ctx = {
   goto,
   friendsChanged: () => discover.friendsChanged(),
+  accountChanged: () => renderMe(),
+  openChat: (friendId) => goto('messages', { friend: friendId }),
+  setUnread: (n) => {
+    const badge = document.getElementById('unread-badge');
+    badge.hidden = !n;
+    badge.textContent = n > 99 ? '99+' : String(n);
+  },
   settingsSaved: () => {
     discover.settingsChanged();
     api.bootstrap().then((b) => {
@@ -30,8 +40,9 @@ const ctx = {
   },
 };
 
-function goto(view) {
+function goto(view, options = {}) {
   if (!views[view]) return;
+  if (view !== 'messages') messagesView.stop();
   for (const [name, el] of Object.entries(views)) el.hidden = name !== view;
   for (const button of document.querySelectorAll('.nav-item')) {
     if (button.dataset.view === view) button.setAttribute('aria-current', 'page');
@@ -39,23 +50,48 @@ function goto(view) {
   }
   main.scrollTop = 0;
   if (view === 'friends') friendsView.render(views.friends, ctx);
+  if (view === 'messages') messagesView.render(views.messages, ctx, options);
   if (view === 'history') historyView.render(views.history, ctx);
-  if (view === 'settings') settingsView.render(views.settings, ctx);
+  if (view === 'settings') settingsView.render(views.settings, ctx, options);
 }
 
 for (const button of document.querySelectorAll('.nav-item')) {
   button.addEventListener('click', () => goto(button.dataset.view));
 }
 
-// Alt+1 to Alt+4 switch screens.
+// Alt+1 to Alt+5 switch screens.
 document.addEventListener('keydown', (e) => {
   if (!e.altKey || e.ctrlKey || e.metaKey) return;
-  const view = { 1: 'discover', 2: 'friends', 3: 'history', 4: 'settings' }[e.key];
+  const view = { 1: 'discover', 2: 'friends', 3: 'messages', 4: 'history', 5: 'settings' }[e.key];
   if (view) {
     e.preventDefault();
     goto(view);
   }
 });
+
+// ---------------------------------------------------------------- your profile chip (no network: local name and avatar)
+
+const meChip = document.getElementById('me-chip');
+meChip.addEventListener('click', () => goto('settings', { focus: 'profile' }));
+
+async function renderMe() {
+  try {
+    const [status, mine] = await Promise.all([api.accountStatus(), api.myFriendCode()]);
+    meChip.replaceChildren();
+    if (status.signed_in) {
+      meChip.append(avatar(mine.avatar, 'sm'), h('span', { class: 'me-name' }, mine.name));
+      meChip.title = 'Your profile';
+      meChip.setAttribute('aria-label', `Your profile: ${mine.name}`);
+    } else {
+      meChip.append(icon('log-in'), h('span', { class: 'me-name' }, 'Sign in'));
+      meChip.title = 'Sign in to add friends and send messages';
+      meChip.setAttribute('aria-label', 'Sign in');
+    }
+    meChip.hidden = false;
+  } catch {
+    meChip.hidden = true;
+  }
+}
 
 // ---------------------------------------------------------------- the tags on the right of the top bar
 
@@ -130,6 +166,7 @@ async function start() {
     return;
   }
   await loadPhotos();
+  renderMe();
   const boot = await api.bootstrap();
   city = boot.setup.city;
   renderTags(boot.online);

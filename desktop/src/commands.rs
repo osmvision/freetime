@@ -4,7 +4,7 @@
 //! never freeze the window.
 
 use freetime_core::{
-    account::{self, Client, OnlineProfile, ProfileEdit, Session},
+    account::{self, Client, ConversationEntry, FriendEntry, Message as ChatMessage, OnlineProfile, ProfileEdit, Session},
     config::{self, Config},
     history::{self, History},
     keys::{self, KeySource, Keys},
@@ -792,6 +792,72 @@ pub fn save_profile(state: State<'_, AppState>, edit: ProfileEdit) -> Res<Online
 pub fn reset_friend_tag(state: State<'_, AppState>) -> Res<String> {
     let session = live_session(&state)?;
     Client::new().map_err(err)?.reset_friend_tag(&session).map_err(err)
+}
+
+// ---------------------------------------------------------------- online friends and messages
+
+#[derive(Serialize)]
+pub struct SocialView {
+    /// Your account id, so the UI knows which messages are yours.
+    me: String,
+    friends: Vec<FriendEntry>,
+    conversations: Vec<ConversationEntry>,
+}
+
+#[tauri::command(async)]
+pub fn social_overview(state: State<'_, AppState>) -> Res<SocialView> {
+    let s = live_session(&state)?;
+    let client = Client::new().map_err(err)?;
+    Ok(SocialView { me: s.user_id.clone(), friends: client.friends(&s).map_err(err)?, conversations: client.conversations(&s).map_err(err)? })
+}
+
+#[tauri::command(async)]
+pub fn friend_request(state: State<'_, AppState>, tag: String) -> Res<String> {
+    let s = live_session(&state)?;
+    Client::new().map_err(err)?.send_friend_request(&s, &tag).map_err(err)
+}
+
+#[tauri::command(async)]
+pub fn accept_friend(state: State<'_, AppState>, user_id: String) -> Res<()> {
+    let s = live_session(&state)?;
+    Client::new().map_err(err)?.accept_friend(&s, &user_id).map_err(err)
+}
+
+/// Unfriend, decline a request or cancel yours.
+#[tauri::command(async)]
+pub fn unfriend(state: State<'_, AppState>, user_id: String) -> Res<()> {
+    let s = live_session(&state)?;
+    Client::new().map_err(err)?.remove_friend(&s, &user_id).map_err(err)
+}
+
+#[tauri::command(async)]
+pub fn block_user(state: State<'_, AppState>, user_id: String) -> Res<()> {
+    let s = live_session(&state)?;
+    Client::new().map_err(err)?.block(&s, &user_id).map_err(err)
+}
+
+#[tauri::command(async)]
+pub fn open_chat(state: State<'_, AppState>, friend: String) -> Res<String> {
+    let s = live_session(&state)?;
+    Client::new().map_err(err)?.open_direct(&s, &friend).map_err(err)
+}
+
+#[tauri::command(async)]
+pub fn chat_messages(state: State<'_, AppState>, conversation: String, after: i64) -> Res<Vec<ChatMessage>> {
+    let s = live_session(&state)?;
+    Client::new().map_err(err)?.messages(&s, &conversation, after).map_err(err)
+}
+
+#[tauri::command(async)]
+pub fn send_message(state: State<'_, AppState>, conversation: String, body: String) -> Res<ChatMessage> {
+    let s = live_session(&state)?;
+    Client::new().map_err(err)?.send_message(&s, &conversation, &body).map_err(err)
+}
+
+#[tauri::command(async)]
+pub fn mark_read(state: State<'_, AppState>, conversation: String, up_to: i64) -> Res<()> {
+    let s = live_session(&state)?;
+    Client::new().map_err(err)?.mark_read(&s, &conversation, up_to).map_err(err)
 }
 
 // ---------------------------------------------------------------- friends (friend codes, no server)

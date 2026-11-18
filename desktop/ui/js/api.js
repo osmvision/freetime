@@ -37,4 +37,13 @@ export const api = {
   account: () => invoke('get_account'),
   saveProfile: (edit) => invoke('save_profile', { edit }),
   resetFriendTag: () => invoke('reset_friend_tag'),
+  socialOverview: () => invoke('social_overview'),
+  friendRequest: (tag) => invoke('friend_request', { tag }),
+  acceptFriend: (userId) => invoke('accept_friend', { userId }),
+  unfriend: (userId) => invoke('unfriend', { userId }),
+  blockUser: (userId) => invoke('block_user', { userId }),
+  openChat: (friend) => invoke('open_chat', { friend }),
+  chatMessages: (conversation, after = 0) => invoke('chat_messages', { conversation, after }),
+  sendMessage: (conversation, body) => invoke('send_message', { conversation, body }),
+  markRead: (conversation, upTo) => invoke('mark_read', { conversation, upTo }),
 };

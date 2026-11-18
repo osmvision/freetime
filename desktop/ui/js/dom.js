@@ -79,7 +79,8 @@ export function fmtMinutes(m) {
   return rest ? `${hours}h${String(rest).padStart(2, '0')}` : `${hours}h`;
 }
 
-export const errText = (e) => (typeof e === 'string' ? e : (e?.message ?? String(e)));
+/** A readable error: the "(HTTP 500)" the backend adds for the logs means nothing to a person. */
+export const errText = (e) => (typeof e === 'string' ? e : (e?.message ?? String(e))).replace(/\s*\(HTTP \d{3}\)$/, '');
 export const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 export const capitalize = (s) => (s ? s[0].toUpperCase() + s.slice(1) : s);
 export const reducedMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches;

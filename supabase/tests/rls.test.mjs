@@ -197,3 +197,122 @@ test('too many unanswered requests are refused', async () => {
     });
   });
 });
+
+// ---------------------------------------------------------------- direct messages
+
+/** Makes two people friends directly (as the database owner, outside the API). */
+async function befriend(a, b) {
+  await db.query("insert into public.friendships (requester, addressee, status) values ($1, $2, 'accepted')", [a, b]);
+}
+
+test('only friends can open a direct chat, and a pair has exactly one', async () => {
+  await withPeople(async ({ step }) => {
+    await step(ALICE, async (q) => {
+      await fails(q.one('select public.open_direct($1)', [BOB]), /only message your friends/);
+    });
+    await befriend(ALICE, BOB);
+    const a = (await step(ALICE, (q) => q.one('select public.open_direct($1) as id', [BOB]))).id;
+    const again = (await step(ALICE, (q) => q.one('select public.open_direct($1) as id', [BOB]))).id;
+    const fromBob = (await step(BOB, (q) => q.one('select public.open_direct($1) as id', [ALICE]))).id;
+    assert.equal(a, again);
+    assert.equal(a, fromBob);
+    await step(ALICE, async (q) => {
+      await fails(q.one('select public.open_direct($1)', [ALICE]), /only message your friends/);
+    });
+    await step(null, async (q) => {
+      await fails(q.one('select public.open_direct($1)', [BOB]), /permission denied/);
+    });
+  });
+});
+
+test('members read and post; nobody else can read, post or pose as someone', async () => {
+  await withPeople(async ({ step }) => {
+    await befriend(ALICE, BOB);
+    const conv = (await step(ALICE, (q) => q.one('select public.open_direct($1) as id', [BOB]))).id;
+    const sent = await step(ALICE, (q) => q.one('insert into public.messages (conversation_id, body) values ($1, $2) returning sender', [conv, 'hi Bob']));
+    assert.equal(sent.sender, ALICE, 'the database sets the sender');
+    assert.deepEqual((await step(BOB, (q) => q.rows('select body from public.messages'))).map((r) => r.body), ['hi Bob']);
+    assert.equal((await step(CAROL, (q) => q.rows('select * from public.messages'))).length, 0);
+    assert.equal((await step(CAROL, (q) => q.rows('select * from public.conversations'))).length, 0);
+    assert.equal((await step(CAROL, (q) => q.rows('select * from public.conversation_members'))).length, 0);
+    await step(CAROL, async (q) => {
+      await fails(q.rows('insert into public.messages (conversation_id, body) values ($1, $2)', [conv, 'let me in']), /row-level security/);
+    });
+    await step(BOB, async (q) => {
+      await fails(q.rows('insert into public.messages (conversation_id, sender, body) values ($1, $2, $3)', [conv, ALICE, 'fake']), /permission denied/);
+    });
+    // Bob can't delete Alice's message.
+    assert.equal((await step(BOB, (q) => q.rows('delete from public.messages returning id'))).length, 0);
+    assert.equal((await step(ALICE, (q) => q.rows('delete from public.messages returning id'))).length, 1);
+    await step(null, async (q) => {
+      await fails(q.rows('select * from public.messages'), /permission denied/);
+    });
+  });
+});
+
+test('unfriending or blocking stops new messages; the history stays readable', async () => {
+  await withPeople(async ({ step }) => {
+    await befriend(ALICE, BOB);
+    const conv = (await step(ALICE, (q) => q.one('select public.open_direct($1) as id', [BOB]))).id;
+    await step(ALICE, (q) => q.rows('insert into public.messages (conversation_id, body) values ($1, $2)', [conv, 'before']));
+    await step(BOB, (q) => q.rows('insert into public.blocks (blocker, blocked) values ($1, $2)', [BOB, ALICE]));
+    for (const who of [ALICE, BOB]) {
+      await step(who, async (q) => {
+        await fails(q.rows('insert into public.messages (conversation_id, body) values ($1, $2)', [conv, 'after']), /row-level security/);
+      });
+    }
+    assert.equal((await step(BOB, (q) => q.rows('select body from public.messages'))).length, 1);
+  });
+});
+
+test('messages are text within limits', async () => {
+  await withPeople(async ({ step }) => {
+    await befriend(ALICE, BOB);
+    const conv = (await step(ALICE, (q) => q.one('select public.open_direct($1) as id', [BOB]))).id;
+    for (const bad of ['', '   \n ', 'x'.repeat(2001), 'bell\u0007']) {
+      await step(ALICE, async (q) => {
+        await fails(q.rows('insert into public.messages (conversation_id, body) values ($1, $2)', [conv, bad]), /check constraint/);
+      });
+    }
+    await step(ALICE, (q) => q.rows('insert into public.messages (conversation_id, body) values ($1, $2)', [conv, 'two\nlines\tok']));
+  });
+});
+
+test('at most 30 messages a minute', async () => {
+  await withPeople(async ({ step }) => {
+    await befriend(ALICE, BOB);
+    const conv = (await step(ALICE, (q) => q.one('select public.open_direct($1) as id', [BOB]))).id;
+    for (let i = 0; i < 30; i++) {
+      await step(ALICE, (q) => q.rows('insert into public.messages (conversation_id, body) values ($1, $2)', [conv, `m${i}`]));
+    }
+    await step(ALICE, async (q) => {
+      await fails(q.rows('insert into public.messages (conversation_id, body) values ($1, $2)', [conv, 'one more']), /too many messages/);
+    });
+  });
+});
+
+test('your lists show only your own friends, requests and chats', async () => {
+  await withPeople(async ({ tags, step }) => {
+    await befriend(ALICE, BOB);
+    await step(CAROL, (q) => q.one('select public.send_friend_request($1)', [tags[ALICE]]));
+    const alice = await step(ALICE, (q) => q.rows('select user_id, state from public.my_friends() order by state'));
+    assert.deepEqual(alice, [{ user_id: BOB, state: 'friend' }, { user_id: CAROL, state: 'incoming' }]);
+    assert.deepEqual(await step(CAROL, (q) => q.rows('select user_id, state from public.my_friends()')), [{ user_id: ALICE, state: 'outgoing' }]);
+    assert.equal((await step(CAROL, (q) => q.rows('select * from public.my_conversations()'))).length, 0);
+
+    const conv = (await step(ALICE, (q) => q.one('select public.open_direct($1) as id', [BOB]))).id;
+    for (const body of ['one', 'two']) await step(ALICE, (q) => q.rows('insert into public.messages (conversation_id, body) values ($1, $2)', [conv, body]));
+    const bobView = await step(BOB, (q) => q.one('select friend, last_body, unread from public.my_conversations()'));
+    assert.deepEqual(bobView, { friend: ALICE, last_body: 'two', unread: 2 });
+    assert.equal((await step(ALICE, (q) => q.one('select unread from public.my_conversations()'))).unread, 0, 'your own messages are read');
+
+    const lastId = (await step(BOB, (q) => q.one('select max(id) as id from public.messages'))).id;
+    await step(BOB, (q) => q.rows('update public.conversation_members set last_read_id = $1 where conversation_id = $2 and user_id = $3', [lastId, conv, BOB]));
+    assert.equal((await step(BOB, (q) => q.one('select unread from public.my_conversations()'))).unread, 0);
+    const meddled = await step(BOB, (q) => q.rows('update public.conversation_members set last_read_id = 0 where user_id = $1 returning *', [ALICE]));
+    assert.equal(meddled.length, 0, "Bob can't change Alice's read marker");
+    await step(null, async (q) => {
+      await fails(q.rows('select * from public.my_friends()'), /permission denied/);
+    });
+  });
+});
