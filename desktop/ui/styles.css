@@ -126,6 +126,7 @@ button {
 
 .app {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   grid-template-rows: auto minmax(0, 1fr);
   height: 100vh;
 }
@@ -486,8 +487,10 @@ button.tag:hover {
   position: absolute;
   top: calc(100% + 6px);
   left: 0;
-  z-index: 30;
+  z-index: 45;
   min-width: 230px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 6px;
   border: 1.5px solid var(--navy);
   border-radius: 8px;
@@ -1553,6 +1556,11 @@ button.tag:hover {
   flex: 1 1 200px;
 }
 
+/* room for the whole example tag; the button wraps below when the window is narrow */
+.add-tag .row .input {
+  flex-basis: 34ch;
+}
+
 .check {
   display: inline-flex;
   align-items: center;
@@ -2473,14 +2481,32 @@ button.tag:hover {
     right: 269px;
   }
 
+  /* the fare box gets narrow next to the stub: two by two, so durations like "45 min–1h30" fit */
+  .fare {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .fare > div:nth-child(2n) {
+    border-right: 0;
+  }
+
+  .fare > div:nth-child(-n + 2) {
+    border-bottom: 1px solid var(--rule);
+  }
+
   .history-grid {
     grid-template-columns: minmax(0, 1fr);
   }
 }
 
-@media (max-width: 1100px) {
-  .nav-label {
-    font-size: 16px;
+/* the bar gets tight: smaller gaps, the weather tag drops the city name */
+@media (max-width: 1340px) {
+  .topbar {
+    gap: 20px;
+  }
+
+  .nav-item {
+    padding: 0 12px;
   }
 
   .bar-tags .tag-label {
@@ -2488,26 +2514,9 @@ button.tag:hover {
   }
 }
 
-/* phones: the bar keeps the wordmark and tags, the tabs move to the bottom for the thumb */
-@media (max-width: 860px) {
-  .topbar {
-    gap: 12px;
-    height: 56px;
-    padding: 0 14px;
-  }
-
-  .wordmark-text {
-    font-size: 22px;
-  }
-
-  .tag {
-    padding: 0 10px 0 16px;
-  }
-
-  .tag-sync .tag-value {
-    display: none;
-  }
-
+/* not enough room for the tabs next to the wordmark and tags (narrow windows, or low vision mode):
+   the tabs move to a bar at the bottom, labels kept */
+@media (max-width: 1100px) {
   .nav {
     position: fixed;
     left: 0;
@@ -2537,8 +2546,44 @@ button.tag:hover {
     display: none;
   }
 
+  /* the unread count sits on the icon so every tab keeps the same height */
+  .nav-badge {
+    position: absolute;
+    top: 4px;
+    left: calc(50% + 4px);
+  }
+
   .main {
     padding-bottom: 70px;
+  }
+
+  .toasts {
+    bottom: 84px;
+  }
+
+  .chat-layout {
+    height: calc(100vh - 64px - 36px - 28px - 70px);
+  }
+}
+
+/* phones: compact bar, one column of content (the tabs are already at the bottom) */
+@media (max-width: 860px) {
+  .topbar {
+    gap: 12px;
+    height: 56px;
+    padding: 0 14px;
+  }
+
+  .wordmark-text {
+    font-size: 22px;
+  }
+
+  .tag {
+    padding: 0 10px 0 16px;
+  }
+
+  .tag-sync .tag-value {
+    display: none;
   }
 
   .me-name {
@@ -2549,19 +2594,33 @@ button.tag:hover {
     padding-right: 4px;
   }
 
+  /* fills the space between the two bars (messages scroll inside, the message box stays in view);
+     on very short windows it keeps a usable height and the page scrolls instead */
   .chat-layout {
     grid-template-columns: minmax(0, 1fr);
-    height: auto;
+    grid-template-rows: auto minmax(0, 1fr);
+    height: max(calc(100vh - 56px - 24px - 28px - 70px), 300px);
+    min-height: 0;
+  }
+
+  /* the tab bar already says Messages: the room goes to the conversation */
+  .chat-list-title {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
   }
 
   .chat-list {
-    max-height: 220px;
+    max-height: 120px;
     border-right: 0;
     border-bottom: 2px dashed rgba(13, 27, 61, 0.2);
   }
 
   .chat-pane {
-    min-height: 60vh;
+    min-height: 0;
   }
 
   .profile-card {
@@ -2571,10 +2630,6 @@ button.tag:hover {
   .profile-actions {
     grid-column: 1 / -1;
     justify-content: flex-start;
-  }
-
-  .toasts {
-    bottom: 84px;
   }
 
   .view {
@@ -2627,18 +2682,6 @@ button.tag:hover {
 
   .coupon-title {
     font-size: 36px;
-  }
-
-  .fare {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .fare > div:nth-child(2n) {
-    border-right: 0;
-  }
-
-  .fare > div:nth-child(-n + 2) {
-    border-bottom: 1px solid var(--rule);
   }
 
   .coupon-actions .btn.primary {
