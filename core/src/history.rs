@@ -15,7 +15,7 @@ const MAX_ENTRIES: usize = 500;
 const RECENT_SECS: i64 = 3 * 86_400;
 const RATE_WINDOW_SECS: i64 = 14 * 86_400;
 /// Tags that every item of a source shares: they say nothing about taste.
-const GENERIC_TAGS: [&str; 3] = ["steam", "store", "youtube"];
+const GENERIC_TAGS: [&str; 5] = ["steam", "store", "youtube", "epic", "free-week"];
 
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub struct History {
@@ -33,6 +33,51 @@ pub struct Entry {
     /// 1 = liked, -1 = disliked, 0 = skipped / didn't do it, None = not asked yet.
     #[serde(default)]
     pub rating: Option<i8>,
+    /// Typical length of the pick, in minutes (absent in history written before it was kept).
+    #[serde(default)]
+    pub minutes: Option<u32>,
+}
+
+/// The weekly recap: this week so far, last week, the streak and a few memories.
+#[derive(Debug, Clone, Serialize, PartialEq)]
+pub struct Recap {
+    pub week_picks: usize,
+    pub week_minutes: u32,
+    pub week_loved: usize,
+    /// Picks per kind of idea this week, most first.
+    pub week_by_category: Vec<(Category, usize)>,
+    pub last_week_picks: usize,
+    pub last_week_minutes: u32,
+    /// Weeks in a row with at least one pick, up to this week (or last week, while this one is
+    /// still young): a weekly rhythm, not a daily chore.
+    pub streak_weeks: u32,
+    pub best_streak: u32,
+    pub this_week_active: bool,
+    pub memories: Vec<Memory>,
+}
+
+#[derive(Debug, Clone, Serialize, PartialEq)]
+pub struct Memory {
+    /// "a year ago" or "a month ago".
+    pub when: String,
+    pub id: String,
+    pub title: String,
+    pub category: Category,
+    pub loved: bool,
+}
+
+/// Picks before minutes were kept: a sensible guess per kind of idea.
+fn guess_minutes(c: Category) -> u32 {
+    match c {
+        Category::Game => 60,
+        Category::Video => 20,
+        Category::Sport => 45,
+        Category::Learn => 30,
+        Category::Create => 40,
+        Category::Chill => 30,
+        Category::Social => 90,
+        Category::Food => 45,
+    }
 }
 
 #[derive(Debug, Default)]
@@ -105,6 +150,7 @@ impl History {
             tags: s.tags.clone(),
             ts: now(),
             rating: None,
+            minutes: Some(((s.min_minutes + s.max_minutes) / 2).clamp(5, 240)),
         });
         if self.entries.len() > MAX_ENTRIES {
             let extra = self.entries.len() - MAX_ENTRIES;
@@ -161,6 +207,86 @@ impl History {
         p
     }
 
+    /// This week, last week, the weekly streak and memories, in local time.
+    pub fn recap(&self, now: chrono::DateTime<chrono::Local>) -> Recap {
+        use chrono::{Datelike, Local, Months, TimeZone};
+        let week_of = |ts: i64| Local.timestamp_opt(ts, 0).single().map(|d| d.iso_week()).map(|w| (w.year(), w.week()));
+        let this_week = (now.iso_week().year(), now.iso_week().week());
+        let last_week = {
+            let d = now - chrono::Duration::days(7);
+            (d.iso_week().year(), d.iso_week().week())
+        };
+        let minutes = |e: &Entry| e.minutes.unwrap_or_else(|| guess_minutes(e.category));
+
+        let mut r = Recap {
+            week_picks: 0,
+            week_minutes: 0,
+            week_loved: 0,
+            week_by_category: Vec::new(),
+            last_week_picks: 0,
+            last_week_minutes: 0,
+            streak_weeks: 0,
+            best_streak: 0,
+            this_week_active: false,
+            memories: Vec::new(),
+        };
+        let mut by_cat: HashMap<Category, usize> = HashMap::new();
+        let mut active: HashSet<(i32, u32)> = HashSet::new();
+        for e in &self.entries {
+            let Some(w) = week_of(e.ts) else { continue };
+            active.insert(w);
+            if w == this_week {
+                r.week_picks += 1;
+                r.week_minutes += minutes(e);
+                r.week_loved += usize::from(e.rating == Some(1));
+                *by_cat.entry(e.category).or_default() += 1;
+            } else if w == last_week {
+                r.last_week_picks += 1;
+                r.last_week_minutes += minutes(e);
+            }
+        }
+        r.week_by_category = by_cat.into_iter().collect();
+        r.week_by_category.sort_by(|a, b| b.1.cmp(&a.1).then(a.0.id().cmp(b.0.id())));
+        r.this_week_active = active.contains(&this_week);
+
+        // Streak: count back week by week (Monday to Monday) from this week, or from last week
+        // while this one has no pick yet.
+        let monday = now.date_naive() - chrono::Duration::days(now.weekday().num_days_from_monday() as i64);
+        let key = |d: chrono::NaiveDate| (d.iso_week().year(), d.iso_week().week());
+        let mut d = if r.this_week_active { monday } else { monday - chrono::Duration::days(7) };
+        while active.contains(&key(d)) {
+            r.streak_weeks += 1;
+            d -= chrono::Duration::days(7);
+        }
+        // Best streak ever: walk every active week in order.
+        let mut weeks: Vec<chrono::NaiveDate> = active
+            .iter()
+            .filter_map(|(y, w)| chrono::NaiveDate::from_isoywd_opt(*y, *w, chrono::Weekday::Mon))
+            .collect();
+        weeks.sort();
+        let mut run = 0u32;
+        let mut prev: Option<chrono::NaiveDate> = None;
+        for w in weeks {
+            run = if prev.is_some_and(|p| w - p == chrono::Duration::days(7)) { run + 1 } else { 1 };
+            r.best_streak = r.best_streak.max(run);
+            prev = Some(w);
+        }
+
+        // Memories: what you picked on this day a year ago and a month ago.
+        let today = now.date_naive();
+        let targets = [
+            (today.checked_sub_months(Months::new(12)), "a year ago"),
+            (today.checked_sub_months(Months::new(1)), "a month ago"),
+        ];
+        for (day, label) in targets {
+            let Some(day) = day else { continue };
+            if let Some(e) = self.entries.iter().rev().find(|e| Local.timestamp_opt(e.ts, 0).single().is_some_and(|d| d.date_naive() == day)) {
+                r.memories.push(Memory { when: label.to_string(), id: e.id.clone(), title: e.title.clone(), category: e.category, loved: e.rating == Some(1) });
+            }
+        }
+        r
+    }
+
     /// Category affinities, best first, for the history screen.
     pub fn taste(&self) -> Vec<(Category, f64)> {
         let p = self.prefs(now());
@@ -175,7 +301,55 @@ mod tests {
     use super::*;
 
     fn entry(id: &str, cat: Category, rating: Option<i8>, ts: i64) -> Entry {
-        Entry { id: id.into(), category: cat, title: id.into(), tags: vec!["cardio".into()], ts, rating }
+        Entry { id: id.into(), category: cat, title: id.into(), tags: vec!["cardio".into()], ts, rating, minutes: None }
+    }
+
+    fn at(y: i32, m: u32, d: u32, h: u32) -> chrono::DateTime<chrono::Local> {
+        use chrono::TimeZone;
+        chrono::Local.with_ymd_and_hms(y, m, d, h, 0, 0).single().unwrap()
+    }
+
+    #[test]
+    fn weekly_recap_streak_and_memories() {
+        // Wednesday 18 November 2026; ISO weeks start on Monday 16 November.
+        let now = at(2026, 11, 18, 20);
+        let mut h = History::default();
+        let mut add = |when: chrono::DateTime<chrono::Local>, cat, rating, minutes| {
+            let mut e = entry("x", cat, rating, when.timestamp());
+            e.minutes = minutes;
+            h.entries.push(e);
+        };
+        add(at(2026, 11, 17, 19), Category::Sport, Some(1), Some(40)); // this week
+        add(at(2026, 11, 18, 9), Category::Game, None, None); // this week, minutes guessed (60)
+        add(at(2026, 11, 12, 21), Category::Food, None, Some(30)); // last week
+        add(at(2026, 11, 3, 21), Category::Food, None, Some(30)); // two weeks ago
+        // A gap (week of 26 October), then an older 3-week run.
+        add(at(2026, 10, 14, 21), Category::Chill, None, None);
+        add(at(2026, 10, 7, 21), Category::Chill, None, None);
+        add(at(2026, 9, 30, 21), Category::Chill, None, None);
+        add(at(2026, 9, 23, 21), Category::Chill, None, None);
+        // Memories.
+        add(at(2025, 11, 18, 12), Category::Sport, Some(1), None);
+        add(at(2026, 10, 18, 12), Category::Learn, None, None);
+        let r = h.recap(now);
+        assert_eq!((r.week_picks, r.week_minutes, r.week_loved), (2, 100, 1));
+        assert_eq!((r.last_week_picks, r.last_week_minutes), (1, 30));
+        assert!(r.this_week_active);
+        assert_eq!(r.streak_weeks, 3, "this week, last week, the week before");
+        assert_eq!(r.best_streak, 4, "the September-October run");
+        assert_eq!(r.memories.iter().map(|m| m.when.as_str()).collect::<Vec<_>>(), ["a year ago", "a month ago"]);
+        assert!(r.memories[0].loved);
+    }
+
+    #[test]
+    fn the_streak_survives_until_the_week_is_over() {
+        let monday = at(2026, 11, 16, 8);
+        let mut h = History::default();
+        h.entries.push(entry("a", Category::Sport, None, at(2026, 11, 11, 20).timestamp()));
+        let r = h.recap(monday);
+        assert!(!r.this_week_active);
+        assert_eq!(r.streak_weeks, 1, "last week still counts on Monday morning");
+        assert_eq!(History::default().recap(monday).streak_weeks, 0);
     }
 
     #[test]

@@ -3,6 +3,7 @@
 import { api } from './api.js';
 import { btn, categoryIcon, emptyState, errText, h, icon, pageHead, toast } from './dom.js';
 import { photo } from './photos.js';
+import { recapPanel } from './recap.js';
 
 const head = () => pageHead('Your trips', 'What you picked and how it went. Your ratings teach freetime what you like.');
 
@@ -28,8 +29,11 @@ export async function render(root, ctx, { quiet = false } = {}) {
     return;
   }
   const favorite = [...data.taste].sort((a, b) => b.affinity - a.affinity)[0];
+  const recapBox = h('div', { class: 'recap-box' });
+  recapPanel(recapBox);
   root.replaceChildren(
     head(),
+    recapBox,
     h(
       'div',
       { class: 'stats' },

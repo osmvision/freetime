@@ -46,6 +46,7 @@ fn main() {
             commands::save_profile,
             commands::reset_friend_tag,
             commands::live_status,
+            commands::get_recap,
             commands::get_share_library,
             commands::set_share_library,
             commands::set_free,

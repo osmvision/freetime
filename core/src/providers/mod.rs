@@ -1,5 +1,6 @@
 //! Everything that needs the network. Each source fails soft: a note, never a crash.
 
+pub mod epic;
 pub mod steam;
 pub mod steam_import;
 pub mod youtube;
@@ -42,7 +43,8 @@ pub struct Online {
 }
 
 /// Startup network, all concurrent and visible in the UI: the Open-Meteo forecast for the picked
-/// city, the Steam store lists (with the regional `cc`) and the YouTube channel feeds.
+/// city, the Steam store lists (with the regional `cc`), the Epic Games Store's free games and the
+/// YouTube channel feeds.
 pub fn fetch_online(cfg: &Config) -> Online {
     let net = match HttpNet::shared() {
         Ok(net) => net,
@@ -69,6 +71,10 @@ pub fn fetch_online(cfg: &Config) -> Online {
             let (items, status) = steam::suggestions(net.as_ref(), &location, &mut notes);
             (items, notes, status)
         });
+        let ep = s.spawn(|| {
+            let mut notes = Vec::new();
+            (epic::free_games(net.as_ref(), &location, chrono::Utc::now(), &mut notes), notes)
+        });
         let weather = w.join().unwrap_or(None);
         let steam = st.join();
 
@@ -82,6 +88,10 @@ pub fn fetch_online(cfg: &Config) -> Online {
             out.items.extend(items);
             out.notes.extend(notes);
             out.steam = status;
+        }
+        if let Ok((items, notes)) = ep.join() {
+            out.items.extend(items);
+            out.notes.extend(notes);
         }
         if let Ok((items, notes)) = yt.join() {
             out.items.extend(items);

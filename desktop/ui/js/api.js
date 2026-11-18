@@ -39,6 +39,7 @@ export const api = {
   saveProfile: (edit) => invoke('save_profile', { edit }),
   resetFriendTag: () => invoke('reset_friend_tag'),
   liveStatus: () => invoke('live_status'),
+  recap: () => invoke('get_recap'),
   getShareLibrary: () => invoke('get_share_library'),
   setShareLibrary: (enabled) => invoke('set_share_library', { enabled }),
   setFree: (minutes) => invoke('set_free', { minutes }),
