@@ -51,7 +51,7 @@ pub struct AppState {
     /// Every suggestion sent to the UI, so `pick` can find it again by id.
     shown: Mutex<HashMap<String, Suggestion>>,
     /// The signed-in session (opt-in). Only in memory; the refresh token is in Credential Manager.
-    account: Mutex<Option<Session>>,
+    pub(crate) account: Mutex<Option<Session>>,
     /// Friends' shared game lists (None = they don't share), with when they were fetched.
     libraries: Mutex<HashMap<String, (Instant, Option<account::SharedLibrary>)>>,
     /// Assistant chats whose answer should stop streaming (the user pressed Stop).
@@ -870,7 +870,7 @@ pub struct AccountView {
 
 /// A usable session: the one in memory if still fresh, else refreshed from the saved token.
 /// The lock is held during the refresh so two calls can't both spend the (rotating) token.
-fn live_session(state: &AppState) -> Res<Session> {
+pub(crate) fn live_session(state: &AppState) -> Res<Session> {
     let now = history::now();
     let mut slot = lock(&state.account);
     if let Some(s) = slot.as_ref().filter(|s| s.fresh(now)) {

@@ -3973,3 +3973,15 @@ body[data-view="messages"] .assistant-panel {
   width: 15px;
   height: 15px;
 }
+
+/* the assistant's intro, when it isn't ready yet: sign in, or use an own key */
+.assistant-intro-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+}
+
+.assistant-intro-actions .btn {
+  margin-top: 8px;
+}

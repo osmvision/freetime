@@ -1,9 +1,14 @@
 //! Tauri commands for the chat assistant (Mistral). The key stays here: the UI only learns
 //! whether one is set. Answers stream to the UI as `assistant-delta` events.
+//!
+//! With the user's own key, the app talks to Mistral directly. Without one, a signed-in user gets
+//! the free assistant: freetime's server forwards to Mistral on freetime's key, a few dozen
+//! messages a day.
 
-use crate::commands::{card, current_online, err, lock, rank, remember, AppState, Res, ONLINE_WAIT};
+use crate::commands::{card, current_online, err, live_session, lock, rank, remember, AppState, Res, ONLINE_WAIT};
 use freetime_core::{
-    assistant::{self, ChatMessage, Context, Mistral},
+    account,
+    assistant::{self, ChatMessage, Context, HostedStatus, Mistral},
     config::Config,
     history::History,
     keys::{KeySource, Keys},
@@ -19,19 +24,43 @@ pub fn model_of(cfg: &Config) -> String {
 
 #[derive(Serialize)]
 pub struct AssistantStatus {
+    /// The chat can be used: an own key, or the free assistant while signed in.
+    ready: bool,
     key_set: bool,
     key_from_env: bool,
+    /// With an own key: the model picked in the settings.
     model: String,
+    signed_in: bool,
+    /// Today's free allowance (signed in, no own key).
+    free: Option<HostedStatus>,
+    /// Why the free assistant can't be reached, when it can't.
+    free_error: Option<String>,
 }
 
 #[tauri::command(async)]
-pub fn assistant_status() -> AssistantStatus {
+pub fn assistant_status(state: State<'_, AppState>) -> AssistantStatus {
     let key = Keys::resolve().mistral;
     let cfg = Config::load().unwrap_or_default();
+    let signed_in = lock(&state.account).is_some() || account::has_saved_session();
+    let (mut free, mut free_error) = (None, None);
+    // Only asked for when it would be used: an own key always wins.
+    if key.is_none() && signed_in {
+        match live_session(&state).and_then(|s| {
+            let http = Mistral::hosted().map_err(err)?;
+            assistant::hosted_status(&http, &s.access_token).map_err(err)
+        }) {
+            Ok(st) => free = Some(st),
+            Err(e) => free_error = Some(e),
+        }
+    }
     AssistantStatus {
+        ready: key.is_some() || free.as_ref().is_some_and(|f| f.available),
         key_from_env: key.as_ref().is_some_and(|k| k.source == KeySource::Environment),
         key_set: key.is_some(),
         model: model_of(&cfg),
+        signed_in,
+        free,
+        free_error,
     }
 }
 
@@ -88,9 +117,16 @@ pub fn assistant_send(
     mood: Option<Request>,
     lang: Option<String>,
 ) -> Res<Reply> {
-    let key = Keys::resolve()
-        .mistral
-        .ok_or_else(|| "Add a Mistral API key in Settings → Assistant to start chatting.".to_string())?;
+    // Own key first; else the free assistant with the user's session.
+    let (url, key, http) = match Keys::resolve().mistral {
+        Some(k) => (assistant::own_url(), k.value().to_string(), Mistral::new().map_err(err)?),
+        None => {
+            let session = live_session(&state).map_err(|_| {
+                "Sign in to use the free assistant, or add your own Mistral key in Settings → Assistant.".to_string()
+            })?;
+            (assistant::hosted_url(), session.access_token, Mistral::hosted().map_err(err)?)
+        }
+    };
     let cfg = Config::load().unwrap_or_default();
     let model = model_of(&cfg);
 
@@ -132,8 +168,7 @@ pub fn assistant_send(
 
     lock(&state.assistant_stop).remove(&chat);
     let mut stopped = false;
-    let http = Mistral::new().map_err(err)?;
-    let text = assistant::chat(&http, key.value(), &model, &ctx, &messages, |piece| {
+    let text = assistant::chat(&http, &url, &key, &model, &ctx, &messages, |piece| {
         if lock(&state.assistant_stop).remove(&chat) {
             stopped = true;
             return false;

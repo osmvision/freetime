@@ -26,7 +26,7 @@ const state = {
   messages: load(),
   /** The id of the answer being streamed, or null. */
   busy: null,
-  /** { key_set, key_from_env, model } once asked. */
+  /** { ready, key_set, key_from_env, model, signed_in, free, free_error } once asked. */
   status: null,
 };
 
@@ -246,29 +246,48 @@ function bubble(m, index) {
   );
 }
 
+/** A button that closes the panel (it would cover the section) and opens Settings at `focus`. */
+function settingsButton(label, iconName, focus, kind) {
+  return h(
+    'button',
+    {
+      type: 'button',
+      class: `btn ${kind}`,
+      onclick: () => {
+        setOpen(false);
+        ctx?.goto('settings', { focus });
+      },
+    },
+    icon(iconName),
+    label,
+  );
+}
+
+/** Free assistant: messages left today, or null with an own key. */
+function freeLeft() {
+  const f = !state.status?.key_set && state.status?.free;
+  return f ? Math.max(f.limit - f.used, 0) : null;
+}
+
 function intro() {
   const st = state.status;
-  if (st && !st.key_set) {
+  if (st && !st.ready) {
+    const why = !st.signed_in
+      ? 'Sign in to use it for free, or add your own Mistral API key.'
+      : 'The free assistant can’t be reached right now. You can also add your own Mistral API key.';
     return h(
       'div',
       { class: 'assistant-intro' },
       icon('sparkles', 'assistant-intro-icon'),
       h('h3', {}, 'Your free-time assistant'),
       h('p', {}, 'Ask what to do, compare two ideas, or plan an evening with friends. It knows your picks, your mood and the weather.'),
-      h('p', {}, 'To turn it on, add a Mistral API key in Settings.'),
+      h('p', {}, why),
+      st.signed_in && st.free_error ? h('p', { class: 'assistant-note' }, st.free_error) : null,
       h(
-        'button',
-        {
-          type: 'button',
-          class: 'btn primary',
-          // The panel would cover the section it opens.
-          onclick: () => {
-            setOpen(false);
-            ctx?.goto('settings', { focus: 'assistant' });
-          },
-        },
-        icon('sliders-horizontal'),
-        'Open Settings',
+        'div',
+        { class: 'assistant-intro-actions' },
+        st.signed_in ? null : settingsButton('Sign in', 'log-in', 'profile', 'primary'),
+        settingsButton('Use my own key', 'key-round', 'assistant', st.signed_in ? 'primary' : 'quiet'),
       ),
     );
   }
@@ -288,7 +307,7 @@ function intro() {
 }
 
 function notice() {
-  if (consented() || (state.status && !state.status.key_set)) return null;
+  if (consented() || (state.status && !state.status.ready)) return null;
   return h(
     'div',
     { class: 'assistant-notice', role: 'note' },
@@ -296,7 +315,9 @@ function notice() {
     h(
       'p',
       {},
-      'Your messages are sent to Mistral AI to answer, with a short context: the date, the weather, what you set on Discover, your interests and your current picks. Nothing is sent until you write.',
+      freeLeft() == null
+        ? 'Your messages are sent to Mistral AI to answer, with a short context: the date, the weather, what you set on Discover, your interests and your current picks. Nothing is sent until you write.'
+        : 'Your messages go to Mistral AI through freetime’s server to answer, with a short context: the date, the weather, what you set on Discover, your interests and your current picks. Nothing is sent until you write, and nothing is kept.',
     ),
     h(
       'button',
@@ -336,16 +357,22 @@ function drawLog() {
 }
 
 function drawCompose() {
-  const ready = state.status?.key_set;
+  const ready = state.status?.ready;
   els.input.disabled = !ready;
-  els.input.placeholder = ready ? 'Ask about your free time…' : 'Add a Mistral key in Settings first';
+  els.input.placeholder = ready
+    ? 'Ask about your free time…'
+    : state.status?.signed_in
+      ? 'The free assistant is unavailable right now'
+      : 'Sign in or add a Mistral key first';
   fill(els.send, icon(state.busy ? 'square' : 'send'));
   els.send.setAttribute('aria-label', state.busy ? 'Stop' : 'Send');
   els.send.title = state.busy ? 'Stop' : 'Send (Enter)';
   els.send.classList.toggle('stop', Boolean(state.busy));
   els.send.disabled = !ready;
   els.reset.disabled = !state.messages.length || Boolean(state.busy);
-  els.model.textContent = ready ? state.status.model : '';
+  const left = freeLeft();
+  // The label is kept out of the translation layer (model ids), so the free one goes through t().
+  els.model.textContent = !ready ? '' : left == null ? state.status.model : t(`Free · ${left} left today`);
 }
 
 /** Redraws only the answer being written, at most once a frame. */
@@ -383,6 +410,8 @@ async function ask(answer) {
     answer.ideas = reply.ideas;
     answer.stopped = reply.stopped;
     if (!answer.content && !reply.stopped) answer.error = 'No answer came back. Try again.';
+    // One more free message used (the server counts it too; this keeps the label right).
+    if (freeLeft() != null) state.status.free.used += 1;
   } catch (e) {
     answer.error = errText(e);
   } finally {
@@ -396,7 +425,7 @@ async function ask(answer) {
 
 function send(text) {
   const q = text.trim();
-  if (!q || state.busy || !state.status?.key_set) return;
+  if (!q || state.busy || !state.status?.ready) return;
   try {
     localStorage.setItem(CONSENT, 'yes');
   } catch {}
@@ -433,7 +462,7 @@ async function refreshStatus() {
   try {
     state.status = await api.assistantStatus();
   } catch {
-    state.status = { key_set: false, model: '' };
+    state.status = { ready: false, key_set: false, signed_in: false, model: '' };
   }
   if (state.open) drawLog();
 }

@@ -527,3 +527,45 @@ test('game lists: nobody writes directly or for someone else; values are checked
     });
   });
 });
+/** Runs `fn` as the Edge Functions' service role, inside the current transaction. */
+async function asService(fn) {
+  await db.exec('savepoint s');
+  await db.exec('set local role service_role');
+  try {
+    return await fn({ one: async (sql, params) => (await db.query(sql, params)).rows[0] });
+  } finally {
+    await db.exec('reset role');
+    await db.exec('release savepoint s');
+  }
+}
+
+test('free assistant: only the service role counts messages, up to the daily cap', async () => {
+  await withPeople(async ({ step }) => {
+    for (const who of [ALICE, null]) {
+      await step(who, async (q) => {
+        await fails(q.one('select public.assistant_take($1, 50)', [ALICE]), /permission denied/);
+      });
+      await step(who, async (q) => {
+        await fails(q.one('select public.assistant_used($1)', [ALICE]), /permission denied/);
+      });
+      await step(who, async (q) => {
+        await fails(q.one('select public.assistant_refund($1)', [ALICE]), /permission denied/);
+      });
+      await step(who, async (q) => {
+        await fails(q.rows('select * from private.assistant_usage'), /permission denied/);
+      });
+    }
+
+    const take = (who) => asService(async (q) => (await q.one('select public.assistant_take($1, 3) as left', [who])).left);
+    const used = (who) => asService(async (q) => (await q.one('select public.assistant_used($1) as n', [who])).n);
+    assert.equal(await used(ALICE), 0);
+    assert.deepEqual([await take(ALICE), await take(ALICE), await take(ALICE), await take(ALICE)], [2, 1, 0, -1]);
+    assert.equal(await used(ALICE), 3, 'a refused message is not counted');
+    assert.equal(await take(BOB), 2, 'each account has its own allowance');
+    await asService((q) => q.one('select public.assistant_refund($1)', [ALICE]));
+    assert.equal(await take(ALICE), 0, 'a refund gives one message back');
+
+    await db.query('delete from auth.users where id = $1', [ALICE]);
+    assert.equal((await db.query('select count(*)::int as n from private.assistant_usage where user_id = $1', [ALICE])).rows[0].n, 0, 'deleting the account deletes its count');
+  });
+});

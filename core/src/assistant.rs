@@ -1,6 +1,9 @@
 //! The freetime assistant: a chat with a Mistral model, opt-in.
 //!
-//! It only runs with a `MISTRAL_API_KEY` (see `keys`) and only when the user writes to it.
+//! It only runs when the user writes to it, in one of two ways:
+//! - with their own `MISTRAL_API_KEY` (see `keys`), straight to Mistral,
+//! - signed in, through freetime's server (the `assistant` Edge Function), on freetime's key and
+//!   within a daily allowance per account.
 //! What is sent to Mistral: the conversation, plus a short context built here (the date, the
 //! weather summary, the user's mood and interests, the ideas freetime would pick right now and
 //! the last few picks with their ratings). Nothing else, and never the API keys.
@@ -22,6 +25,19 @@ pub const API: &str = "https://api.mistral.ai/v1";
 fn api_base() -> String {
     std::env::var("FREETIME_MISTRAL_URL").ok().filter(|u| !u.trim().is_empty()).unwrap_or_else(|| API.to_string())
 }
+/// The free assistant on freetime's server. `FREETIME_ASSISTANT_URL` points it elsewhere (tests).
+pub fn hosted_url() -> String {
+    std::env::var("FREETIME_ASSISTANT_URL")
+        .ok()
+        .filter(|u| !u.trim().is_empty())
+        .unwrap_or_else(|| format!("{}/functions/v1/assistant", crate::account::PROJECT_URL))
+}
+
+/// Where answers come from with the user's own key.
+pub fn own_url() -> String {
+    format!("{}/chat/completions", api_base())
+}
+
 /// Used until the user picks one in the settings: fast, cheap and good at short answers.
 pub const DEFAULT_MODEL: &str = "mistral-small-latest";
 /// Offered in the settings when the model list can't be fetched.
@@ -207,6 +223,42 @@ pub fn status_error(code: u16, body: &str) -> anyhow::Error {
     anyhow!(base)
 }
 
+/// A readable error from freetime's server (the free assistant).
+pub fn hosted_error(code: u16, body: &str) -> anyhow::Error {
+    let v = serde_json::from_str::<Value>(body).unwrap_or(Value::Null);
+    anyhow!(match (code, v["error"].as_str().unwrap_or("")) {
+        (401, _) => "Your freetime session has ended. Sign in again to use the free assistant.".to_string(),
+        (429, _) => match v["limit"].as_u64() {
+            Some(n) => format!("You've used today's {n} free messages. More tomorrow, or add your own Mistral key in Settings → Assistant."),
+            None => "You've used today's free messages. More tomorrow, or add your own Mistral key in Settings → Assistant.".to_string(),
+        },
+        (400, _) => "This conversation is too long for the free assistant. Start a new chat.".to_string(),
+        (503, "unavailable") => "The free assistant isn't available right now. You can add your own Mistral key in Settings → Assistant.".to_string(),
+        _ => "The free assistant is having trouble right now. Try again in a moment.".to_string(),
+    })
+}
+
+/// What the free assistant allows today.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct HostedStatus {
+    pub model: String,
+    pub limit: u32,
+    pub used: u32,
+    /// False when the server has no Mistral key set up.
+    #[serde(default = "yes")]
+    pub available: bool,
+}
+
+fn yes() -> bool {
+    true
+}
+
+/// Today's allowance on freetime's server, for the signed-in user (`token` is their session).
+pub fn hosted_status(http: &dyn Transport, token: &str) -> Result<HostedStatus> {
+    let text = http.get_text(&hosted_url(), token)?;
+    serde_json::from_str(&text).map_err(|e| anyhow!("unreadable answer from freetime's server: {e}"))
+}
+
 /// The HTTP side. A trait so the streaming loop can be tested without the internet.
 pub trait Transport: Send + Sync {
     /// POST JSON with the bearer key; Ok(reader over the body) or Err with status and body.
@@ -216,6 +268,8 @@ pub trait Transport: Send + Sync {
 
 pub struct Mistral {
     agent: ureq::Agent,
+    /// Talking to freetime's server rather than to Mistral: errors read differently.
+    hosted: bool,
 }
 
 impl Mistral {
@@ -228,18 +282,24 @@ impl Mistral {
             .timeout_read(Duration::from_secs(60))
             .user_agent(concat!("freetime/", env!("CARGO_PKG_VERSION")))
             .build();
-        Ok(Mistral { agent })
+        Ok(Mistral { agent, hosted: false })
     }
-}
 
-fn transport_error(e: ureq::Error) -> anyhow::Error {
-    // Rebuilt by hand, like in `net`: never echo request details.
-    match e {
-        ureq::Error::Status(code, resp) => {
-            let body = resp.into_string().unwrap_or_default();
-            status_error(code, &body)
+    /// For the free assistant on freetime's server.
+    pub fn hosted() -> Result<Mistral> {
+        Ok(Mistral { hosted: true, ..Mistral::new()? })
+    }
+
+    fn error(&self, e: ureq::Error) -> anyhow::Error {
+        // Rebuilt by hand, like in `net`: never echo request details.
+        match e {
+            ureq::Error::Status(code, resp) => {
+                let body = resp.into_string().unwrap_or_default();
+                if self.hosted { hosted_error(code, &body) } else { status_error(code, &body) }
+            }
+            ureq::Error::Transport(t) if self.hosted => anyhow!("Can't reach freetime's server ({}). Check your connection.", t.kind()),
+            ureq::Error::Transport(t) => anyhow!("Can't reach Mistral ({}). Check your connection.", t.kind()),
         }
-        ureq::Error::Transport(t) => anyhow!("Can't reach Mistral ({}). Check your connection.", t.kind()),
     }
 }
 
@@ -251,20 +311,22 @@ impl Transport for Mistral {
             .set("Authorization", &format!("Bearer {key}"))
             .set("Accept", "text/event-stream")
             .send_json(body.clone())
-            .map_err(transport_error)?;
+            .map_err(|e| self.error(e))?;
         Ok(Box::new(resp.into_reader()))
     }
 
     fn get_text(&self, url: &str, key: &str) -> Result<String> {
-        let resp = self.agent.get(url).set("Authorization", &format!("Bearer {key}")).call().map_err(transport_error)?;
+        let resp = self.agent.get(url).set("Authorization", &format!("Bearer {key}")).call().map_err(|e| self.error(e))?;
         resp.into_string().map_err(|e| anyhow!("unreadable response: {e}"))
     }
 }
 
-/// Sends the conversation and streams the answer: `on_text` gets each piece and returns
-/// false to stop early (the user pressed Stop). Returns the whole answer.
+/// Sends the conversation to `url` (`own_url()` or `hosted_url()`) and streams the answer:
+/// `on_text` gets each piece and returns false to stop early (the user pressed Stop).
+/// Returns the whole answer. The free assistant picks its own model and ignores `model`.
 pub fn chat(
     http: &dyn Transport,
+    url: &str,
     key: &str,
     model: &str,
     ctx: &Context,
@@ -278,7 +340,7 @@ pub fn chat(
         "temperature": 0.6,
         "max_tokens": 900,
     });
-    let reader = http.post_stream(&format!("{}/chat/completions", api_base()), key, &body)?;
+    let reader = http.post_stream(url, key, &body)?;
     let mut answer = String::new();
     for line in BufReader::new(reader).lines() {
         let line = line.map_err(|e| anyhow!("The answer was cut off ({e}). Try again."))?;
@@ -447,7 +509,7 @@ mod tests {
         let http = FakeHttp { body: stream, sent: Mutex::new(None) };
         let history = [msg("user", "idée ?")];
         let mut pieces = Vec::new();
-        let all = chat(&http, "k", "mistral-small-latest", &Context::default(), &history, |t| {
+        let all = chat(&http, "https://x/chat", "k", "mistral-small-latest", &Context::default(), &history, |t| {
             pieces.push(t.to_string());
             true
         })
@@ -458,8 +520,34 @@ mod tests {
         assert_eq!(sent["model"], "mistral-small-latest");
         assert_eq!(sent["stream"], true);
 
-        let stopped = chat(&http, "k", "m", &Context::default(), &history, |_| false).unwrap();
+        let stopped = chat(&http, "https://x/chat", "k", "m", &Context::default(), &history, |_| false).unwrap();
         assert_eq!(stopped, "Une ");
+    }
+
+    #[test]
+    fn free_assistant_errors_read_well() {
+        assert!(hosted_error(401, "").to_string().contains("Sign in again"));
+        let e = hosted_error(429, r#"{"error":"daily_limit","limit":50}"#).to_string();
+        assert!(e.contains("50 free messages") && e.contains("own Mistral key"), "{e}");
+        assert!(hosted_error(400, "").to_string().contains("Start a new chat"));
+        assert!(hosted_error(503, r#"{"error":"unavailable"}"#).to_string().contains("isn't available"));
+        assert!(hosted_error(502, "<html>").to_string().contains("trouble"));
+    }
+
+    #[test]
+    fn reads_the_free_allowance() {
+        struct Status;
+        impl Transport for Status {
+            fn post_stream(&self, _: &str, _: &str, _: &Value) -> Result<Box<dyn Read + Send>> {
+                unreachable!()
+            }
+            fn get_text(&self, url: &str, _: &str) -> Result<String> {
+                assert!(url.ends_with("/functions/v1/assistant"));
+                Ok(r#"{"model":"mistral-small-latest","limit":50,"used":3}"#.into())
+            }
+        }
+        let st = hosted_status(&Status, "token").unwrap();
+        assert_eq!((st.limit, st.used, st.available), (50, 3, true));
     }
 
     #[test]

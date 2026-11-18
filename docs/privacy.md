@@ -27,6 +27,7 @@ To work, the app contacts these services, and only for what you see on screen:
 | YouTube (RSS) | Video picks | The channels and topics in your settings |
 | GitHub | Checking for a new version (Settings → Updates, can be turned off) | Nothing about you: a plain download of the version list |
 | Steam on your PC | "Import my games", only when you click it | Read locally: your game list and playtime. No login data |
+| Mistral AI | The assistant with your own API key, only when you write to it | Your messages and a short context: the date, the weather, what you set on Discover, your interests, the ideas on screen and your last few picks |
 
 ## Online profile (only if you sign in)
 
@@ -38,6 +39,15 @@ To work, the app contacts these services, and only for what you see on screen:
 - Your friend requests, friendships and blocks.
 - Your messages and the conversations you are part of.
 - Reports you make.
+- If you use the free assistant: how many messages you sent today, for the daily limit. Older
+  days are deleted.
+
+**The free assistant**
+
+Signed in and without your own Mistral key, the assistant goes through our server: your messages
+and the short context above are forwarded to Mistral AI (France) to write the answer, then
+streamed back to you. We don't store the messages or the answers; the conversation is only kept
+on your PC.
 
 **Who sees what**
 
@@ -50,8 +60,9 @@ To work, the app contacts these services, and only for what you see on screen:
 
 **Where**
 
-Data is hosted by Supabase in the European Union (Ireland). Sign-in goes through Google. Both act as
-our processors.
+Data is hosted by Supabase in the European Union (Ireland). Sign-in goes through Google. The free
+assistant's answers are written by Mistral AI, in the European Union. All three act as our
+processors.
 
 **Legal basis**
 
@@ -61,7 +72,7 @@ in keeping the service safe (reports, rate limits, blocking).
 **How long**
 
 As long as your account exists. Deleting a message removes it. Deleting your account removes your
-login, profile, friendships, blocks and the messages you sent, immediately. Reports are kept for up
+login, profile, friendships, blocks, the messages you sent and your assistant count, immediately. Reports are kept for up
 to one year after they are handled.
 
 ## Your rights

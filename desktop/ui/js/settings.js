@@ -391,8 +391,8 @@ function assistantSection(s, form) {
   const box = section(
     'sparkles',
     'Assistant',
-    'Chat with an assistant that knows your picks: the bubble at the bottom right of every screen. It uses Mistral AI with your own API key.',
-    pill(s.mistral_key_set, s.mistral_key_set ? s.assistant_model : 'Not connected'),
+    'Chat with an assistant that knows your picks: the bubble at the bottom right of every screen. It runs on Mistral AI: free when you’re signed in, with a daily limit, or without limit on your own API key.',
+    pill(true, s.mistral_key_set ? s.assistant_model : 'Free when signed in'),
     keyField({
       label: 'Mistral API key',
       isSet: s.mistral_key_set,
@@ -402,11 +402,11 @@ function assistantSection(s, form) {
       onInput: (v) => (form.mistral_key = v),
       onClear: (v) => (form.clear_mistral_key = v),
     }),
-    labeled('Model', h('div', {}, modelInput, models), 'Pick from the list or type any Mistral model id. Small models answer fastest.'),
+    labeled('Model', h('div', {}, modelInput, models), 'With your own key: pick from the list or type any Mistral model id. Small models answer fastest.'),
     h(
       'span',
       { class: 'hint' },
-      'Only when you write to it, your messages are sent to Mistral with a short context: the date, the weather, what you set on Discover, your interests, your current picks and your last few picks.',
+      'Only when you write to it, your messages are sent to Mistral with a short context: the date, the weather, what you set on Discover, your interests, your current picks and your last few picks. The free assistant goes through freetime’s server, which only counts your messages for the daily limit.',
     ),
   );
   box.classList.add('assistant-settings');

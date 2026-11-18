@@ -3,6 +3,7 @@
 
 create role anon nologin;
 create role authenticated nologin;
+create role service_role nologin;
 grant usage on schema public to anon, authenticated;
 
 create schema auth;
