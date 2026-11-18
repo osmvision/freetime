@@ -483,6 +483,7 @@ export const exact = {
   tomorrow: 'demain',
   'pick a time between now and next week': 'choisis une heure entre maintenant et la semaine prochaine',
   'too many invites in an hour': 'trop d’invitations en une heure',
+  'you can only invite your friends': 'tu ne peux inviter que tes amis',
   'that invite isn’t waiting any more': 'cette invitation n’est plus en attente',
   "that invite isn't waiting any more": 'cette invitation n’est plus en attente',
   'this pick can’t be sent': 'cette idée ne peut pas être envoyée',

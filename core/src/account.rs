@@ -378,8 +378,12 @@ impl Client {
 
     pub fn send_invite(&self, s: &Session, invite: &NewInvite) -> Result<()> {
         let body = serde_json::to_value(invite.checked()?)?;
-        self.call("POST", "/rest/v1/invites", Some(&s.access_token), Some(&body), None)?;
-        Ok(())
+        match self.call("POST", "/rest/v1/invites", Some(&s.access_token), Some(&body), None) {
+            Ok(_) => Ok(()),
+            // The database refuses anyone who isn't an accepted friend (or blocked you).
+            Err(e) if e.to_string().contains("row-level security") => bail!("you can only invite your friends"),
+            Err(e) => Err(e),
+        }
     }
 
     /// Accept or decline an invite sent to you.
