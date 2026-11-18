@@ -25,6 +25,8 @@ pub struct Config {
     pub onboarded: bool,
     /// While signed in, check for new messages every minute and show a Windows notification.
     pub notify_messages: bool,
+    /// Share the imported Steam game list (app ids only) and taste with online friends.
+    pub share_library: bool,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -59,6 +61,7 @@ impl Default for Config {
             avatar: Default::default(),
             onboarded: false,
             notify_messages: true,
+            share_library: false,
         }
     }
 }

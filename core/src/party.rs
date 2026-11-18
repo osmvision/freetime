@@ -15,12 +15,19 @@
 use crate::{
     config,
     model::{Category, Social, Suggestion},
-    providers::{steam, steam_import::Library},
+    providers::{
+        steam::{self, Together},
+        steam_import::Library,
+    },
     scoring::Ranked,
 };
 use anyhow::{bail, ensure, Context, Result};
 use serde::{Deserialize, Serialize};
-use std::{collections::HashSet, fs, path::PathBuf};
+use std::{
+    collections::{HashMap, HashSet},
+    fs,
+    path::PathBuf,
+};
 
 pub const PREFIX: &str = "FT1.";
 const VERSION: u8 = 2;
@@ -201,11 +208,15 @@ pub fn upsert(friends: &mut Vec<Friend>, friend: Friend) -> Result<()> {
 /// The friends you're with right now, and the Steam games all of you own.
 pub struct Party {
     friends: Vec<Friend>,
+    /// The friends whose games are known (they shared a list or a friend code with games).
+    owner_names: Vec<String>,
     /// (app id, name) of games you own that every friend here owns too.
     common: Vec<(u32, String)>,
     common_ids: HashSet<u32>,
     /// Whether your own Steam games are known (imported), so "only you own it" means something.
     library_known: bool,
+    /// Co-op / versus / solo for the games everyone owns (from the Steam store; may be empty).
+    modes: HashMap<u32, Together>,
 }
 
 impl Party {
@@ -215,11 +226,14 @@ impl Party {
             f.games.sort_unstable();
             f.games.dedup();
         }
+        // Friends with no game list (they didn't share one) only count through their taste.
+        let owners: Vec<&Friend> = friends.iter().filter(|f| !f.games.is_empty()).collect();
+        let owner_names: Vec<String> = owners.iter().map(|f| f.name.clone()).collect();
         let mut common: Vec<(u32, String, u32)> = Vec::new();
         if let Some(lib) = mine {
-            if !friends.is_empty() {
+            if !owners.is_empty() {
                 for g in &lib.games {
-                    if friends.iter().all(|f| f.owns(g.appid)) {
+                    if owners.iter().all(|f| f.owns(g.appid)) {
                         common.push((g.appid, g.name.clone(), g.playtime));
                     }
                 }
@@ -229,7 +243,8 @@ impl Party {
         common.sort_by(|a, b| b.2.cmp(&a.2));
         let common: Vec<(u32, String)> = common.into_iter().map(|(id, name, _)| (id, name)).collect();
         let common_ids = common.iter().map(|(id, _)| *id).collect();
-        Party { friends, common, common_ids, library_known: mine.is_some() }
+        let library_known = mine.is_some() && !owner_names.is_empty();
+        Party { friends, owner_names, common, common_ids, library_known, modes: HashMap::new() }
     }
 
     pub fn is_empty(&self) -> bool {
@@ -240,19 +255,28 @@ impl Party {
         self.common.len()
     }
 
+    /// The games everyone owns, most played first (to look up how they can be played together).
+    pub fn common_ids(&self, limit: usize) -> Vec<u32> {
+        self.common.iter().take(limit).map(|(id, _)| *id).collect()
+    }
+
+    /// How the shared games can be played together (see `steam::together_modes`).
+    pub fn set_modes(&mut self, modes: HashMap<u32, Together>) {
+        self.modes = modes;
+    }
+
+    fn mode(&self, appid: u32) -> Together {
+        self.modes.get(&appid).copied().unwrap_or(Together::Unknown)
+    }
+
     fn names(&self) -> String {
-        match self.friends.as_slice() {
-            [] => String::new(),
-            [a] => a.name.clone(),
-            [a, b] => format!("{} and {}", a.name, b.name),
-            [a, rest @ ..] => format!("{} and {} others", a.name, rest.len()),
-        }
+        join_names(&self.friends.iter().map(|f| f.name.clone()).collect::<Vec<_>>())
     }
 
     fn owners_reason(&self) -> String {
-        match self.friends.len() {
-            1 => format!("{} owns it too", self.friends[0].name),
-            2 => format!("{} own it too", self.names()),
+        match self.owner_names.as_slice() {
+            [one] => format!("{one} owns it too"),
+            [_, _] => format!("{} own it too", join_names(&self.owner_names)),
             _ => "everyone owns it".to_string(),
         }
     }
@@ -267,8 +291,15 @@ impl Party {
             }
         }
         let present: HashSet<String> = items.iter().map(|s| s.id.clone()).collect();
-        let detail = format!("You and {} all own it", self.names());
-        for (appid, name) in self.common.iter().filter(|(id, _)| !present.contains(&format!("steam:{id}"))).take(MAX_TOGETHER_PICKS) {
+        let detail = format!("You and {} all own it", join_names(&self.owner_names));
+        // Co-op games first, then versus and unknown ones; single-player-only games aren't added.
+        let mut extra: Vec<&(u32, String)> = self.common.iter().filter(|(id, _)| !present.contains(&format!("steam:{id}")) && self.mode(*id) != Together::Solo).collect();
+        extra.sort_by_key(|(id, _)| match self.mode(*id) {
+            Together::Coop => 0,
+            Together::Versus => 1,
+            _ => 2,
+        });
+        for (appid, name) in extra.into_iter().take(MAX_TOGETHER_PICKS) {
             items.push(steam::together_pick(*appid, name, detail.clone()));
         }
     }
@@ -283,8 +314,24 @@ impl Party {
         for r in ranked.iter_mut() {
             if let Some(appid) = steam_appid(&r.s.id) {
                 if self.common_ids.contains(&appid) {
-                    r.score *= 1.35;
-                    r.reasons.insert(0, owners.clone());
+                    match self.mode(appid) {
+                        Together::Coop => {
+                            r.score *= 1.6;
+                            r.reasons.insert(0, "co-op: play it together".to_string());
+                            r.reasons.insert(1, owners.clone());
+                        }
+                        Together::Versus => {
+                            r.score *= 1.3;
+                            r.reasons.insert(0, owners.clone());
+                            r.reasons.insert(1, "multiplayer".to_string());
+                        }
+                        // You all own it, but it's single-player: no reason to pick it together.
+                        Together::Solo => r.score *= 0.6,
+                        Together::Unknown => {
+                            r.score *= 1.35;
+                            r.reasons.insert(0, owners.clone());
+                        }
+                    }
                 } else if self.library_known {
                     // Store games and games only you own: they'd have to buy it first.
                     r.score *= 0.55;
@@ -298,6 +345,15 @@ impl Party {
             r.reasons.truncate(2);
         }
         ranked.sort_by(|a, b| b.score.total_cmp(&a.score));
+    }
+}
+
+fn join_names(names: &[String]) -> String {
+    match names {
+        [] => String::new(),
+        [a] => a.clone(),
+        [a, b] => format!("{a} and {b}"),
+        [a, rest @ ..] => format!("{a} and {} others", rest.len()),
     }
 }
 
@@ -538,6 +594,42 @@ mod tests {
         assert_ne!(ranked[0].s.id, "steam:99", "a game only you own shouldn't lead");
         let top = ranked.iter().find(|r| r.s.id == "steam:730").unwrap();
         assert_eq!(top.reasons[0], "Julian and Sam own it too");
+    }
+
+    #[test]
+    fn co_op_games_lead_and_solo_ones_drop() {
+        let lib = library(&[(10, "Coop Game"), (20, "Versus Game"), (30, "Solo Game")]);
+        let mut party = Party::new(vec![friend("Julian", &[10, 20, 30])], Some(&lib));
+        assert_eq!(party.common_ids(10).len(), 3);
+        party.set_modes(HashMap::from([(10, Together::Coop), (20, Together::Versus), (30, Together::Solo)]));
+
+        let mut items = Vec::new();
+        party.prepare(&mut items);
+        assert!(!items.iter().any(|s| s.id == "steam:30"), "a solo-only game isn't pushed as a together pick");
+        items.push(steam::together_pick(30, "Solo Game", String::new()));
+
+        let req = Request {
+            minutes: 90,
+            energy: Energy::Medium,
+            with_friends: true,
+            can_go_out: false,
+            budget: Cost::Free,
+            categories: Category::ALL.to_vec(),
+        };
+        let mut ranked = crate::scoring::rank(&items, &req, None, &Default::default(), &HashSet::new(), &mut rand::thread_rng());
+        party.adjust(&mut ranked);
+        assert_eq!(ranked[0].s.id, "steam:10");
+        assert_eq!(ranked[0].reasons[0], "co-op: play it together");
+        assert_eq!(ranked.last().unwrap().s.id, "steam:30");
+        assert!(!ranked.last().unwrap().reasons.iter().any(|r| r.contains("owns it too")));
+    }
+
+    #[test]
+    fn a_friend_without_a_game_list_does_not_hide_shared_games() {
+        let lib = library(&[(570, "Dota 2")]);
+        let party = Party::new(vec![friend("Julian", &[570]), friend("Sam", &[])], Some(&lib));
+        assert_eq!(party.common_games(), 1, "Sam shared no list: only Julian's counts");
+        assert_eq!(party.owners_reason(), "Julian owns it too");
     }
 
     #[test]
