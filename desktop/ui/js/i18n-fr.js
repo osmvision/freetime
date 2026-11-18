@@ -385,6 +385,26 @@ export const exact = {
   Language: 'Langue',
   'The app’s language. “Automatic” follows Windows.': 'La langue de l’application. « Automatique » suit Windows.',
   Automatic: 'Automatique',
+  // display: low vision mode, night mode, high contrast
+  Display: 'Affichage',
+  'Bigger text, night mode and high contrast. Applied right away and kept on this computer.': 'Texte plus grand, mode nuit et fort contraste. Appliqué tout de suite et gardé sur cet ordinateur.',
+  'Low vision mode: text size': 'Mode malvoyant : taille du texte',
+  'Text size': 'Taille du texte',
+  Normal: 'Normale',
+  Large: 'Grande',
+  'Extra large': 'Très grande',
+  Huge: 'Énorme',
+  'Shortcuts: Ctrl + Plus to enlarge, Ctrl + Minus to shrink, Ctrl + 0 to reset.': 'Raccourcis : Ctrl + Plus pour agrandir, Ctrl + Moins pour réduire, Ctrl + 0 pour revenir à la normale.',
+  Colours: 'Couleurs',
+  Theme: 'Thème',
+  Day: 'Jour',
+  Night: 'Nuit',
+  'Like Windows': 'Comme Windows',
+  'High contrast': 'Fort contraste',
+  On: 'Oui',
+  Off: 'Non',
+  Default: 'Par défaut',
+  'High contrast uses pure black and white with solid outlines, by day or by night.': 'Le fort contraste utilise du noir et du blanc purs avec des contours nets, de jour comme de nuit.',
 
   // ------------------------------------------------------------ welcome
   'Welcome to freetime': 'Bienvenue dans freetime',
@@ -452,6 +472,7 @@ export const exact = {
 export const patterns = [
   // headline and counts
   ['{n0} kinds', '{0} types'],
+  ['Text {n0}%', 'Texte {0} %'],
   ['{n0} friends', '{0} amis'],
   ['{n0} more that fit', 'encore {0} qui conviennent'],
   ['{n0} games in common', '{0} jeux en commun'],

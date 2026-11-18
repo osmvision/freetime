@@ -313,6 +313,38 @@ document.addEventListener('mousedown', (e) => {
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape' && openMenu) closeMenu(true);
 });
+// The menu is placed against the window, so it can't follow a scroll: close it instead.
+document.addEventListener(
+  'scroll',
+  (e) => {
+    if (openMenu && !openMenu.menu.contains(e.target)) closeMenu();
+  },
+  true,
+);
+window.addEventListener('resize', () => closeMenu());
+
+/** Puts the menu under its button, inside the window and above the bottom tab bar
+    (the context row scrolls sideways on narrow windows and would clip it). */
+function placeMenu(menu, button) {
+  const gap = 6;
+  const margin = 8;
+  const r = button.getBoundingClientRect();
+  const nav = document.querySelector('.nav');
+  const floor = nav && getComputedStyle(nav).position === 'fixed' ? nav.getBoundingClientRect().top : window.innerHeight;
+  const roof = document.querySelector('.topbar')?.getBoundingClientRect().bottom ?? 0;
+  menu.style.position = 'fixed';
+  menu.style.left = `${Math.max(margin, Math.min(r.left, window.innerWidth - menu.offsetWidth - margin))}px`;
+  const below = floor - r.bottom - gap - margin;
+  const above = r.top - roof - gap - margin;
+  if (below >= Math.min(menu.scrollHeight, 220) || below >= above) {
+    menu.style.top = `${r.bottom + gap}px`;
+    menu.style.maxHeight = `${below}px`;
+  } else {
+    menu.style.top = 'auto';
+    menu.style.bottom = `${window.innerHeight - r.top + gap}px`;
+    menu.style.maxHeight = `${above}px`;
+  }
+}
 
 /** A context select: a labelled button that opens a small menu of options. */
 function select({ name, icon: iconOf, value, options, isOn, pick, multi = false, title }) {
@@ -352,7 +384,7 @@ function select({ name, icon: iconOf, value, options, isOn, pick, multi = false,
                 paint();
                 if (multi) {
                   draw();
-                  menu.querySelectorAll('.option')[list.indexOf(o)]?.focus();
+                  menu.querySelectorAll('.option')[list.indexOf(o)]?.focus({ preventScroll: true });
                 } else {
                   closeMenu(true);
                 }
@@ -366,9 +398,10 @@ function select({ name, icon: iconOf, value, options, isOn, pick, multi = false,
       );
     draw();
     wrap.append(menu);
+    placeMenu(menu, button);
     button.setAttribute('aria-expanded', 'true');
     openMenu = { menu, button, wrap };
-    (menu.querySelector('.option[aria-pressed="true"]') ?? menu.querySelector('.option'))?.focus();
+    (menu.querySelector('.option[aria-pressed="true"]') ?? menu.querySelector('.option'))?.focus({ preventScroll: true });
   }
 
   button.addEventListener('click', () => {

@@ -6,6 +6,7 @@ import { cityPicker, openMeteoCredit } from './city.js';
 import { emptyState, errText, h, icon, pageHead, toast } from './dom.js';
 import { photoCredits } from './photos.js';
 import { preferredLang, setLang } from './i18n.js';
+import { TEXT_SIZES, THEMES, displayState, onDisplayChange, setHighContrast, setTextSize, setTheme } from './display.js';
 
 const INTEREST_IDEAS = [
   'speedrunning',
@@ -82,6 +83,7 @@ function draw(root, ctx, s) {
       h(
         'div',
         { class: 'settings' },
+        displaySection(),
         locationSection(s, ctx, root, (box) => (cityBox = box)),
         interestsSection(form),
         steamSection(s, form, ctx, root),
@@ -96,6 +98,62 @@ function draw(root, ctx, s) {
 }
 
 // ---------------------------------------------------------------- sections
+
+/** Text size, night mode and high contrast: applied at once, no need to press Save. */
+function displaySection() {
+  const pct = (size) => `${Math.round(size.zoom * 100)}%`;
+  const status = h('span', { class: 'status' });
+
+  const sizes = TEXT_SIZES.map((size) =>
+    h(
+      'button',
+      { type: 'button', class: 'size-choice', 'data-size': size.id, onclick: () => setTextSize(size.id) },
+      h('span', { class: 'size-sample', 'aria-hidden': 'true' }, 'Aa'),
+      h('span', {}, size.label),
+      h('span', { class: 'size-pct' }, pct(size)),
+    ),
+  );
+  const themes = THEMES.map((theme) =>
+    h('button', { type: 'button', class: 'mode-choice', 'data-theme-id': theme.id, onclick: () => setTheme(theme.id) }, icon(theme.icon), theme.label),
+  );
+  const contrastBtn = h(
+    'button',
+    { type: 'button', class: 'mode-choice switch', role: 'switch', onclick: () => setHighContrast(!displayState().contrast) },
+    icon('contrast'),
+    h('span', { class: 'switch-label' }, 'High contrast'),
+    h('span', { class: 'switch-state' }),
+  );
+
+  function show({ size, theme, dark, contrast }) {
+    const notes = [size.id !== 'normal' ? `Text ${pct(size)}` : null, dark ? 'Night' : null, contrast ? 'High contrast' : null].filter(Boolean);
+    status.className = notes.length ? 'status on' : 'status off';
+    // One text node per note, so the translation layer can translate each one.
+    status.replaceChildren(...(notes.length ? notes.flatMap((n, i) => (i ? [' · ', n] : [n])) : ['Default']));
+    for (const b of sizes) b.setAttribute('aria-pressed', String(b.dataset.size === size.id));
+    for (const b of themes) b.setAttribute('aria-pressed', String(b.dataset.themeId === theme.id));
+    contrastBtn.setAttribute('aria-checked', String(contrast));
+    contrastBtn.querySelector('.switch-state').textContent = contrast ? 'On' : 'Off';
+  }
+  show(displayState());
+  const off = onDisplayChange((state) => {
+    if (!status.isConnected) return off();
+    show(state);
+  });
+
+  return section(
+    'eye',
+    'Display',
+    'Bigger text, night mode and high contrast. Applied right away and kept on this computer.',
+    status,
+    h('span', { class: 'field-label' }, 'Low vision mode: text size'),
+    h('div', { class: 'size-choices', role: 'group', 'aria-label': 'Text size' }, sizes),
+    h('span', { class: 'hint' }, 'Shortcuts: Ctrl + Plus to enlarge, Ctrl + Minus to shrink, Ctrl + 0 to reset.'),
+    h('span', { class: 'field-label' }, 'Colours'),
+    h('div', { class: 'mode-choices', role: 'group', 'aria-label': 'Theme' }, themes),
+    contrastBtn,
+    h('span', { class: 'hint' }, 'High contrast uses pure black and white with solid outlines, by day or by night.'),
+  );
+}
 
 function locationSection(s, ctx, root, keep) {
   const apply = async (place) => {

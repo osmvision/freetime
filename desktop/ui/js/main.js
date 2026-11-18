@@ -9,6 +9,9 @@ import { avatar } from './avatars.js';
 import { runWelcome } from './welcome.js';
 import { startI18n } from './i18n.js';
 import * as settingsView from './settings.js';
+import { initDisplay } from './display.js';
+
+initDisplay();
 
 const views = {
   discover: document.getElementById('view-discover'),

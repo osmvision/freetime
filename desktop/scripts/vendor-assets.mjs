@@ -27,6 +27,7 @@ const ICONS = [
   'refresh-cw', 'map-pin', 'thumbs-up', 'thumbs-down', 'external-link', 'search', 'folder-open',
   'key-round', 'trash-2', 'info', 'triangle-alert', 'loader-circle', 'bookmark', 'arrow-right', 'copy', 'user-plus', 'message-circle', 'send', 'ban', 'user-x',
   'user-check', 'pencil', 'log-out', 'log-in', 'chevron-left', 'flag', 'download', 'shield',
+  'eye', 'monitor', 'contrast',
   // context
   'clock', 'zap', 'battery-low', 'battery-medium', 'battery-full', 'user', 'users', 'sun', 'house',
   'wallet', 'heart', 'tree-pine',
