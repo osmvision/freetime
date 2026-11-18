@@ -1,5 +1,6 @@
 import { api, inTauri, listen } from './api.js';
-import { emptyState, errText, h, toast } from './dom.js';
+import { emptyState, errText, h, hydrateIcons, icon, toast, weatherIcon } from './dom.js';
+import { loadPhotos } from './photos.js';
 import * as discover from './discover.js';
 import * as historyView from './history.js';
 import * as settingsView from './settings.js';
@@ -10,19 +11,27 @@ const views = {
   settings: document.getElementById('view-settings'),
 };
 const main = document.getElementById('main');
+const tags = document.getElementById('rail-tags');
+
+let lastOnline = null;
+let city = null;
 
 const ctx = {
   goto,
-  settingsSaved: () => discover.settingsChanged(),
+  settingsSaved: () => {
+    discover.settingsChanged();
+    api.bootstrap().then((b) => {
+      city = b.setup.city;
+      renderTags(lastOnline);
+    }).catch(() => {});
+  },
 };
 
 function goto(view) {
   if (!views[view]) return;
   for (const [name, el] of Object.entries(views)) el.hidden = name !== view;
   for (const button of document.querySelectorAll('.nav-item')) {
-    const active = button.dataset.view === view;
-    button.classList.toggle('active', active);
-    if (active) button.setAttribute('aria-current', 'page');
+    if (button.dataset.view === view) button.setAttribute('aria-current', 'page');
     else button.removeAttribute('aria-current');
   }
   main.scrollTop = 0;
@@ -34,39 +43,75 @@ for (const button of document.querySelectorAll('.nav-item')) {
   button.addEventListener('click', () => goto(button.dataset.view));
 }
 
-function renderSync(online) {
+// Alt+1/2/3 switch screens.
+document.addEventListener('keydown', (e) => {
+  if (!e.altKey || e.ctrlKey || e.metaKey) return;
+  const view = { 1: 'discover', 2: 'history', 3: 'settings' }[e.key];
+  if (view) {
+    e.preventDefault();
+    goto(view);
+  }
+});
+
+// ---------------------------------------------------------------- the tags at the bottom of the rail
+
+function renderTags(online) {
+  if (!online) return;
+  lastOnline = online;
   const busy = online.loading || !online.ready;
-  const counts = [
-    online.steam_games ? `${online.steam_games} Steam games` : null,
-    online.videos ? `${online.videos} videos` : null,
-  ]
-    .filter(Boolean)
-    .join(' · ');
-  document.getElementById('sync').replaceChildren(
-    h(
+  const w = online.weather;
+
+  let weather;
+  if (w) {
+    weather = h(
       'div',
-      { class: 'sync-line' },
-      busy ? h('span', { class: 'spinner' }) : h('span', { class: 'dot' }),
-      h('span', { class: 'sync-label' }, busy ? 'Syncing…' : 'Up to date'),
-      busy
-        ? null
-        : h(
-            'button',
-            {
-              class: 'icon-btn',
-              title: 'Refresh Steam, YouTube and the weather',
-              'aria-label': 'Refresh online sources',
-              onclick: refresh,
-            },
-            '↻',
-          ),
+      { class: 'tag', title: w.summary },
+      icon(weatherIcon(w)),
+      h('span', {}, h('span', { class: 'tag-label' }, w.place), h('span', { class: 'tag-value' }, `${Math.round(w.temp_c)}°C ${w.sky}`)),
+    );
+  } else if (!city && online.ready) {
+    weather = h(
+      'button',
+      { type: 'button', class: 'tag clickable', onclick: () => goto('settings') },
+      icon('map-pin'),
+      h('span', {}, h('span', { class: 'tag-label' }, 'Weather'), h('span', { class: 'tag-value' }, 'Set your city')),
+    );
+  } else {
+    weather = h(
+      'div',
+      { class: 'tag' },
+      icon('cloud-sun'),
+      h('span', {}, h('span', { class: 'tag-label' }, 'Weather'), h('span', { class: 'tag-value' }, busy ? 'Checking' : 'Unavailable')),
+    );
+  }
+
+  const counts = [
+    online.steam_games ? `${online.steam_games} games` : null,
+    online.videos ? `${online.videos} videos` : null,
+  ].filter(Boolean);
+  const sync = h(
+    'div',
+    { class: 'tag', title: counts.join(', ') || 'Built-in ideas only' },
+    icon(busy ? 'loader-circle' : 'check', busy ? 'spin' : ''),
+    h(
+      'span',
+      {},
+      h('span', { class: 'tag-label' }, busy ? 'Syncing' : 'Up to date'),
+      h('span', { class: 'tag-value' }, online.ready ? counts.join(' · ') || 'Built-in ideas' : 'Steam · YouTube'),
     ),
-    h('div', { class: 'sync-sub' }, online.ready ? counts || 'Built-in ideas only' : 'Steam · YouTube · weather'),
+    busy
+      ? null
+      : h(
+          'button',
+          { type: 'button', class: 'tag-action', title: 'Refresh Steam, YouTube and the weather', 'aria-label': 'Refresh online sources', onclick: refresh },
+          icon('refresh-cw'),
+        ),
   );
+  tags.replaceChildren(weather, sync);
 }
 
 function refresh() {
-  renderSync({ loading: true, ready: false });
+  renderTags({ ...lastOnline, loading: true });
   api.refresh().catch((e) => toast(errText(e), 'error'));
 }
 
@@ -74,22 +119,25 @@ window.addEventListener('error', (e) => toast(`Something broke: ${e.message}`, '
 window.addEventListener('unhandledrejection', (e) => toast(errText(e.reason), 'error', 6000));
 
 async function start() {
+  hydrateIcons();
   if (!inTauri) {
     views.discover.append(
-      emptyState({ emoji: '🖥️', title: 'Open freetime from the desktop app', text: 'This page needs the Tauri runtime.' }),
+      emptyState({ icon: 'info', title: 'Open freetime from the desktop app', text: 'This page needs the Tauri runtime.' }),
     );
     return;
   }
+  await loadPhotos();
   const boot = await api.bootstrap();
-  renderSync(boot.online);
+  city = boot.setup.city;
+  renderTags(boot.online);
   discover.init(views.discover, boot, ctx);
   await listen('online-updated', (online) => {
-    renderSync(online);
+    renderTags(online);
     discover.onOnline(online);
   });
   // The first sync may have finished before we started listening.
   const online = await api.onlineStatus();
-  renderSync(online);
+  renderTags(online);
   discover.onOnline(online);
 }
 

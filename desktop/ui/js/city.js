@@ -112,6 +112,6 @@ export function openMeteoCredit() {
     'div',
     { class: 'attribution' },
     'Weather data by ',
-    h('button', { type: 'button', class: 'link-btn', onclick: () => api.open('https://open-meteo.com/') }, 'Open-Meteo.com'),
+    h('button', { type: 'button', class: 'link', onclick: () => api.open('https://open-meteo.com/') }, 'Open-Meteo.com'),
   );
 }

@@ -1,0 +1,78 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-18T10:00:00Z",
+  "title": "Design System: freetime",
+  "extensions": {
+    "colorMeta": {
+      "carrier-navy": { "role": "primary", "displayName": "Carrier Navy" },
+      "jet-red": { "role": "accent", "displayName": "Jet Red" },
+      "carbon-purple": { "role": "secondary", "displayName": "Carbon Purple" },
+      "carbon-lavender": { "role": "secondary", "displayName": "Carbon-copy Lavender" },
+      "stock-white": { "role": "neutral", "displayName": "Stock White" },
+      "coupon-white": { "role": "neutral", "displayName": "Coupon White" }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Airline Caps", "purpose": "Page titles, coupon and section titles, uppercase." },
+      "label": { "displayName": "Tab Caps", "purpose": "Field names, fare-box labels, nav and buttons." },
+      "body": { "displayName": "Body", "purpose": "Details, hints, settings copy." },
+      "figures": { "displayName": "Carbon Numerals", "purpose": "Every figure the user decides with." }
+    },
+    "shadows": [
+      { "name": "paper", "value": "0 1px 1px rgba(13,27,61,0.06), 0 8px 24px -10px rgba(13,27,61,0.28)", "purpose": "Tickets, panels, menus and toasts resting on the desk." }
+    ],
+    "motion": [
+      { "name": "ease-issue", "value": "cubic-bezier(0.16, 1, 0.3, 1)", "purpose": "Coupons and leaves being issued; stamps pressing." },
+      { "name": "stamp", "value": "320ms", "purpose": "VOID / VALIDATED press, from 1.7x scale." },
+      { "name": "tear", "value": "420ms cubic-bezier(0.7, 0, 0.84, 0)", "purpose": "A voided coupon tearing off." }
+    ],
+    "breakpoints": [
+      { "name": "narrow-stub", "value": "1100px" },
+      { "name": "bottom-tabs", "value": "860px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The one action on a screen: Start, Save changes.",
+      "html": "<button class=\"ds-btn-primary\">START</button>",
+      "css": ".ds-btn-primary { display:inline-flex; align-items:center; height:46px; padding:0 20px; border:1.5px solid #d7262d; border-radius:6px; background:#d7262d; color:#fff; font:700 17px/1 'Barlow Condensed', 'Arial Narrow', sans-serif; letter-spacing:.08em; text-transform:uppercase; } .ds-btn-primary:hover { background:#b51d23; border-color:#b51d23; }"
+    },
+    {
+      "name": "Fare Boxes",
+      "kind": "custom",
+      "refersTo": "coupon",
+      "description": "Hairline-ruled fields that explain the pick in figures.",
+      "html": "<dl class=\"ds-fare\"><div><dt>Duration</dt><dd>30-45 MIN</dd></div><div><dt>Fare</dt><dd>FREE</dd></div><div><dt>Weather</dt><dd>14°C</dd></div><div><dt>Energy</dt><dd>HIGH</dd></div></dl>",
+      "css": ".ds-fare { display:grid; grid-template-columns:repeat(4,1fr); margin:0; border:1px solid #0d1b3d; border-radius:4px; background:#fff; } .ds-fare > div { padding:8px 12px; border-right:1px solid #0d1b3d; } .ds-fare > div:last-child { border-right:0; } .ds-fare dt { font:700 12px/1 'Barlow Condensed', sans-serif; letter-spacing:.12em; text-transform:uppercase; color:#5b6782; } .ds-fare dd { margin:6px 0 0; font:700 17px/1.2 'Courier Prime', monospace; color:#4b2e83; }"
+    },
+    {
+      "name": "Rail Tag",
+      "kind": "custom",
+      "refersTo": "rail-tag",
+      "description": "Baggage tag at the foot of the navy rail: weather or sync state.",
+      "html": "<div class=\"ds-tag\"><span><span class=\"l\">Lyon</span><span class=\"v\">14°C partly cloudy</span></span></div>",
+      "css": ".ds-tag { position:relative; padding:10px 14px; border-radius:8px; background:#e6dff1; color:#0d1b3d; } .ds-tag::before { content:''; position:absolute; left:-5px; top:50%; width:10px; height:10px; margin-top:-5px; border-radius:50%; background:#0d1b3d; } .ds-tag .l { display:block; font:700 12px/1.2 'Barlow Condensed', sans-serif; letter-spacing:.1em; text-transform:uppercase; color:#3b4866; } .ds-tag .v { display:block; font:700 15px/1.25 'Courier Prime', monospace; color:#4b2e83; }"
+    },
+    {
+      "name": "Stamp",
+      "kind": "custom",
+      "refersTo": "coupon",
+      "description": "VOID (jet red) or VALIDATED (carbon purple) pressed onto a coupon.",
+      "html": "<div class=\"ds-stamp\">VOID</div>",
+      "css": ".ds-stamp { display:inline-block; padding:6px 18px 2px; border:5px solid #d7262d; border-radius:8px; color:#d7262d; font:800 72px/1 'Barlow Condensed', sans-serif; letter-spacing:.06em; transform:rotate(-11deg); opacity:.92; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Ticket Wallet",
+    "overview": "Your free time is a ticket. One coupon to use now, the rest of the book behind it, every state stamped on paper. Carrier navy, coupon white on stock white, jet red for the one action, carbon purple for every figure.",
+    "keyCharacteristics": ["Full-width best-pick coupon with a photo stub", "Hairline fare boxes in carbon numerals", "Dashed perforations and punched notches", "VOID and VALIDATED stamps", "One Lucide icon family, no emoji"],
+    "rules": [
+      { "name": "One Red", "body": "Jet red only on the primary action and the VOID stamp.", "section": "colors" },
+      { "name": "Figures Are Purple", "body": "Every number the user decides with is Courier Prime in carbon purple.", "section": "typography" }
+    ],
+    "dos": ["Do use one Lucide icon family for every glyph.", "Do give built-in ideas a bundled, credited photo.", "Do keep 44px hit targets and a visible focus ring."],
+    "donts": ["Don't use emoji or unicode symbols as icons.", "Don't use red for anything but the primary action and VOID.", "Don't fall back to a grid of identical dark cards."]
+  }
+}

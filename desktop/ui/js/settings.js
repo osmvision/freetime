@@ -2,7 +2,8 @@
 
 import { api } from './api.js';
 import { cityPicker, openMeteoCredit } from './city.js';
-import { emptyState, errText, h, pageHead, toast } from './dom.js';
+import { emptyState, errText, h, icon, pageHead, toast } from './dom.js';
+import { photoCredits } from './photos.js';
 
 const INTEREST_IDEAS = [
   'speedrunning',
@@ -22,11 +23,11 @@ const INTEREST_IDEAS = [
 const head = () => pageHead('Settings', 'Everything here is optional: freetime works offline too.');
 
 export async function render(root, ctx) {
-  root.replaceChildren(head(), h('div', { class: 'skeleton block' }));
+  root.replaceChildren(head(), h('div', { class: 'ghost', style: 'height:420px' }));
   try {
     draw(root, ctx, await api.settings());
   } catch (e) {
-    root.replaceChildren(head(), emptyState({ emoji: '😵', title: "Couldn't load your settings", text: errText(e) }));
+    root.replaceChildren(head(), emptyState({ icon: 'triangle-alert', title: 'Could not load your settings', text: errText(e) }));
   }
 }
 
@@ -76,8 +77,9 @@ function draw(root, ctx, s) {
         steamSection(s, form, ctx, root),
         youtubeSection(s, form),
         dataSection(s),
+        creditsSection(),
       ),
-      h('div', { class: 'save-bar' }, h('span', { class: 'save-hint' }, 'Your picks refresh right after saving.'), save),
+      h('div', { class: 'save-bar' }, h('span', { class: 'hint' }, 'Your picks refresh right after saving.'), save),
     ),
   );
 }
@@ -99,7 +101,7 @@ function locationSection(s, ctx, root) {
     ? `Prices and currency follow your Windows region: ${s.region.country}${s.region.currency ? ` · ${s.region.currency}` : ''}.`
     : 'Prices follow Steam’s own guess (no Windows region found).';
   return section(
-    '📍',
+    'map-pin',
     'Location',
     'Your city is only used to check the weather, so outdoor ideas rank high when it’s nice out.',
     pill(Boolean(s.city), s.city ?? 'Not set'),
@@ -111,7 +113,7 @@ function locationSection(s, ctx, root) {
 }
 
 function interestsSection(form) {
-  const ideas = h('div', { class: 'chips' });
+  const ideas = h('div', { class: 'suggest' });
   const tags = tagInput(form.interests, 'Add a topic, press Enter', () => drawIdeas());
   function drawIdeas() {
     const taken = new Set(form.interests.map((i) => i.toLowerCase()));
@@ -123,7 +125,6 @@ function interestsSection(form) {
             'button',
             {
               type: 'button',
-              class: 'chip small',
               onclick: () => {
                 form.interests.push(i);
                 tags.redraw();
@@ -137,12 +138,12 @@ function interestsSection(form) {
   }
   drawIdeas();
   return section(
-    '💡',
+    'heart',
     'Interests',
     'Topics used to find YouTube videos for you.',
     null,
     tags,
-    h('div', { class: 'sub-label' }, 'Ideas'),
+    h('span', { class: 'field-label' }, 'Ideas'),
     ideas,
   );
 }
@@ -150,7 +151,7 @@ function interestsSection(form) {
 function steamSection(s, form, ctx, root) {
   const st = s.steam;
   const day = (unix) => new Date(unix * 1000).toLocaleDateString();
-  const picker = h('div', { class: 'account-picker' });
+  const picker = h('div', { class: 'row' });
   const label = st.imported ? 'Re-import my games from Steam on this PC' : 'Import my games from Steam on this PC';
   const importBtn = h('button', { type: 'button', class: 'btn', onclick: () => startImport() }, label);
 
@@ -185,7 +186,7 @@ function steamSection(s, form, ctx, root) {
       }
       if (scan.accounts.length === 1) return finish(scan.accounts[0].steam_id64);
       picker.replaceChildren(
-        h('div', { class: 'sub-label' }, 'Which account?'),
+        h('span', { class: 'field-label' }, 'Which account?'),
         ...scan.accounts.map((a) =>
           h(
             'button',
@@ -218,15 +219,15 @@ function steamSection(s, form, ctx, root) {
   }
 
   return section(
-    '🎮',
+    'gamepad-2',
     'Steam',
     'freetime never reads Steam’s files on its own. Import your games once (installed games and playtime), and re-import after installing new ones.',
     pill(st.imported, st.imported ? `${st.games} games` : 'Not imported'),
     h(
       'div',
-      { class: 'input-row wrap' },
+      { class: 'row' },
       importBtn,
-      st.imported ? h('button', { type: 'button', class: 'btn small ghost', onclick: forget }, 'Forget imported games') : null,
+      st.imported ? h('button', { type: 'button', class: 'btn small quiet', onclick: forget }, 'Forget imported games') : null,
     ),
     st.imported
       ? h(
@@ -267,7 +268,7 @@ function youtubeSection(s, form) {
       ? `${channelCount} channel${channelCount > 1 ? 's' : ''}`
       : 'Not connected';
   return section(
-    '📺',
+    'circle-play',
     'YouTube',
     'Real videos that fit your free time, from your interests and the channels you follow.',
     pill(s.youtube_key_set || channelCount > 0, status),
@@ -290,15 +291,15 @@ function youtubeSection(s, form) {
 
 function dataSection(s) {
   return section(
-    '📁',
+    'folder-open',
     'Your data',
     'Settings, history and caches stay on this computer. API keys are stored in plain text in the config file.',
     null,
     h(
       'div',
       { class: 'paths' },
-      h('div', {}, h('span', { class: 'path-label' }, 'Config'), h('code', {}, s.config_path)),
-      h('div', {}, h('span', { class: 'path-label' }, 'Data'), h('code', {}, s.data_dir)),
+      h('div', {}, h('span', { class: 'field-label' }, 'Config '), h('code', {}, s.config_path)),
+      h('div', {}, h('span', { class: 'field-label' }, 'Data '), h('code', {}, s.data_dir)),
     ),
     h(
       'div',
@@ -306,7 +307,33 @@ function dataSection(s) {
       h(
         'button',
         { type: 'button', class: 'btn small', onclick: () => api.openDataDir().catch((e) => toast(errText(e), 'error')) },
-        '📂 Open data folder',
+        icon('folder-open'),
+        'Open data folder',
+      ),
+    ),
+  );
+}
+
+/** The bundled idea photos are free-licensed; their authors are credited here. */
+function creditsSection() {
+  const credits = Object.entries(photoCredits());
+  if (!credits.length) return null;
+  const nice = (id) => id.replace(/-/g, ' ');
+  return section(
+    'info',
+    'Photo credits',
+    'Idea photos come from Wikimedia Commons under free licenses. Steam and YouTube artwork belongs to its owners.',
+    null,
+    h(
+      'ul',
+      { class: 'credits' },
+      credits.map(([id, c]) =>
+        h(
+          'li',
+          {},
+          h('button', { type: 'button', class: 'link', onclick: () => api.open(c.page).catch((e) => toast(errText(e), 'error')) }, nice(id)),
+          `: ${c.author}, ${c.license}`,
+        ),
       ),
     ),
   );
@@ -314,26 +341,26 @@ function dataSection(s) {
 
 // ---------------------------------------------------------------- building blocks
 
-function section(icon, title, desc, status, ...children) {
+function section(iconName, title, desc, status, ...children) {
   return h(
     'section',
-    { class: 'card section' },
-    h('div', { class: 'section-head' }, h('h3', {}, h('span', { class: 'section-icon' }, icon), title), status),
+    { class: 'panel section' },
+    h('div', { class: 'section-top' }, icon(iconName), h('h2', {}, title), status),
     desc ? h('p', { class: 'section-desc' }, desc) : null,
     children,
   );
 }
 
 function pill(on, text) {
-  return h('span', { class: on ? 'status-pill on' : 'status-pill off' }, text);
+  return h('span', { class: on ? 'status on' : 'status off' }, text);
 }
 
 /** A field with a label; extra strings become hints underneath. */
 function labeled(text, control, ...extras) {
   return h(
     'div',
-    { class: 'lbl' },
-    h('span', { class: 'lbl-text' }, text),
+    { class: 'field' },
+    h('span', { class: 'field-label' }, text),
     control,
     extras.map((x) => (typeof x === 'string' ? h('span', { class: 'hint' }, x) : x)),
   );
@@ -346,7 +373,7 @@ function input(props) {
 function keyField({ label, isSet, fromEnv, envName, getUrl, onInput, onClear }) {
   const field = input({
     type: 'password',
-    placeholder: isSet ? '•••••••• saved (leave empty to keep it)' : 'Paste your key here',
+    placeholder: isSet ? 'Saved (leave empty to keep it)' : 'Paste your key here',
     'aria-label': label,
     oninput: (e) => onInput(e.target.value),
   });
@@ -354,12 +381,13 @@ function keyField({ label, isSet, fromEnv, envName, getUrl, onInput, onClear }) 
     label,
     h(
       'div',
-      { class: 'input-row' },
+      { class: 'row' },
       field,
       h(
         'button',
         { type: 'button', class: 'btn small', onclick: () => api.open(getUrl).catch((e) => toast(errText(e), 'error')) },
-        'Get a key ↗',
+        icon('external-link'),
+        'Get a key',
       ),
     ),
     fromEnv ? `Using ${envName} from your environment.` : null,
@@ -379,7 +407,7 @@ function tagInput(values, placeholder, onChange = () => {}) {
       ...values.map((v, i) =>
         h(
           'span',
-          { class: 'tag' },
+          { class: 'chip-tag' },
           v,
           h(
             'button',
@@ -392,7 +420,7 @@ function tagInput(values, placeholder, onChange = () => {}) {
                 onChange();
               },
             },
-            '×',
+            icon('x'),
           ),
         ),
       ),

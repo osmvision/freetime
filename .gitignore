@@ -5,3 +5,9 @@
 .env
 # Personal build settings (see .cargo/config.toml.example)
 /.cargo/config.toml
+
+# Locally installed agent skills (reinstall from skills-lock.json)
+/.agents/
+/.claude/
+# Impeccable's generated reference boards
+/.impeccable/reference/

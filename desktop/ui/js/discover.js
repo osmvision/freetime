@@ -1,42 +1,47 @@
-// The main screen: tell it how you feel, get the best thing to do right now.
+// The main screen: today's ticket (the best pick), why it fits, and the rest of the book behind it.
 
 import { api } from './api.js';
 import { cityPicker, openMeteoCredit } from './city.js';
 import {
+  btn,
   capitalize,
-  catVars,
-  closeModal,
-  confetti,
+  categoryIcon,
   emptyState,
   errText,
   fill,
   fmtMinutes,
   h,
+  icon,
   linkLabel,
-  openModal,
-  pageHead,
-  setModal,
+  reducedMotion,
+  sourceLabel,
   toast,
   wait,
 } from './dom.js';
+import { creditLine, photo, photoFor } from './photos.js';
 
-const TIMES = [15, 30, 60, 120, 240];
+const TIMES = [15, 30, 45, 60, 90, 120, 180, 240];
 const ENERGY = [
-  { id: 'low', emo: '😴', label: 'Chill' },
-  { id: 'medium', emo: '🙂', label: 'Steady' },
-  { id: 'high', emo: '⚡', label: 'Pumped' },
+  { id: 'low', label: 'Low', icon: 'battery-low' },
+  { id: 'medium', label: 'Steady', icon: 'battery-medium' },
+  { id: 'high', label: 'Pumped', icon: 'battery-full' },
 ];
 const COMPANY = [
-  { id: false, label: '🧍 Just me' },
-  { id: true, label: '👥 With friends' },
+  { id: false, label: 'Just me', icon: 'user' },
+  { id: true, label: 'With friends', icon: 'users' },
+];
+const OUTSIDE = [
+  { id: true, label: 'Can go out', icon: 'tree-pine' },
+  { id: false, label: 'Staying in', icon: 'house' },
 ];
 const BUDGET = [
-  { id: 'free', label: 'Free' },
-  { id: 'cheap', label: 'Cheap' },
-  { id: 'paid', label: 'Any' },
+  { id: 'free', label: 'Free', icon: 'wallet' },
+  { id: 'cheap', label: 'Cheap', icon: 'wallet' },
+  { id: 'paid', label: 'Any price', icon: 'wallet' },
 ];
-const COST = { free: '💸 Free', cheap: '🪙 Cheap', paid: '💳 Paid' };
-const MOOD_KEY = 'freetime.mood.v1';
+const FARE = { free: 'Free', cheap: 'Cheap', paid: 'Paid' };
+const MOOD_KEY = 'freetime.mood.v2';
+const BOOK_SIZE = 12;
 
 let ctx;
 const els = {};
@@ -46,12 +51,13 @@ const state = {
   online: null,
   setup: null,
   pending: [],
-  hidden: new Set(), // "not for me" during this session
-  shuffled: new Set(), // already shown, skipped by Shuffle
+  hidden: new Set(), // voided during this session
+  shuffled: new Set(), // already shown, skipped by "Other picks"
   shown: [],
   results: null,
   loading: false,
   stale: false, // settings changed: refresh picks once the new data is in
+  timer: null,
 };
 
 export function init(root, boot, context) {
@@ -62,10 +68,14 @@ export function init(root, boot, context) {
   state.pending = boot.pending;
   state.req = { ...boot.defaults, ...loadMood(boot.categories) };
 
-  els.rate = h('div', { class: 'rate-zone' });
-  els.cityPrompt = h('div', { class: 'city-prompt-zone' });
-  els.results = h('section', { class: 'results', 'aria-live': 'polite' });
-  root.replaceChildren(header(), els.cityPrompt, els.rate, h('div', { class: 'discover-grid' }, moodPanel(), els.results));
+  els.head = h('div');
+  els.context = h('div', { class: 'context', role: 'toolbar', 'aria-label': 'Your free time' });
+  els.cityPrompt = h('div');
+  els.rate = h('div');
+  els.results = h('div', { 'aria-live': 'polite' });
+  root.replaceChildren(els.head, els.context, els.cityPrompt, els.rate, els.results);
+  renderHead();
+  renderContext();
   renderCityPrompt();
   renderRate();
   runSuggest();
@@ -74,8 +84,6 @@ export function init(root, boot, context) {
 export function onOnline(online) {
   const wasPartial = Boolean(state.results?.partial);
   state.online = online;
-  renderWeather();
-  renderOutsideHint();
   if (!online.ready || online.loading || state.loading) return;
   if (state.stale) {
     state.stale = false;
@@ -91,12 +99,231 @@ export async function settingsChanged() {
     const boot = await api.bootstrap();
     state.setup = boot.setup;
     state.online = boot.online;
-    renderWeather();
-    renderOutsideHint();
     renderCityPrompt();
   } catch {
     // The next sync event catches up.
   }
+}
+
+// ---------------------------------------------------------------- remembered context
+
+function loadMood(categories) {
+  try {
+    const saved = JSON.parse(localStorage.getItem(MOOD_KEY) ?? 'null');
+    if (!saved || typeof saved !== 'object') return {};
+    const known = new Set(categories.map((c) => c.id));
+    const mood = {};
+    if (Number.isFinite(saved.minutes) && saved.minutes >= 5 && saved.minutes <= 300) mood.minutes = saved.minutes;
+    if (ENERGY.some((e) => e.id === saved.energy)) mood.energy = saved.energy;
+    if (typeof saved.with_friends === 'boolean') mood.with_friends = saved.with_friends;
+    if (typeof saved.can_go_out === 'boolean') mood.can_go_out = saved.can_go_out;
+    if (BUDGET.some((b) => b.id === saved.budget)) mood.budget = saved.budget;
+    const cats = Array.isArray(saved.categories) ? saved.categories.filter((c) => known.has(c)) : [];
+    if (cats.length) mood.categories = cats;
+    return mood;
+  } catch {
+    return {};
+  }
+}
+
+function saveMood() {
+  try {
+    const { minutes, energy, with_friends, can_go_out, budget, categories } = state.req;
+    localStorage.setItem(MOOD_KEY, JSON.stringify({ minutes, energy, with_friends, can_go_out, budget, categories }));
+  } catch {
+    // Storage unavailable: the context just won't be remembered.
+  }
+}
+
+// ---------------------------------------------------------------- headline and context bar
+
+function partOfDay() {
+  const hour = new Date().getHours();
+  if (hour < 5) return 'tonight';
+  if (hour < 12) return 'this morning';
+  if (hour < 18) return 'this afternoon';
+  return 'tonight';
+}
+
+function renderHead() {
+  const sub = state.results?.summary ?? 'Finding the best way to spend it.';
+  fill(
+    els.head,
+    h(
+      'header',
+      { class: 'page-head' },
+      h(
+        'div',
+        {},
+        h('h1', { class: 'page-title' }, `Your ${fmtMinutes(state.req.minutes)} ${partOfDay()}`),
+        h('p', { class: 'page-sub' }, sub),
+      ),
+      h(
+        'div',
+        { class: 'head-actions' },
+        btn({ label: 'Other picks', icon: 'refresh-cw', small: true, onclick: shuffle, title: 'Show other ideas for the same context' }),
+        btn({ label: 'Surprise me', icon: 'shuffle', small: true, onclick: surprise, title: 'A random idea that still fits' }),
+      ),
+    ),
+  );
+}
+
+/** Any change to the context re-ranks after a short pause, so several quick edits cost one request. */
+function changed() {
+  saveMood();
+  renderHead();
+  clearTimeout(state.timer);
+  state.timer = setTimeout(() => runSuggest(), 220);
+}
+
+function renderContext() {
+  const r = state.req;
+  const one = (name, iconName, options, key) =>
+    select({
+      name,
+      icon: () => options.find((o) => o.id === r[key])?.icon ?? iconName,
+      value: () => options.find((o) => o.id === r[key])?.label ?? '',
+      options,
+      isOn: (o) => o.id === r[key],
+      pick: (o) => {
+        r[key] = o.id;
+        changed();
+        return true;
+      },
+    });
+
+  const timeOptions = () => {
+    const list = TIMES.includes(r.minutes) ? TIMES : [...TIMES, r.minutes].sort((a, b) => a - b);
+    return list.map((m) => ({ id: m, label: fmtMinutes(m) }));
+  };
+
+  fill(
+    els.context,
+    select({
+      name: 'Time',
+      icon: () => 'clock',
+      value: () => fmtMinutes(r.minutes),
+      options: timeOptions,
+      isOn: (o) => o.id === r.minutes,
+      pick: (o) => {
+        r.minutes = o.id;
+        changed();
+        return true;
+      },
+    }),
+    one('Energy', 'zap', ENERGY, 'energy'),
+    one('Who', 'user', COMPANY, 'with_friends'),
+    one('Outside', 'tree-pine', OUTSIDE, 'can_go_out'),
+    one('Budget', 'wallet', BUDGET, 'budget'),
+    select({
+      name: 'Mood',
+      icon: () => 'heart',
+      value: () => {
+        const n = r.categories.length;
+        if (n === state.categories.length) return 'Anything';
+        if (n === 1) return state.categories.find((c) => c.id === r.categories[0])?.label ?? '1 kind';
+        return `${n} kinds`;
+      },
+      title: 'In the mood for',
+      multi: true,
+      options: () => state.categories.map((c) => ({ id: c.id, label: c.label, icon: categoryIcon(c.id) })),
+      isOn: (o) => r.categories.includes(o.id),
+      pick: (o) => {
+        const on = r.categories.includes(o.id);
+        if (on && r.categories.length === 1) {
+          toast('Keep at least one kind of idea');
+          return false;
+        }
+        r.categories = on ? r.categories.filter((x) => x !== o.id) : [...r.categories, o.id];
+        changed();
+        return true;
+      },
+    }),
+  );
+}
+
+let openMenu = null;
+
+function closeMenu(focusButton = false) {
+  if (!openMenu) return;
+  const { menu, button } = openMenu;
+  openMenu = null;
+  menu.remove();
+  button.setAttribute('aria-expanded', 'false');
+  if (focusButton) button.focus();
+}
+
+document.addEventListener('mousedown', (e) => {
+  if (openMenu && !openMenu.wrap.contains(e.target)) closeMenu();
+});
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && openMenu) closeMenu(true);
+});
+
+/** A context select: a labelled button that opens a small menu of options. */
+function select({ name, icon: iconOf, value, options, isOn, pick, multi = false, title }) {
+  const valueEl = h('span', { class: 'select-value' });
+  const iconSlot = h('span', { class: 'icon-slot' });
+  const button = h(
+    'button',
+    { type: 'button', class: 'select-button', 'aria-haspopup': 'true', 'aria-expanded': 'false' },
+    iconSlot,
+    h('span', { class: 'select-name' }, name),
+    valueEl,
+    icon('chevron-down', 'chev'),
+  );
+  const wrap = h('div', { class: 'select' }, button);
+  const paint = () => {
+    valueEl.textContent = value();
+    fill(iconSlot, icon(iconOf()));
+    button.setAttribute('aria-label', `${title ?? name}: ${value()}`);
+  };
+
+  function open() {
+    const list = typeof options === 'function' ? options() : options;
+    const menu = h('div', { class: 'menu', role: 'group', 'aria-label': title ?? name });
+    const draw = () =>
+      fill(
+        menu,
+        title ? h('div', { class: 'menu-title' }, title) : null,
+        list.map((o) =>
+          h(
+            'button',
+            {
+              type: 'button',
+              class: 'option',
+              'aria-pressed': String(isOn(o)),
+              onclick: () => {
+                if (!pick(o)) return;
+                paint();
+                if (multi) {
+                  draw();
+                  menu.querySelectorAll('.option')[list.indexOf(o)]?.focus();
+                } else {
+                  closeMenu(true);
+                }
+              },
+            },
+            h('span', { class: 'option-left' }, o.icon ? icon(o.icon) : null, o.label),
+            isOn(o) ? icon('check') : null,
+          ),
+        ),
+        multi ? btn({ label: 'Done', small: true, onclick: () => closeMenu(true) }) : null,
+      );
+    draw();
+    wrap.append(menu);
+    button.setAttribute('aria-expanded', 'true');
+    openMenu = { menu, button, wrap };
+    (menu.querySelector('.option[aria-pressed="true"]') ?? menu.querySelector('.option'))?.focus();
+  }
+
+  button.addEventListener('click', () => {
+    const mine = openMenu?.wrap === wrap;
+    closeMenu();
+    if (!mine) open();
+  });
+  paint();
+  return wrap;
 }
 
 // ---------------------------------------------------------------- first launch: where are you?
@@ -118,580 +345,27 @@ function renderCityPrompt() {
         toast(`City set to ${place.name}: checking the weather`, 'ok');
       }
       renderCityPrompt();
-      renderWeather();
-      renderOutsideHint();
     } catch (e) {
       toast(errText(e), 'error');
     }
   };
-  els.cityPrompt.replaceChildren(
+  fill(
+    els.cityPrompt,
     h(
       'div',
-      { class: 'city-prompt card' },
+      { class: 'strip' },
+      icon('map-pin'),
       h(
         'div',
-        { class: 'city-prompt-text' },
+        { class: 'strip-text' },
         h('strong', {}, 'Where are you?'),
-        h('span', {}, 'Your city lets freetime check the weather, so outdoor ideas only show up when it’s nice out. You can change it anytime in Settings.'),
+        h('span', {}, 'Only used for the weather, so outdoor ideas show up when it is nice out. '),
         openMeteoCredit(),
       ),
-      h(
-        'div',
-        { class: 'city-prompt-actions' },
-        cityPicker({ onPick: answer }),
-        h('button', { type: 'button', class: 'btn ghost small', onclick: () => answer(null) }, 'Skip'),
-      ),
+      cityPicker({ onPick: answer }),
+      btn({ label: 'Skip', kind: 'quiet', small: true, onclick: () => answer(null) }),
     ),
   );
-}
-
-// ---------------------------------------------------------------- remembered mood
-
-function loadMood(categories) {
-  try {
-    const saved = JSON.parse(localStorage.getItem(MOOD_KEY) ?? 'null');
-    if (!saved || typeof saved !== 'object') return {};
-    const known = new Set(categories.map((c) => c.id));
-    const mood = {};
-    if (Number.isFinite(saved.minutes) && saved.minutes >= 5 && saved.minutes <= 300) mood.minutes = saved.minutes;
-    if (typeof saved.with_friends === 'boolean') mood.with_friends = saved.with_friends;
-    if (BUDGET.some((b) => b.id === saved.budget)) mood.budget = saved.budget;
-    const cats = Array.isArray(saved.categories) ? saved.categories.filter((c) => known.has(c)) : [];
-    if (cats.length) mood.categories = cats;
-    return mood;
-  } catch {
-    return {};
-  }
-}
-
-function saveMood() {
-  try {
-    const { minutes, with_friends, budget, categories } = state.req;
-    localStorage.setItem(MOOD_KEY, JSON.stringify({ minutes, with_friends, budget, categories }));
-  } catch {
-    // Storage unavailable: the mood just won't be remembered.
-  }
-}
-
-// ---------------------------------------------------------------- header
-
-function greeting() {
-  const hour = new Date().getHours();
-  if (hour < 5) return ['Night owl mode', '🦉'];
-  if (hour < 12) return ['Good morning', '☀️'];
-  if (hour < 18) return ['Good afternoon', '🌤️'];
-  if (hour < 22) return ['Good evening', '🌆'];
-  return ['Late night', '🌙'];
-}
-
-function header() {
-  const [hello, emoji] = greeting();
-  els.weather = h('div', { class: 'weather-slot' });
-  renderWeather();
-  return pageHead(`${hello} ${emoji}`, "Got some free time? Let's make it count.", els.weather);
-}
-
-function renderWeather() {
-  if (!els.weather) return;
-  const online = state.online;
-  const w = online?.weather;
-  let chip;
-  if (w) {
-    chip = h(
-      'div',
-      { class: 'weather-chip', title: w.summary },
-      h('span', { class: 'w-emoji' }, w.emoji),
-      h('strong', {}, `${Math.round(w.temp_c)}°C`),
-      h('span', {}, `${w.place} · ${w.sky}`),
-    );
-  } else if (!online?.ready) {
-    chip = h('div', { class: 'weather-chip' }, h('span', { class: 'spinner' }), 'Checking the weather…');
-  } else if (!state.setup?.city) {
-    chip = h('button', { class: 'weather-chip clickable', onclick: () => ctx.goto('settings') }, '📍 Set your city');
-  } else {
-    chip = h('div', { class: 'weather-chip' }, '🌡️ Weather unavailable');
-  }
-  els.weather.replaceChildren(chip);
-}
-
-// ---------------------------------------------------------------- mood panel
-
-function moodPanel() {
-  els.findBtn = h('button', { class: 'btn primary big', onclick: () => runSuggest() }, '✨ Find my best pick');
-  return h(
-    'aside',
-    { class: 'mood card', 'aria-label': 'Your mood' },
-    timeField(),
-    field(
-      'Energy',
-      null,
-      choice('energy', ENERGY, state.req.energy, (id) => (state.req.energy = id), (o) => [
-        h('span', { class: 'emo' }, o.emo),
-        h('span', {}, o.label),
-      ]),
-    ),
-    field(
-      'Who',
-      null,
-      choice('segmented', COMPANY, state.req.with_friends, (id) => {
-        state.req.with_friends = id;
-        saveMood();
-      }, (o) => o.label),
-    ),
-    outsideField(),
-    field(
-      'Budget',
-      null,
-      choice('segmented', BUDGET, state.req.budget, (id) => {
-        state.req.budget = id;
-        saveMood();
-      }, (o) => o.label),
-    ),
-    categoriesField(),
-    h(
-      'div',
-      { class: 'mood-actions' },
-      els.findBtn,
-      h('button', { class: 'btn big ghost', onclick: () => runSurprise([]) }, '🎲 Surprise me'),
-    ),
-  );
-}
-
-function field(label, aside, ...children) {
-  return h('div', { class: 'field' }, h('div', { class: 'field-label' }, h('span', {}, label), aside), children);
-}
-
-/** A group of toggle buttons where exactly one is pressed. */
-function choice(cls, options, current, onPick, render) {
-  const buttons = options.map((o) =>
-    h(
-      'button',
-      {
-        type: 'button',
-        'aria-pressed': String(o.id === current),
-        onclick: () => {
-          buttons.forEach((b, i) => b.setAttribute('aria-pressed', String(options[i].id === o.id)));
-          onPick(o.id);
-        },
-      },
-      render(o),
-    ),
-  );
-  return h('div', { class: cls, role: 'group' }, buttons);
-}
-
-function timeField() {
-  const value = h('span', { class: 'time-value' });
-  const range = h('input', { type: 'range', min: 5, max: 300, step: 5, 'aria-label': 'Free time in minutes' });
-  const chips = TIMES.map((m) => h('button', { type: 'button', class: 'chip', onclick: () => setMinutes(m) }, fmtMinutes(m)));
-
-  function paint() {
-    const m = state.req.minutes;
-    value.textContent = fmtMinutes(m);
-    range.value = String(m);
-    range.style.setProperty('--p', `${((m - 5) / 295) * 100}%`);
-    chips.forEach((c, i) => c.setAttribute('aria-pressed', String(TIMES[i] === m)));
-  }
-  function setMinutes(m) {
-    state.req.minutes = m;
-    paint();
-    saveMood();
-  }
-
-  range.addEventListener('input', () => setMinutes(Number(range.value)));
-  paint();
-  return field('Free time', value, h('div', { class: 'chips' }, chips), range);
-}
-
-function outsideField() {
-  const input = h('input', {
-    type: 'checkbox',
-    id: 'go-out',
-    checked: state.req.can_go_out,
-    onchange: (e) => {
-      state.req.can_go_out = e.target.checked;
-      renderOutsideHint();
-    },
-  });
-  els.outsideHint = h('div', { class: 'hint' });
-  const el = h(
-    'div',
-    { class: 'field' },
-    h(
-      'label',
-      { class: 'switch-row', for: 'go-out' },
-      h('span', {}, 'Up for going outside'),
-      h('span', { class: 'switch' }, input, h('span', { class: 'track', 'aria-hidden': 'true' })),
-    ),
-    els.outsideHint,
-  );
-  renderOutsideHint();
-  return el;
-}
-
-function renderOutsideHint() {
-  const el = els.outsideHint;
-  if (!el) return;
-  const w = state.online?.weather;
-  if (!state.req.can_go_out) {
-    el.className = 'hint';
-    el.textContent = 'Indoor ideas only.';
-  } else if (!w) {
-    el.className = 'hint';
-    el.textContent = state.setup?.city ? 'Weather unknown right now.' : 'Set your city in Settings to factor in the weather.';
-  } else if (w.outdoor_ok) {
-    el.className = 'hint good';
-    el.textContent = `${w.emoji} Nice out: ${Math.round(w.temp_c)}°C, ${w.sky}.`;
-  } else {
-    el.className = 'hint warn';
-    el.textContent = `${w.emoji} ${capitalize(w.sky)}, ${Math.round(w.temp_c)}°C: indoor ideas will rank higher.`;
-  }
-}
-
-function categoriesField() {
-  const chips = state.categories.map((c) =>
-    h(
-      'button',
-      {
-        type: 'button',
-        class: 'chip cat',
-        vars: catVars(c.id),
-        'aria-pressed': String(state.req.categories.includes(c.id)),
-        onclick: (e) => toggleCategory(c.id, e.currentTarget),
-      },
-      `${c.icon} ${c.label}`,
-    ),
-  );
-  const all = h(
-    'button',
-    {
-      type: 'button',
-      class: 'link-btn',
-      onclick: () => {
-        state.req.categories = state.categories.map((c) => c.id);
-        chips.forEach((b) => b.setAttribute('aria-pressed', 'true'));
-        saveMood();
-      },
-    },
-    'Select all',
-  );
-  return field('In the mood for', all, h('div', { class: 'chips' }, chips));
-}
-
-function toggleCategory(id, button) {
-  const on = state.req.categories.includes(id);
-  if (on && state.req.categories.length === 1) {
-    toast('Keep at least one category 🙂');
-    return;
-  }
-  state.req.categories = on ? state.req.categories.filter((x) => x !== id) : [...state.req.categories, id];
-  button.setAttribute('aria-pressed', String(!on));
-  saveMood();
-}
-
-// ---------------------------------------------------------------- suggestions
-
-async function runSuggest({ keepShuffle = false, quiet = false, announce = null } = {}) {
-  if (state.loading) return;
-  state.loading = true;
-  setBusy(true);
-  if (!keepShuffle) state.shuffled.clear();
-  if (!quiet || !state.results) renderSkeleton();
-  let refreshAfter = false;
-  try {
-    const res = await api.suggest(state.req, [...state.hidden, ...state.shuffled]);
-    state.results = res;
-    renderResults(res);
-    if (announce) toast(announce, 'ok');
-    // The online data may have arrived while this request was running.
-    refreshAfter = res.partial && Boolean(state.online?.ready) && !state.online?.loading;
-  } catch (e) {
-    els.results.replaceChildren(
-      emptyState({
-        emoji: '😵',
-        title: 'Something went wrong',
-        text: errText(e),
-        action: h('button', { class: 'btn', onclick: () => runSuggest() }, 'Try again'),
-      }),
-    );
-  } finally {
-    state.loading = false;
-    setBusy(false);
-  }
-  if (refreshAfter) {
-    runSuggest({ keepShuffle: true, quiet: true, announce: 'Picks refreshed with Steam, YouTube and the weather' });
-  }
-}
-
-function setBusy(busy) {
-  if (!els.findBtn) return;
-  els.findBtn.disabled = busy;
-  els.findBtn.textContent = busy ? 'Finding…' : '✨ Find my best pick';
-}
-
-function renderSkeleton() {
-  els.results.replaceChildren(
-    h(
-      'div',
-      { class: 'results-head' },
-      h(
-        'div',
-        {},
-        h('h2', {}, 'Finding your best pick…'),
-        h('div', { class: 'summary' }, state.online?.ready ? 'Ranking ideas for your mood' : 'Checking Steam, YouTube and the weather'),
-      ),
-    ),
-    h('div', { class: 'skeleton best-skeleton' }),
-    h('div', { class: 'grid' }, Array.from({ length: 6 }, () => h('div', { class: 'skeleton card-skeleton' }))),
-  );
-}
-
-function renderResults(res) {
-  if (!res.best) {
-    const seenAll = state.shuffled.size > 0 || state.hidden.size > 0;
-    els.results.replaceChildren(
-      emptyState({
-        emoji: seenAll ? '🏁' : '🤔',
-        title: seenAll ? "That's everything that fits" : 'Nothing fits those settings',
-        text: seenAll
-          ? "You've seen every idea for this mood."
-          : 'Try more time, a bigger budget, more categories, or going outside.',
-        action: seenAll
-          ? h('button', { class: 'btn', onclick: () => { state.hidden.clear(); runSuggest(); } }, '↺ Start over')
-          : null,
-      }),
-    );
-    return;
-  }
-  state.shown = [res.best, ...res.groups.flatMap((g) => g.items)].map((c) => c.id);
-  let index = 0;
-  fill(
-    els.results,
-    h(
-      'div',
-      { class: 'results-head' },
-      h('div', {}, h('h2', {}, 'Your picks'), h('div', { class: 'summary' }, res.summary)),
-      h('button', { class: 'btn small', title: 'Show other ideas for the same mood', onclick: shuffle }, '🔀 Shuffle'),
-    ),
-    res.partial
-      ? h(
-          'div',
-          { class: 'note' },
-          h('span', {}, '⏳'),
-          h('span', {}, 'Steam, YouTube and the weather are still loading. Your picks will refresh by themselves.'),
-        )
-      : null,
-    bestCard(res.best),
-    res.groups.map((g) =>
-      h(
-        'section',
-        { class: 'group', vars: catVars(g.category) },
-        h('h3', { class: 'group-title' }, h('span', { class: 'group-dot' }), `${g.icon} ${g.label}`),
-        h('div', { class: 'grid' }, g.items.map((c) => ideaCard(c, index++))),
-      ),
-    ),
-    notesBlock(res.notes),
-  );
-}
-
-function shuffle() {
-  state.shown.forEach((id) => state.shuffled.add(id));
-  runSuggest({ keepShuffle: true });
-}
-
-function bestCard(c) {
-  return h(
-    'article',
-    { class: 'best', vars: catVars(c.category) },
-    thumb(c, true),
-    h(
-      'div',
-      { class: 'best-body' },
-      h('div', { class: 'kicker' }, '★ Best pick right now'),
-      h('h3', {}, c.title),
-      h('p', { class: 'detail' }, c.detail),
-      meta(c, true),
-      reasons(c),
-      h(
-        'div',
-        { class: 'actions' },
-        h('button', { class: 'btn primary', onclick: () => doPick(c) }, "Let's do it"),
-        c.link ? h('button', { class: 'btn', onclick: () => openLink(c.link) }, linkLabel(c)) : null,
-        h('button', { class: 'btn ghost', onclick: () => hide(c, null) }, 'Not this one'),
-      ),
-    ),
-  );
-}
-
-function ideaCard(c, i) {
-  const card = h(
-    'article',
-    { class: 'idea', vars: { ...catVars(c.category), '--i': i } },
-    thumb(c, false),
-    h('button', { class: 'hide-btn', title: 'Not for me', 'aria-label': `Hide ${c.title}`, onclick: () => hide(c, card) }, '✕'),
-    h(
-      'div',
-      { class: 'idea-body' },
-      h('h4', { title: c.title }, c.title),
-      h('p', { class: 'detail', title: c.detail }, c.detail),
-      meta(c),
-      reasons(c),
-    ),
-    h(
-      'div',
-      { class: 'idea-actions' },
-      h('button', { class: 'btn small primary', onclick: () => doPick(c) }, 'Do it'),
-      c.link
-        ? h('button', { class: 'btn small', title: linkLabel(c), 'aria-label': linkLabel(c), onclick: () => openLink(c.link) }, '↗')
-        : null,
-    ),
-  );
-  return card;
-}
-
-function thumb(c, big) {
-  const box = h('div', { class: big ? 'thumb big' : 'thumb' });
-  const fallback = () => h('span', { class: 'thumb-emoji' }, c.icon);
-  if (c.image) {
-    const img = h('img', { src: c.image, alt: '', loading: 'lazy', referrerpolicy: 'no-referrer', draggable: 'false' });
-    img.addEventListener('error', () => img.replaceWith(fallback()), { once: true });
-    box.append(img);
-  } else {
-    box.append(fallback());
-  }
-  const src = source(c);
-  if (src) box.append(h('span', { class: 'src' }, src));
-  return box;
-}
-
-function source(c) {
-  if (c.id.startsWith('steam:')) return c.tags.includes('store') ? 'Steam store' : 'Your library';
-  if (c.id.startsWith('yt:')) return 'YouTube';
-  if (c.id.startsWith('ytsearch:')) return 'YouTube search';
-  return null;
-}
-
-function meta(c, withCategory = false) {
-  const badges = [`⏱ ${c.duration}`, COST[c.cost]];
-  if (withCategory) badges.unshift(`${c.icon} ${c.category_label}`);
-  if (c.outdoor) badges.push('🌳 Outside');
-  if (c.social === 'group') badges.push('👥 Group');
-  return h('div', { class: 'meta' }, badges.map((b) => h('span', { class: 'badge' }, b)));
-}
-
-function reasons(c) {
-  if (!c.reasons?.length) return null;
-  return h('div', { class: 'reasons' }, c.reasons.map((r) => h('span', { class: 'reason' }, `✓ ${r}`)));
-}
-
-function notesBlock(notes) {
-  if (!notes?.length) return null;
-  return h(
-    'div',
-    { class: 'notes' },
-    notes.map((n) =>
-      h(
-        'div',
-        { class: n.tip ? 'note' : 'note problem' },
-        h('span', {}, n.tip ? '💡' : '⚠️'),
-        h('span', {}, n.text),
-        n.tip ? h('button', { class: 'btn small ghost', onclick: () => ctx.goto('settings') }, 'Open settings') : null,
-      ),
-    ),
-  );
-}
-
-function hide(c, cardEl) {
-  state.hidden.add(c.id);
-  if (!cardEl) {
-    // The best pick was skipped: rank again without it.
-    runSuggest({ keepShuffle: true });
-    return;
-  }
-  cardEl.classList.add('leaving');
-  setTimeout(() => cardEl.remove(), 220);
-  toast(`Hidden “${c.title}” for now`);
-}
-
-async function openLink(url) {
-  try {
-    await api.open(url);
-  } catch (e) {
-    toast(errText(e), 'error');
-  }
-}
-
-async function doPick(c) {
-  try {
-    const picked = await api.pick(c.id);
-    openModal([
-      h('div', { class: 'big-emoji' }, picked.icon),
-      h('h2', {}, 'Enjoy!'),
-      h('p', { class: 'modal-title' }, picked.title),
-      h('p', { class: 'muted' }, "Next time you open freetime I'll ask how it went, so I can learn what you like."),
-      h(
-        'div',
-        { class: 'actions' },
-        picked.link
-          ? h('button', { class: 'btn primary', onclick: () => { openLink(picked.link); closeModal(); } }, linkLabel(picked))
-          : null,
-        h('button', { class: picked.link ? 'btn' : 'btn primary', onclick: () => closeModal() }, picked.link ? 'Later' : 'Done'),
-      ),
-    ]);
-    confetti(picked.icon);
-  } catch (e) {
-    toast(errText(e), 'error');
-  }
-}
-
-async function runSurprise(exclude) {
-  setModal([h('div', { class: 'dice' }, '🎲'), h('p', { class: 'muted' }, 'Rolling the dice…')]);
-  const started = performance.now();
-  try {
-    const s = await api.surprise(exclude);
-    await wait(Math.max(0, 800 - (performance.now() - started)));
-    if (!s.pick) {
-      setModal([
-        h('div', { class: 'big-emoji' }, '🤷'),
-        h('h2', {}, 'Nothing left to roll'),
-        h('div', { class: 'actions' }, h('button', { class: 'btn', onclick: () => closeModal() }, 'Close')),
-      ]);
-      return;
-    }
-    const c = s.pick;
-    setModal([
-      h('div', { class: 'kicker' }, '🎲 Try this'),
-      h('div', { class: 'surprise-card', vars: catVars(c.category) }, thumb(c, true)),
-      h('h2', {}, c.title),
-      h('p', { class: 'muted' }, c.detail),
-      meta(c),
-      h(
-        'div',
-        { class: 'actions' },
-        h('button', { class: 'btn primary', onclick: () => { closeModal(); doPick(c); } }, "Let's do it"),
-        h('button', { class: 'btn', onclick: () => runSurprise([...exclude, c.id]) }, '🎲 Reroll'),
-      ),
-      s.alternatives.length
-        ? h(
-            'div',
-            { class: 'alts' },
-            h('div', { class: 'alts-label' }, 'Or maybe'),
-            s.alternatives.map((a) =>
-              h(
-                'button',
-                { class: 'alt', vars: catVars(a.category), onclick: () => { closeModal(); doPick(a); } },
-                h('span', {}, a.icon),
-                h('span', { class: 'alt-title' }, a.title),
-                h('span', { class: 'alt-dur' }, a.duration),
-              ),
-            ),
-          )
-        : null,
-    ]);
-  } catch (e) {
-    closeModal();
-    toast(errText(e), 'error');
-  }
 }
 
 // ---------------------------------------------------------------- "how was it?"
@@ -705,30 +379,367 @@ function renderRate() {
   const answer = async (rating) => {
     try {
       state.pending = await api.rate(p.id, p.ts, rating);
-      toast(rating > 0 ? 'Noted: more ideas like that 👍' : rating < 0 ? 'Got it: fewer ideas like that' : 'Skipped', 'ok');
+      toast(rating > 0 ? 'Noted: more ideas like that' : rating < 0 ? 'Noted: fewer ideas like that' : 'Skipped', 'ok');
       renderRate();
     } catch (e) {
       toast(errText(e), 'error');
     }
   };
-  els.rate.replaceChildren(
+  fill(
+    els.rate,
     h(
       'div',
-      { class: 'rate' },
-      h('span', { class: 'rate-emoji' }, p.icon),
+      { class: 'strip' },
+      icon('ticket'),
       h(
         'div',
-        { class: 'rate-text' },
-        h('strong', {}, `How was “${p.title}”?`),
-        h('span', {}, `You picked it ${p.ago}. Your answer tunes future picks.`),
+        { class: 'strip-text' },
+        h('strong', {}, `How was ${p.title}?`),
+        h('span', {}, `You picked it ${p.ago}. Your answer tunes the next picks.`),
       ),
       h(
         'div',
-        { class: 'rate-actions' },
-        h('button', { class: 'btn small', onclick: () => answer(1) }, '👍 Loved it'),
-        h('button', { class: 'btn small', onclick: () => answer(-1) }, '👎 Not for me'),
-        h('button', { class: 'btn small ghost', onclick: () => answer(0) }, 'Skip'),
+        { class: 'strip-actions' },
+        btn({ label: 'Loved it', icon: 'thumbs-up', small: true, onclick: () => answer(1) }),
+        btn({ label: 'Not for me', icon: 'thumbs-down', small: true, onclick: () => answer(-1) }),
+        btn({ label: 'Skip', kind: 'quiet', small: true, onclick: () => answer(0) }),
       ),
     ),
   );
+}
+
+// ---------------------------------------------------------------- suggestions
+
+async function runSuggest({ keepShuffle = false, quiet = false, announce = null } = {}) {
+  if (state.loading) {
+    state.again = true;
+    return;
+  }
+  state.loading = true;
+  if (!keepShuffle) state.shuffled.clear();
+  if (!quiet || !state.results) renderLoading();
+  let refreshAfter = false;
+  try {
+    const res = await api.suggest(state.req, [...state.hidden, ...state.shuffled]);
+    state.results = res;
+    renderResults(res);
+    renderHead();
+    if (announce) toast(announce, 'ok');
+    // The online data may have arrived while this request was running.
+    refreshAfter = res.partial && Boolean(state.online?.ready) && !state.online?.loading;
+  } catch (e) {
+    fill(
+      els.results,
+      emptyState({
+        icon: 'triangle-alert',
+        title: 'Something went wrong',
+        text: errText(e),
+        actions: [btn({ label: 'Try again', icon: 'refresh-cw', onclick: () => runSuggest() })],
+      }),
+    );
+  } finally {
+    state.loading = false;
+  }
+  if (state.again) {
+    state.again = false;
+    runSuggest({ keepShuffle: true });
+  } else if (refreshAfter) {
+    runSuggest({ keepShuffle: true, quiet: true, announce: 'Picks refreshed with Steam, YouTube and the weather' });
+  }
+}
+
+function renderLoading() {
+  fill(
+    els.results,
+    h('div', { class: 'ghost coupon-ghost', 'aria-label': 'Finding your best pick' }),
+    h('div', { class: 'section-head' }, h('div', { class: 'ghost', style: 'width:260px;height:28px' })),
+    h('div', { class: 'book' }, Array.from({ length: 4 }, () => h('div', { class: 'ghost leaf-ghost' }))),
+  );
+}
+
+function renderResults(res) {
+  if (!res.best) {
+    const seenAll = state.shuffled.size > 0 || state.hidden.size > 0;
+    fill(
+      els.results,
+      emptyState({
+        icon: seenAll ? 'check' : 'search',
+        title: seenAll ? 'That is the whole book' : 'Nothing fits right now',
+        text: seenAll
+          ? 'You have seen every idea for this context.'
+          : 'Try more time, a bigger budget, more kinds of ideas, or going outside.',
+        actions: seenAll
+          ? [btn({ label: 'Start over', icon: 'refresh-cw', onclick: () => { state.hidden.clear(); runSuggest(); } })]
+          : [],
+      }),
+    );
+    return;
+  }
+  const rest = res.groups.flatMap((g) => g.items);
+  state.shown = [res.best, ...rest].map((c) => c.id);
+  fill(
+    els.results,
+    res.partial
+      ? h(
+          'div',
+          { class: 'note', style: 'margin-bottom:14px;border:0' },
+          icon('loader-circle', 'spin'),
+          h('span', {}, 'Steam, YouTube and the weather are still loading. Your picks will refresh by themselves.'),
+        )
+      : null,
+    coupon(res.best),
+    rest.length
+      ? [
+          h(
+            'div',
+            { class: 'section-head' },
+            h('h2', { class: 'section-title' }, 'The rest of your book'),
+            h('span', { class: 'section-note' }, `${Math.min(rest.length, BOOK_SIZE)} more that fit`),
+          ),
+          h('div', { class: 'book' }, rest.slice(0, BOOK_SIZE).map((c, i) => leaf(c, i))),
+        ]
+      : null,
+    notesBlock(res.notes),
+  );
+}
+
+function shuffle() {
+  state.shown.forEach((id) => state.shuffled.add(id));
+  runSuggest({ keepShuffle: true });
+}
+
+// ---------------------------------------------------------------- the coupon
+
+function ticketDate() {
+  const d = new Date();
+  const day = d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }).toUpperCase();
+  const time = d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+  return `${day} · ${time}`;
+}
+
+/** "10–20 min", "45 min–1h30", "1h–2h": short enough for a fare box. */
+function span(c) {
+  const min = c.min_minutes ?? 0;
+  const max = Math.max(c.max_minutes ?? min, min);
+  if (!min && !max) return c.duration;
+  if (min === max) return fmtMinutes(min);
+  if (max < 60) return `${min}–${max} min`;
+  return `${fmtMinutes(min)}–${fmtMinutes(max)}`;
+}
+
+function weatherFare(c) {
+  if (!c.outdoor) return 'Indoors';
+  const w = state.online?.weather;
+  return w ? `${Math.round(w.temp_c)}°C` : 'Outside';
+}
+
+function coupon(c, { label = 'Admit one' } = {}) {
+  const p = photoFor(c);
+  const link = c.link ? linkLabel(c) : null;
+  const el = h(
+    'article',
+    { class: 'coupon', 'aria-label': `Best pick: ${c.title}` },
+    h(
+      'div',
+      { class: 'coupon-main' },
+      h(
+        'div',
+        { class: 'coupon-head' },
+        h('span', {}, `${label} · ${c.category_label}`),
+        h('span', { class: 'figures' }, ticketDate()),
+      ),
+      h(
+        'div',
+        { class: 'coupon-body' },
+        h('h2', { class: 'coupon-title' }, c.title),
+        c.detail ? h('p', { class: 'coupon-detail' }, c.detail) : null,
+        h(
+          'dl',
+          { class: 'fare' },
+          fareBox('Duration', span(c)),
+          fareBox('Fare', FARE[c.cost] ?? c.cost),
+          fareBox('Weather', weatherFare(c)),
+          fareBox('Energy', capitalize(c.energy ?? '')),
+        ),
+        timebar(c),
+        c.reasons?.length ? h('ul', { class: 'why' }, c.reasons.map((r) => h('li', {}, icon('check'), capitalize(r)))) : null,
+        h(
+          'div',
+          { class: 'coupon-actions' },
+          btn({ label: 'Start', icon: 'play', kind: 'primary', onclick: () => start(c, el) }),
+          link ? btn({ label: link.text, icon: link.icon, onclick: () => openLink(c.link) }) : null,
+          btn({ label: 'Not this one', icon: 'x', kind: 'quiet', onclick: () => voidCoupon(c, el) }),
+        ),
+      ),
+    ),
+    h(
+      'div',
+      { class: 'coupon-stub' },
+      h('div', { class: 'stub-photo' }, photo(c)),
+      h(
+        'div',
+        { class: 'stub-foot' },
+        h('span', { class: 'tag-label' }, 'From'),
+        h('span', { class: 'source' }, sourceLabel(c)),
+        p?.credit ? h('span', { class: 'credit', title: creditLine(p.credit) }, creditLine(p.credit)) : null,
+      ),
+    ),
+  );
+  return el;
+}
+
+function fareBox(label, value) {
+  return h('div', {}, h('dt', {}, label), h('dd', { title: value }, value));
+}
+
+/** The idea's length (solid: at least, hatched: up to) against the free time you have. */
+function timebar(c) {
+  const min = c.min_minutes ?? 0;
+  const max = Math.max(c.max_minutes ?? min, min);
+  const you = state.req.minutes;
+  const scale = Math.max(you, max) * 1.08 || 1;
+  const pct = (m) => `${Math.min(100, (m / scale) * 100).toFixed(2)}%`;
+  const takes = min === max ? fmtMinutes(min) : `${fmtMinutes(min)} to ${fmtMinutes(max)}`;
+  return h(
+    'div',
+    { class: 'timebar' },
+    h(
+      'div',
+      { class: 'timebar-track', role: 'img', 'aria-label': `Takes ${takes}; you have ${fmtMinutes(you)}` },
+      h('div', { class: 'timebar-fill', style: `width:${pct(min)}` }),
+      max > min ? h('div', { class: 'timebar-range', style: `left:${pct(min)};width:calc(${pct(max)} - ${pct(min)})` }) : null,
+      h('div', { class: 'timebar-you', style: `left:${pct(you)}` }),
+    ),
+    h(
+      'div',
+      { class: 'timebar-legend' },
+      h('span', {}, 'Takes ', h('span', { class: 'figures' }, takes)),
+      h('span', {}, 'You have ', h('span', { class: 'figures' }, fmtMinutes(you))),
+    ),
+  );
+}
+
+function stamp(el, kind) {
+  el.querySelector('.stamp')?.remove();
+  el.append(h('div', { class: `stamp ${kind}`, 'aria-hidden': 'true' }, kind === 'void' ? 'Void' : 'Validated'));
+}
+
+/** "Not this one": stamp VOID, tear the coupon off, rank again without it. */
+async function voidCoupon(c, el) {
+  state.hidden.add(c.id);
+  stamp(el, 'void');
+  if (!reducedMotion()) {
+    await wait(380);
+    el.classList.add('tearing');
+    await wait(420);
+  }
+  runSuggest({ keepShuffle: true, quiet: true });
+}
+
+/** "Start": record the pick, stamp VALIDATED, open the link if there is one. */
+async function start(c, el) {
+  try {
+    await api.pick(c.id);
+    if (el) stamp(el, 'validated');
+    toast('Enjoy. Next time freetime will ask how it went.', 'ok', 4200);
+    if (c.link) {
+      if (el && !reducedMotion()) await wait(450);
+      openLink(c.link);
+    }
+  } catch (e) {
+    toast(errText(e), 'error');
+  }
+}
+
+async function openLink(url) {
+  try {
+    await api.open(url);
+  } catch (e) {
+    toast(errText(e), 'error');
+  }
+}
+
+// ---------------------------------------------------------------- the rest of the book
+
+function leaf(c, i) {
+  const link = c.link ? linkLabel(c) : null;
+  const meta = [span(c), FARE[c.cost] ?? c.cost, c.outdoor ? 'Outside' : null, c.social === 'group' ? 'Group' : null];
+  const el = h(
+    'article',
+    { class: 'leaf', vars: { '--i': i } },
+    h('div', { class: 'leaf-photo' }, photo(c), h('span', { class: 'leaf-source' }, c.category_label)),
+    h('div', { class: 'leaf-perf', 'aria-hidden': 'true' }),
+    h(
+      'div',
+      { class: 'leaf-body' },
+      h('h3', { class: 'leaf-title', title: c.title }, c.title),
+      c.detail ? h('p', { class: 'leaf-detail', title: c.detail }, c.detail) : null,
+      h('div', { class: 'leaf-meta' }, meta.filter(Boolean).map((m) => h('span', {}, m))),
+      h(
+        'div',
+        { class: 'leaf-actions' },
+        btn({ label: 'Start', icon: 'play', small: true, onclick: () => start(c, null) }),
+        link ? btn({ label: link.text, icon: link.icon, small: true, square: true, onclick: () => openLink(c.link) }) : null,
+        btn({
+          label: `Not for me: ${c.title}`,
+          icon: 'x',
+          kind: 'quiet',
+          small: true,
+          square: true,
+          onclick: () => {
+            state.hidden.add(c.id);
+            el.classList.add('voided');
+            setTimeout(() => el.remove(), reducedMotion() ? 0 : 260);
+          },
+        }),
+      ),
+    ),
+  );
+  return el;
+}
+
+function notesBlock(notes) {
+  if (!notes?.length) return null;
+  return h(
+    'div',
+    { class: 'notes' },
+    notes.map((n) =>
+      h(
+        'div',
+        { class: n.tip ? 'note' : 'note problem' },
+        icon(n.tip ? 'info' : 'triangle-alert'),
+        h('span', {}, n.text),
+        n.tip ? btn({ label: 'Open settings', kind: 'quiet', small: true, onclick: () => ctx.goto('settings') }) : null,
+      ),
+    ),
+  );
+}
+
+// ---------------------------------------------------------------- surprise
+
+/** A random idea that still fits, issued as today's ticket. */
+async function surprise() {
+  renderLoading();
+  try {
+    const started = performance.now();
+    const s = await api.surprise([...state.hidden]);
+    await wait(Math.max(0, 350 - (performance.now() - started)));
+    if (!s.pick) {
+      fill(els.results, emptyState({ icon: 'shuffle', title: 'Nothing left to draw', text: 'Every idea has been voided this session.' }));
+      return;
+    }
+    fill(
+      els.results,
+      coupon(s.pick, { label: 'Surprise' }),
+      s.alternatives?.length
+        ? [
+            h('div', { class: 'section-head' }, h('h2', { class: 'section-title' }, 'Or maybe')),
+            h('div', { class: 'book' }, s.alternatives.map((c, i) => leaf(c, i))),
+          ]
+        : null,
+    );
+  } catch (e) {
+    toast(errText(e), 'error');
+    runSuggest({ keepShuffle: true });
+  }
 }
