@@ -2355,7 +2355,7 @@ button.tag:hover {
   align-items: center;
   gap: 14px;
   padding: 10px 0;
-  border-bottom: 1px dashed rgba(13, 27, 61, 0.2);
+  border-bottom: 1px dashed var(--line-soft);
 }
 
 .invite-row:last-child {
@@ -2383,7 +2383,8 @@ button.tag:hover {
 }
 
 .invite-state.accepted {
-  background: #e3f1ea;
+  /* a wash of the "good" green: light by day, dark at night */
+  background: color-mix(in srgb, var(--good) 14%, transparent);
   color: var(--good);
 }
 
