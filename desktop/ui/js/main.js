@@ -8,6 +8,9 @@ import * as messagesView from './messages.js';
 import { avatar } from './avatars.js';
 import { runWelcome } from './welcome.js';
 import * as settingsView from './settings.js';
+import { initTextSize } from './textsize.js';
+
+initTextSize();
 
 const views = {
   discover: document.getElementById('view-discover'),

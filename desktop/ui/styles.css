@@ -1872,6 +1872,54 @@ button.tag:hover {
   font: 700 12px/1 var(--figures);
 }
 
+/* ---------------------------------------------------------------- low vision mode (settings) */
+
+.size-choices {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
+  gap: 8px;
+}
+
+.size-choice {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+  min-height: 92px;
+  padding: 10px 8px;
+  border: 1.5px solid var(--rule-soft);
+  border-radius: var(--r-control);
+  background: none;
+  color: var(--navy);
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.size-choice:hover {
+  border-color: var(--lavender-line);
+}
+
+.size-choice[aria-pressed="true"] {
+  border-color: var(--purple);
+  background: var(--lavender);
+  color: var(--purple);
+}
+
+.size-sample {
+  font: 700 18px/1 var(--display);
+}
+
+.size-choice[data-size="large"] .size-sample { font-size: 24px; }
+.size-choice[data-size="xlarge"] .size-sample { font-size: 30px; }
+.size-choice[data-size="huge"] .size-sample { font-size: 36px; }
+
+.size-pct {
+  color: var(--text-3);
+  font-size: 12px;
+  font-weight: 500;
+}
+
 /* ---------------------------------------------------------------- profile (settings) */
 
 .profile-box {

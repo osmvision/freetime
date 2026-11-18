@@ -5,6 +5,7 @@ import { api } from './api.js';
 import { cityPicker, openMeteoCredit } from './city.js';
 import { emptyState, errText, h, icon, pageHead, toast } from './dom.js';
 import { photoCredits } from './photos.js';
+import { TEXT_SIZES, currentTextSize, onTextSizeChange, setTextSize } from './textsize.js';
 
 const INTEREST_IDEAS = [
   'speedrunning',
@@ -81,6 +82,7 @@ function draw(root, ctx, s) {
       h(
         'div',
         { class: 'settings' },
+        visionSection(),
         locationSection(s, ctx, root, (box) => (cityBox = box)),
         interestsSection(form),
         steamSection(s, form, ctx, root),
@@ -94,6 +96,48 @@ function draw(root, ctx, s) {
 }
 
 // ---------------------------------------------------------------- sections
+
+/** Low vision mode: applies at once, no need to press Save. */
+function visionSection() {
+  const status = h('span', { class: 'status' });
+  const choices = h('div', { class: 'size-choices', role: 'group', 'aria-label': 'Text size' });
+  const buttons = TEXT_SIZES.map((size) =>
+    h(
+      'button',
+      {
+        type: 'button',
+        class: 'size-choice',
+        'data-size': size.id,
+        onclick: () => setTextSize(size.id),
+      },
+      h('span', { class: 'size-sample', 'aria-hidden': 'true' }, 'Aa'),
+      h('span', {}, size.label),
+      h('span', { class: 'size-pct' }, `${Math.round(size.zoom * 100)}%`),
+    ),
+  );
+  choices.append(...buttons);
+
+  function show(current) {
+    const on = current.id !== 'normal';
+    status.className = on ? 'status on' : 'status off';
+    status.textContent = on ? `On · ${Math.round(current.zoom * 100)}%` : 'Off';
+    for (const b of buttons) b.setAttribute('aria-pressed', String(b.dataset.size === current.id));
+  }
+  show(currentTextSize());
+  const off = onTextSizeChange((size) => {
+    if (!choices.isConnected) return off();
+    show(size);
+  });
+
+  return section(
+    'eye',
+    'Low vision mode',
+    'Makes text and buttons bigger everywhere in freetime. Applied right away and kept on this computer.',
+    status,
+    choices,
+    h('span', { class: 'hint' }, 'Shortcuts: Ctrl + Plus to enlarge, Ctrl + Minus to shrink, Ctrl + 0 to reset.'),
+  );
+}
 
 function locationSection(s, ctx, root, keep) {
   const apply = async (place) => {
