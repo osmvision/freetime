@@ -5,10 +5,13 @@ mod commands;
 
 fn main() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_notification::init())
         .manage(commands::AppState::default())
         .setup(|app| {
             // Steam, YouTube and the weather load in the background while the window opens.
             commands::refresh_in_background(app.handle());
+            // New-message notifications: only does anything while signed in and enabled.
+            commands::watch_messages(app.handle().clone());
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -40,6 +43,8 @@ fn main() {
             commands::get_account,
             commands::save_profile,
             commands::reset_friend_tag,
+            commands::set_notify_messages,
+            commands::get_notify_messages,
             commands::export_my_data,
             commands::delete_my_account,
             commands::report_user,

@@ -23,6 +23,8 @@ pub struct Config {
     pub avatar: crate::party::Avatar,
     /// The first-run welcome was finished or skipped: it isn't shown again.
     pub onboarded: bool,
+    /// While signed in, check for new messages every minute and show a Windows notification.
+    pub notify_messages: bool,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -56,6 +58,7 @@ impl Default for Config {
             display_name: None,
             avatar: Default::default(),
             onboarded: false,
+            notify_messages: true,
         }
     }
 }

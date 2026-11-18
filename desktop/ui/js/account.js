@@ -147,8 +147,30 @@ function card(box, acc, onChange) {
         ),
         h('span', { class: 'hint' }, 'Friends add you with this tag in the Friends tab.'),
       ),
+      notifications(),
       yourData(box, onChange),
     ),
+  );
+}
+
+/** The new-message notifications switch. */
+function notifications() {
+  const box = h('input', { type: 'checkbox' });
+  api.getNotifyMessages().then((on) => (box.checked = on)).catch(() => {});
+  box.addEventListener('change', async () => {
+    try {
+      await api.setNotifyMessages(box.checked);
+      toast(box.checked ? 'Notifications on' : 'Notifications off', 'ok');
+    } catch (e) {
+      box.checked = !box.checked;
+      toast(errText(e), 'error');
+    }
+  });
+  return h(
+    'div',
+    { class: 'field' },
+    h('span', { class: 'field-label' }, 'Notifications'),
+    h('label', { class: 'check' }, box, 'Notify me when a friend messages me (freetime checks once a minute while it’s open)'),
   );
 }
 
