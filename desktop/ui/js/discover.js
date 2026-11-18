@@ -21,6 +21,7 @@ import {
 } from './dom.js';
 import { creditLine, photo, photoFor } from './photos.js';
 import { freeStrip, invitable, invitePanel } from './together.js';
+import { streakChip, weekStrip } from './recap.js';
 
 const TIMES = [15, 30, 45, 60, 90, 120, 180, 240];
 const ENERGY = [
@@ -82,7 +83,9 @@ export function init(root, boot, context) {
   els.rate = h('div');
   els.results = h('div', { 'aria-live': 'polite' });
   els.free = h('div');
-  root.replaceChildren(els.head, els.context, els.free, els.cityPrompt, els.rate, els.results);
+  els.week = h('div');
+  root.replaceChildren(els.head, els.context, els.free, els.week, els.cityPrompt, els.rate, els.results);
+  weekStrip(els.week);
   // Who's free and "I'm free" (signed in only). Refreshed every minute while Discover is on screen.
   // When the friend list first arrives (or changes size), redraw so the ticket gets its Invite button.
   state.together = freeStrip(els.free, () => state.req.minutes, () => {
@@ -204,6 +207,11 @@ function renderHead() {
       ),
     ),
   );
+  // The weekly streak, next to the summary (from the local history, no network).
+  streakChip().then((chip) => {
+    const sub = els.head.querySelector('.page-sub');
+    if (chip && sub && !sub.parentElement.querySelector('.streak-chip')) sub.after(chip);
+  });
 }
 
 /** Any change to the context re-ranks after a short pause, so several quick edits cost one request. */
@@ -773,6 +781,9 @@ async function voidCoupon(c, el) {
 async function start(c, el) {
   try {
     await api.pick(c.id);
+    // The week is now active: the "last week" strip goes, the streak chip may appear.
+    if (els.week) weekStrip(els.week);
+    renderHead();
     if (el) stamp(el, 'validated');
     toast('Enjoy. Next time freetime will ask how it went.', 'ok', 4200);
     if (c.link) {

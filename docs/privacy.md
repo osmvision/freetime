@@ -23,7 +23,9 @@ To work, the app contacts these services, and only for what you see on screen:
 | --- | --- | --- |
 | Open-Meteo | Weather and the city search | The coordinates of the city you chose, or what you type in the city box |
 | Steam store | Store picks and prices | Your country code |
+| Epic Games Store | This week's free games | Your country code |
 | YouTube (RSS) | Video picks | The channels and topics in your settings |
+| GitHub | Checking for a new version (Settings → Updates, can be turned off) | Nothing about you: a plain download of the version list |
 | Steam on your PC | "Import my games", only when you click it | Read locally: your game list and playtime. No login data |
 
 ## Online profile (only if you sign in)

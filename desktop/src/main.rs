@@ -2,10 +2,12 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod commands;
+mod updates;
 
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_notification::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(commands::AppState::default())
         .setup(|app| {
             // Steam, YouTube and the weather load in the background while the window opens.
@@ -14,6 +16,8 @@ fn main() {
             commands::watch_messages(app.handle().clone());
             // Instant messages and invites (Realtime): only while signed in.
             commands::watch_live(app.handle().clone());
+            // A new version (signed): checked a while after start, installed only when asked.
+            updates::watch(app.handle().clone());
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -46,6 +50,7 @@ fn main() {
             commands::save_profile,
             commands::reset_friend_tag,
             commands::live_status,
+            commands::get_recap,
             commands::get_share_library,
             commands::set_share_library,
             commands::set_free,
@@ -67,6 +72,10 @@ fn main() {
             commands::chat_messages,
             commands::send_message,
             commands::mark_read,
+            updates::update_status,
+            updates::set_auto_update,
+            updates::check_update,
+            updates::install_update,
         ])
         .run(tauri::generate_context!())
         .expect("error while running freetime");

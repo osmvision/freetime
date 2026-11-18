@@ -10,6 +10,7 @@ import { runWelcome } from './welcome.js';
 import { startI18n } from './i18n.js';
 import * as settingsView from './settings.js';
 import { initDisplay } from './display.js';
+import { watchUpdates } from './updates.js';
 
 initDisplay();
 
@@ -213,6 +214,7 @@ async function start() {
     if (!views.friends.hidden) friendsView.render(views.friends, ctx);
   });
   await listen('invites-updated', (n) => ctx.setInvites(n));
+  await watchUpdates();
   await listen('online-updated', (online) => {
     renderTags(online);
     discover.onOnline(online);

@@ -6,6 +6,7 @@ import { cityPicker, openMeteoCredit } from './city.js';
 import { emptyState, errText, h, icon, pageHead, toast } from './dom.js';
 import { photoCredits } from './photos.js';
 import { preferredLang, setLang } from './i18n.js';
+import { updatesBody } from './updates.js';
 import { TEXT_SIZES, THEMES, displayState, onDisplayChange, setHighContrast, setTextSize, setTheme } from './display.js';
 
 const INTEREST_IDEAS = [
@@ -89,6 +90,7 @@ function draw(root, ctx, s) {
         steamSection(s, form, ctx, root),
         youtubeSection(s, form),
         languageSection(),
+        section('download', 'Updates', 'New versions come from freetime’s GitHub releases and are signed: anything else is refused.', null, updatesBody()),
         dataSection(s),
         creditsSection(),
       ),
@@ -419,7 +421,7 @@ function creditsSection() {
   return section(
     'info',
     'Photo credits',
-    'Idea photos come from Wikimedia Commons under free licenses. Steam and YouTube artwork belongs to its owners.',
+    'Idea photos come from Flickr and Wikimedia Commons (found with Openverse) under free licenses. Steam and YouTube artwork belongs to its owners.',
     null,
     h(
       'ul',
