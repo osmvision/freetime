@@ -12,5 +12,26 @@
     "author": "Dietmar Rabich",
     "license": "CC BY-SA 4.0",
     "license_url": "https://creativecommons.org/licenses/by-sa/4.0"
+  },
+  "shadowboxing": {
+    "title": "File:Boxing gloves.jpg",
+    "page": "https://commons.wikimedia.org/wiki/File:Boxing_gloves.jpg",
+    "author": "en:User:Andman8",
+    "license": "CC BY 2.5",
+    "license_url": "https://creativecommons.org/licenses/by/2.5"
+  },
+  "badminton": {
+    "title": "File:Fence 12, Badminton Horse Trials - geograph.org.uk - 794809.jpg",
+    "page": "https://commons.wikimedia.org/wiki/File:Fence_12,_Badminton_Horse_Trials_-_geograph.org.uk_-_794809.jpg",
+    "author": "Trish Steel",
+    "license": "CC BY-SA 2.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/2.0"
+  },
+  "origami": {
+    "title": "File:Cranes made by Origami paper.jpg",
+    "page": "https://commons.wikimedia.org/wiki/File:Cranes_made_by_Origami_paper.jpg",
+    "author": "Laitche",
+    "license": "Public domain",
+    "license_url": ""
   }
 }
