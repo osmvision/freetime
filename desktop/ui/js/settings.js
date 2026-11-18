@@ -7,6 +7,7 @@ import { emptyState, errText, h, icon, pageHead, toast } from './dom.js';
 import { photoCredits } from './photos.js';
 import { preferredLang, setLang } from './i18n.js';
 import { updatesBody } from './updates.js';
+import { supportBody } from './support.js';
 import { TEXT_SIZES, THEMES, displayState, onDisplayChange, setHighContrast, setTextSize, setTheme } from './display.js';
 
 const INTEREST_IDEAS = [
@@ -92,6 +93,7 @@ function draw(root, ctx, s) {
         languageSection(),
         section('download', 'Updates', 'New versions come from freetime’s GitHub releases and are signed: anything else is refused.', null, updatesBody()),
         dataSection(s),
+        supportSection(),
         creditsSection(),
       ),
       h('div', { class: 'save-bar' }, h('span', { class: 'hint' }, 'Your picks refresh right after saving.'), save),
@@ -411,6 +413,13 @@ function dataSection(s) {
       ),
     ),
   );
+}
+
+/** Donations: shown only once a Ko-fi or GitHub Sponsors page is set in support.json. */
+function supportSection() {
+  const body = supportBody();
+  if (!body) return null;
+  return section('heart', 'Support freetime', 'freetime is free, with no ads and no tracking. If it gives you good hours, you can help keep it that way.', null, body);
 }
 
 /** The bundled idea photos are free-licensed; their authors are credited here. */

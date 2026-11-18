@@ -1,6 +1,7 @@
 import { api, inTauri, listen } from './api.js';
 import { emptyState, errText, h, hydrateIcons, icon, toast, weatherIcon } from './dom.js';
 import { loadPhotos } from './photos.js';
+import { loadSupport } from './support.js';
 import * as discover from './discover.js';
 import * as friendsView from './friends.js';
 import * as historyView from './history.js';
@@ -180,7 +181,7 @@ async function start() {
     );
     return;
   }
-  await loadPhotos();
+  await Promise.all([loadPhotos(), loadSupport()]);
   renderMe();
   let boot = await api.bootstrap();
   let after = 'discover';

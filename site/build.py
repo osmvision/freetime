@@ -66,7 +66,7 @@ def page(title: str, body: str, description: str) -> str:
     """A reading page (privacy, credits) with the site's header and footer."""
     index = (SITE / "index.html").read_text(encoding="utf-8")
     head = index[:index.index("<main")]
-    foot = index[index.index("</main>") + len("</main>"):]
+    foot = support_blocks(index[index.index("</main>") + len("</main>"):])
     head = re.sub(r"<title>.*?</title>", f"<title>{esc(title)}</title>", head, flags=re.S)
     head = re.sub(r'<meta name="description" content=".*?">', f'<meta name="description" content="{esc(description)}">', head, flags=re.S)
     # On a reading page the section links point back to the home page.
@@ -99,6 +99,22 @@ def credits_html() -> str:
     return page("Photo credits · freetime", body, "Authors and licenses of the photos used for freetime's built-in ideas.")
 
 
+def support_blocks(text: str) -> str:
+    """Fills the donation buttons from desktop/ui/support.json, and removes what isn't set up."""
+    s = json.loads((UI / "support.json").read_text(encoding="utf-8"))
+    kofi, gh = (s.get("kofi") or "").strip(), (s.get("github_sponsors") or "").strip()
+
+    def keep(name: str, on: bool, t: str) -> str:
+        pattern = re.compile(rf"<!-- {name} -->(.*?)<!-- /{name} -->", re.S)
+        return pattern.sub((lambda m: m.group(1)) if on else "", t)
+
+    text = keep("KOFI", bool(kofi), text)
+    text = keep("GH", bool(gh), text)
+    text = keep("SUPPORT", bool(kofi or gh), text)
+    text = text.replace("{KOFI}", esc(f"https://ko-fi.com/{kofi}")).replace("{GH}", esc(f"https://github.com/sponsors/{gh}"))
+    return text
+
+
 def main() -> None:
     if OUT.exists():
         shutil.rmtree(OUT)
@@ -115,7 +131,7 @@ def main() -> None:
         im = im.crop(((im.width - side) // 2, (im.height - side) // 2, (im.width + side) // 2, (im.height + side) // 2))
         im.resize((168, 168), Image.LANCZOS).save(OUT / "img" / "ideas" / f"{i}.jpg", "JPEG", quality=80, optimize=True)
 
-    index = (OUT / "index.html").read_text(encoding="utf-8").replace("<!-- IDEAS -->", tape_html())
+    index = support_blocks((OUT / "index.html").read_text(encoding="utf-8").replace("<!-- IDEAS -->", tape_html()))
     (OUT / "index.html").write_text(index, encoding="utf-8")
     (OUT / "privacy.html").write_text(privacy_html(), encoding="utf-8")
     (OUT / "credits.html").write_text(credits_html(), encoding="utf-8")
