@@ -126,74 +126,73 @@ button {
 
 .app {
   display: grid;
-  grid-template-columns: 248px minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
   height: 100vh;
 }
 
-.rail {
+/* the navy header bar of a ticket: wordmark, tabs, then the baggage tags */
+.topbar {
   display: flex;
-  flex-direction: column;
-  gap: 28px;
-  padding: 26px 16px 18px;
+  align-items: center;
+  gap: 36px;
+  height: 64px;
+  padding: 0 28px;
   background: var(--navy);
   color: var(--on-navy);
 }
 
 .wordmark {
   display: flex;
+  flex: none;
   align-items: center;
   gap: 10px;
-  padding: 0 10px;
 }
 
 .wordmark-mark {
   display: grid;
   place-items: center;
-  width: 34px;
-  height: 34px;
+  width: 32px;
+  height: 32px;
   border-radius: 6px;
   background: var(--lavender);
   color: var(--navy);
 }
 
 .wordmark-mark .icon {
-  width: 20px;
-  height: 20px;
+  width: 19px;
+  height: 19px;
 }
 
 .wordmark-text {
-  font: 800 28px/1 var(--display);
+  font: 800 26px/1 var(--display);
   letter-spacing: 0.02em;
   text-transform: uppercase;
 }
 
 .nav {
   display: flex;
-  flex-direction: column;
-  gap: 2px;
+  align-self: stretch;
+  gap: 4px;
 }
 
 .nav-item {
   position: relative;
   display: flex;
   align-items: center;
-  gap: 12px;
-  height: 46px;
-  padding: 0 12px;
+  gap: 9px;
+  padding: 0 14px;
   border: 0;
-  border-radius: var(--r-control);
   background: none;
   color: var(--on-navy-2);
   font: 600 17px/1 var(--display);
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  text-align: left;
   transition: background 0.15s, color 0.15s;
 }
 
 .nav-item .icon {
-  width: 20px;
-  height: 20px;
+  width: 19px;
+  height: 19px;
 }
 
 .nav-item:hover {
@@ -201,83 +200,86 @@ button {
   color: var(--on-navy);
 }
 
+.nav-item:focus-visible {
+  outline-offset: -4px;
+}
+
 .nav-item[aria-current="page"] {
-  background: var(--navy-3);
   color: #fff;
 }
 
+/* the active tab: a lavender tab-cap along the bottom edge of the bar */
 .nav-item[aria-current="page"]::after {
   content: "";
   position: absolute;
-  right: 12px;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--lavender-line);
+  left: 10px;
+  right: 10px;
+  bottom: 0;
+  height: 4px;
+  border-radius: 4px 4px 0 0;
+  background: var(--lavender);
 }
 
-/* tags at the bottom of the rail: baggage tags on carbon-copy stock */
-.rail-tags {
+/* baggage tags on carbon-copy stock: weather and sync, one line each */
+.bar-tags {
   display: flex;
-  flex-direction: column;
+  flex: none;
+  align-items: center;
   gap: 10px;
-  margin-top: auto;
+  margin-left: auto;
 }
 
 .tag {
   position: relative;
-  display: grid;
-  grid-template-columns: auto 1fr auto;
+  display: inline-flex;
   align-items: center;
-  gap: 10px;
-  padding: 10px 12px 10px 14px;
+  gap: 8px;
+  height: 38px;
+  padding: 0 12px 0 18px;
+  border: 0;
   border-radius: 8px;
   background: var(--lavender);
   color: var(--navy);
+  white-space: nowrap;
 }
 
+/* the punched hole of the tag */
 .tag::before {
   content: "";
   position: absolute;
-  left: -5px;
+  left: 6px;
   top: 50%;
-  width: 10px;
-  height: 10px;
-  margin-top: -5px;
+  width: 6px;
+  height: 6px;
+  margin-top: -3px;
   border-radius: 50%;
   background: var(--navy);
 }
 
-.tag > span:not(.icon) {
-  min-width: 0;
-}
-
 .tag > .icon {
-  width: 20px;
-  height: 20px;
+  width: 18px;
+  height: 18px;
   color: var(--purple);
 }
 
 .tag-label {
-  display: block;
-  font: 700 12px/1.2 var(--display);
+  font: 700 13px/1 var(--display);
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--text-2);
 }
 
 .tag-value {
-  display: block;
-  font: 700 15px/1.25 var(--figures);
+  font: 700 15px/1 var(--figures);
   color: var(--purple);
-  overflow-wrap: anywhere;
 }
 
 .tag-action {
   display: grid;
   place-items: center;
-  width: 32px;
-  height: 32px;
+  width: 30px;
+  height: 30px;
+  margin-right: -6px;
   border: 0;
   border-radius: 6px;
   background: none;
@@ -293,13 +295,7 @@ button {
   height: 16px;
 }
 
-.tag.clickable {
-  border: 0;
-  text-align: left;
-  width: 100%;
-}
-
-.tag.clickable:hover {
+button.tag:hover {
   background: #ddd4ec;
 }
 
@@ -1738,41 +1734,71 @@ button {
   }
 }
 
+@media (max-width: 1100px) {
+  .nav-label {
+    font-size: 16px;
+  }
+
+  .bar-tags .tag-label {
+    display: none;
+  }
+}
+
+/* phones: the bar keeps the wordmark and tags, the tabs move to the bottom for the thumb */
 @media (max-width: 860px) {
-  .app {
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: minmax(0, 1fr) auto;
+  .topbar {
+    gap: 12px;
+    height: 56px;
+    padding: 0 14px;
   }
 
-  .rail {
-    grid-row: 2;
-    flex-direction: row;
-    justify-content: space-around;
-    gap: 0;
-    padding: 6px 8px 10px;
+  .wordmark-text {
+    font-size: 22px;
   }
 
-  .wordmark,
-  .rail-tags {
+  .tag {
+    padding: 0 10px 0 16px;
+  }
+
+  .tag-sync .tag-value {
     display: none;
   }
 
   .nav {
-    flex-direction: row;
-    flex: 1;
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 40;
     justify-content: space-around;
+    padding: 4px 8px 8px;
+    background: var(--navy);
   }
 
   .nav-item {
     flex-direction: column;
+    justify-content: center;
     gap: 4px;
     height: 58px;
     padding: 6px 14px;
+    border-radius: var(--r-control);
     font-size: 13px;
+  }
+
+  .nav-item[aria-current="page"] {
+    background: var(--navy-3);
   }
 
   .nav-item[aria-current="page"]::after {
     display: none;
+  }
+
+  .main {
+    padding-bottom: 70px;
+  }
+
+  .toasts {
+    bottom: 84px;
   }
 
   .view {

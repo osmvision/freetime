@@ -81,11 +81,11 @@ components:
     textColor: "{colors.on-navy}"
   coupon-stub:
     backgroundColor: "{colors.carbon-lavender}"
-  rail:
+  topbar:
     backgroundColor: "{colors.carrier-navy}"
     textColor: "{colors.on-navy-2}"
-    width: "248px"
-  rail-tag:
+    height: "64px"
+  bar-tag:
     backgroundColor: "{colors.carbon-lavender}"
     textColor: "{colors.carrier-navy}"
     rounded: "{rounded.tag}"
@@ -102,12 +102,12 @@ The world is the jet-age airline ticket wallet: carrier navy, coupon white on st
 ## Colors
 
 ### Primary
-- **Carrier navy `#0d1b3d`** owns the rail, the coupon heads, the photo-tag chips, toasts, and all body ink.
+- **Carrier navy `#0d1b3d`** owns the top bar, the coupon heads, the photo-tag chips, toasts, and all body ink.
 - **Jet red `#d7262d`** appears only on the primary action (Start, Save changes) and the VOID stamp. Nothing decorative is red.
 
 ### Secondary
 - **Carbon purple `#4b2e83`** is the color of figures: durations, fares, temperatures, counts, the VALIDATED stamp, the time bar.
-- **Carbon lavender `#e6dff1`** is carbon-copy paper: coupon stubs, rail tags, strips (city prompt, "how was it?"), pressed toggles.
+- **Carbon lavender `#e6dff1`** is carbon-copy paper: coupon stubs, bar tags, strips (city prompt, "how was it?"), pressed toggles.
 
 ### Neutral
 - **Stock white `#f2f2f0`** is the page. **Coupon white `#ffffff`** is every ticket, panel and input.
@@ -121,7 +121,7 @@ The world is the jet-age airline ticket wallet: carrier navy, coupon white on st
 
 - **Barlow Condensed** (500 to 800), uppercase, for headlines, coupon titles, nav, buttons and tab-cap labels. Labels track out to 0.10 to 0.14em.
 - **Barlow** (400 to 700) for body and details.
-- **Courier Prime** (400, 700) for carbon typewriter numerals: fare boxes, ticket date, stats, rail tag values.
+- **Courier Prime** (400, 700) for carbon typewriter numerals: fare boxes, ticket date, stats, bar tag values.
 - All three are bundled as woff2 in `desktop/ui/fonts` (strict CSP, works offline).
 
 ### Hierarchy
@@ -129,9 +129,9 @@ Page title 54px/800 → coupon title 48px/800 → section title 28px/800 → lea
 
 ## Layout
 
-- Desktop: a 248px navy rail, then a centered column of max 1180px with 44px side padding.
+- Desktop: a 64px navy top bar (wordmark, three tabs, then the weather and sync tags on the right), then a centered column of max 1180px with 44px side padding. Three destinations do not justify a sidebar or a burger menu; tabs keep them visible and one click away.
 - Discover: headline with the free time ("Your 1h30 tonight") and the two re-draw buttons on its right; the context selects in one row; the coupon full width (main part, dashed perforation, 360px photo stub); then the book as a grid of `minmax(250px, 1fr)` leaves.
-- Under 1100px the stub narrows to 280px. Under 860px the rail becomes a bottom tab bar, the stub moves on top of the coupon, the selects scroll sideways, and fare boxes go 2×2.
+- Under 1100px the stub narrows to 280px. Under 1100px the bar tags drop their labels. Under 860px the tabs move to a bottom tab bar (the top bar keeps the wordmark and tags), the stub moves on top of the coupon, the selects scroll sideways, and fare boxes go 2×2.
 
 ## Elevation & Depth
 
@@ -139,8 +139,8 @@ Paper on a desk, not glass. One shadow: `0 1px 1px rgba(13,27,61,.06), 0 8px 24p
 
 ## Shapes
 
-- Tickets 10px, rail tags 8px, controls 6px, fare boxes and chips 4px.
-- **Punched notches:** stock-white circles cut into the perforation line of the coupon (22px) and of each leaf (16px), and one on the left edge of each rail tag.
+- Tickets 10px, bar tags 8px, controls 6px, fare boxes and chips 4px.
+- **Punched notches:** stock-white circles cut into the perforation line of the coupon (22px) and of each leaf (16px), and a punched hole on the left of each bar tag.
 
 ## Components
 
@@ -156,8 +156,11 @@ Navy head ("Admit one · Sport" and the ticket date in figures), title, detail, 
 ### Leaves
 Photo with a navy category chip, perforation with notches, title, two-line detail, figures, then Start (outlined), open-link square and a void square.
 
-### Rail tags
-Lavender baggage tags at the foot of the rail: the weather (Lucide sky icon, place, temperature and sky) and sync state (refresh action).
+### Navigation
+Navy top bar. Tabs are caps Barlow Condensed 17px, icon plus label; the active tab is white with a 4px lavender tab-cap along the bar's bottom edge. Alt+1/2/3 switch tabs. On phones the tabs become a bottom bar of 58px targets.
+
+### Bar tags
+One-line lavender baggage tags on the right of the top bar: the weather (Lucide sky icon, place, temperature; sky in the tooltip) and sync state (Synced or Syncing, counts in the tooltip, refresh action).
 
 ### Stamps
 VOID (jet red) and VALIDATED (carbon purple), 5px border, rotated -11°, pressed in from 1.7× in 320ms. Reduced motion: instant.

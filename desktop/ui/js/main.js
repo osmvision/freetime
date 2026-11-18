@@ -11,7 +11,7 @@ const views = {
   settings: document.getElementById('view-settings'),
 };
 const main = document.getElementById('main');
-const tags = document.getElementById('rail-tags');
+const tags = document.getElementById('bar-tags');
 
 let lastOnline = null;
 let city = null;
@@ -53,7 +53,7 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
-// ---------------------------------------------------------------- the tags at the bottom of the rail
+// ---------------------------------------------------------------- the tags on the right of the top bar
 
 function renderTags(online) {
   if (!online) return;
@@ -67,38 +67,37 @@ function renderTags(online) {
       'div',
       { class: 'tag', title: w.summary },
       icon(weatherIcon(w)),
-      h('span', {}, h('span', { class: 'tag-label' }, w.place), h('span', { class: 'tag-value' }, `${Math.round(w.temp_c)}°C ${w.sky}`)),
+      h('span', { class: 'tag-label' }, w.place),
+      h('span', { class: 'tag-value' }, `${Math.round(w.temp_c)}°C`),
     );
   } else if (!city && online.ready) {
     weather = h(
       'button',
-      { type: 'button', class: 'tag clickable', onclick: () => goto('settings') },
+      { type: 'button', class: 'tag', title: 'Your city is only used for the weather', onclick: () => goto('settings') },
       icon('map-pin'),
-      h('span', {}, h('span', { class: 'tag-label' }, 'Weather'), h('span', { class: 'tag-value' }, 'Set your city')),
+      h('span', { class: 'tag-value' }, 'Set your city'),
     );
   } else {
     weather = h(
       'div',
-      { class: 'tag' },
+      { class: 'tag', title: 'Weather' },
       icon('cloud-sun'),
-      h('span', {}, h('span', { class: 'tag-label' }, 'Weather'), h('span', { class: 'tag-value' }, busy ? 'Checking' : 'Unavailable')),
+      h('span', { class: 'tag-value' }, busy ? 'Checking' : 'No weather'),
     );
   }
 
   const counts = [
-    online.steam_games ? `${online.steam_games} games` : null,
+    online.steam_games ? `${online.steam_games} Steam games` : null,
     online.videos ? `${online.videos} videos` : null,
   ].filter(Boolean);
   const sync = h(
     'div',
-    { class: 'tag', title: counts.join(', ') || 'Built-in ideas only' },
+    {
+      class: 'tag tag-sync',
+      title: busy ? 'Checking Steam, YouTube and the weather' : `Up to date: ${counts.join(', ') || 'built-in ideas only'}`,
+    },
     icon(busy ? 'loader-circle' : 'check', busy ? 'spin' : ''),
-    h(
-      'span',
-      {},
-      h('span', { class: 'tag-label' }, busy ? 'Syncing' : 'Up to date'),
-      h('span', { class: 'tag-value' }, online.ready ? counts.join(' · ') || 'Built-in ideas' : 'Steam · YouTube'),
-    ),
+    h('span', { class: 'tag-value' }, busy ? 'Syncing' : 'Synced'),
     busy
       ? null
       : h(

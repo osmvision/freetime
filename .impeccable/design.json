@@ -48,10 +48,10 @@
       "css": ".ds-fare { display:grid; grid-template-columns:repeat(4,1fr); margin:0; border:1px solid #0d1b3d; border-radius:4px; background:#fff; } .ds-fare > div { padding:8px 12px; border-right:1px solid #0d1b3d; } .ds-fare > div:last-child { border-right:0; } .ds-fare dt { font:700 12px/1 'Barlow Condensed', sans-serif; letter-spacing:.12em; text-transform:uppercase; color:#5b6782; } .ds-fare dd { margin:6px 0 0; font:700 17px/1.2 'Courier Prime', monospace; color:#4b2e83; }"
     },
     {
-      "name": "Rail Tag",
+      "name": "Bar Tag",
       "kind": "custom",
-      "refersTo": "rail-tag",
-      "description": "Baggage tag at the foot of the navy rail: weather or sync state.",
+      "refersTo": "bar-tag",
+      "description": "One-line baggage tag on the right of the navy top bar: weather or sync state.",
       "html": "<div class=\"ds-tag\"><span><span class=\"l\">Lyon</span><span class=\"v\">14°C partly cloudy</span></span></div>",
       "css": ".ds-tag { position:relative; padding:10px 14px; border-radius:8px; background:#e6dff1; color:#0d1b3d; } .ds-tag::before { content:''; position:absolute; left:-5px; top:50%; width:10px; height:10px; margin-top:-5px; border-radius:50%; background:#0d1b3d; } .ds-tag .l { display:block; font:700 12px/1.2 'Barlow Condensed', sans-serif; letter-spacing:.1em; text-transform:uppercase; color:#3b4866; } .ds-tag .v { display:block; font:700 15px/1.25 'Courier Prime', monospace; color:#4b2e83; }"
     },
