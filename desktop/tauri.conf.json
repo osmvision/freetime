@@ -24,7 +24,20 @@
   },
   "bundle": {
     "active": true,
-    "targets": "all",
+    "targets": ["nsis"],
+    "publisher": "freetime",
+    "copyright": "MIT license",
+    "category": "Lifestyle",
+    "shortDescription": "Find the best thing to do with your free time",
+    "longDescription": "freetime picks the best thing to do with the time you have: a game you own, a video, a sport, a recipe, something new, alone or with friends.",
+    "windows": {
+      "nsis": {
+        "installMode": "currentUser",
+        "languages": ["English", "French"],
+        "displayLanguageSelector": false,
+        "installerIcon": "icons/icon.ico"
+      }
+    },
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
