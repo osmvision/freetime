@@ -24,6 +24,8 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 # PKCE code challenge for sign-in (SHA-256).
 sha2 = "0.10"
+# The live connection to Supabase Realtime (instant messages and invites), over the OS TLS stack.
+tungstenite = { version = "0.24", default-features = false, features = ["handshake", "native-tls"] }
 toml = "0.8"
 # native-tls uses the OS TLS stack (SChannel on Windows): no C compiler needed.
 ureq = { version = "2.10", default-features = false, features = ["json", "native-tls"] }

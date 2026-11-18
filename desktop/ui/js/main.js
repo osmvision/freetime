@@ -24,12 +24,15 @@ const main = document.getElementById('main');
 const tags = document.getElementById('bar-tags');
 
 let lastOnline = null;
+/** The live connection (Realtime) is up: chats don't need to check every few seconds. */
+let live = false;
 let city = null;
 
 const ctx = {
   goto,
   friendsChanged: () => discover.friendsChanged(),
   accountChanged: () => renderMe(),
+  isLive: () => live,
   openChat: (friendId) => goto('messages', { friend: friendId }),
   setInvites: (n) => {
     const badge = document.getElementById('invites-badge');
@@ -190,6 +193,25 @@ async function start() {
   discover.init(views.discover, boot, ctx);
   if (after === 'profile') goto('settings', { focus: 'profile' });
   await listen('unread-updated', (n) => ctx.setUnread(n));
+  // The live connection: messages and invites as soon as they're saved.
+  await listen('live-status', (on) => (live = on));
+  api.liveStatus().then((on) => (live = on)).catch(() => {});
+  await listen('message-new', (e) => {
+    if (messagesView.onLive(e)) return;
+    if (!e.mine) {
+      const badge = document.getElementById('unread-badge');
+      ctx.setUnread((parseInt(badge.textContent, 10) || 0) + 1);
+    }
+  });
+  await listen('invites-changed', async () => {
+    try {
+      const list = await api.invites();
+      ctx.setInvites(list.filter((i) => i.direction === 'incoming' && i.status === 'pending').length);
+    } catch {
+      // The next check catches up.
+    }
+    if (!views.friends.hidden) friendsView.render(views.friends, ctx);
+  });
   await listen('invites-updated', (n) => ctx.setInvites(n));
   await listen('online-updated', (online) => {
     renderTags(online);

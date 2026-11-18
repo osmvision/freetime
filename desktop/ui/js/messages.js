@@ -16,13 +16,40 @@ let ctxRef = null;
 let state = null; // { me, friends: Map, conversations: [], current: { conversation, friend, lastId, seen:Set } }
 let els = {};
 
+let active = false;
+
 /** Leaving the screen stops all polling. */
 export function stop() {
   clearInterval(timer);
   clearInterval(listTimer);
   timer = null;
   listTimer = null;
+  active = false;
   if (state) state.current = null;
+}
+
+/**
+ * A message from the live connection. Returns false when this screen isn't showing (the caller
+ * then updates the badge). Duplicates (your own message, already shown) are skipped by id.
+ */
+export function onLive({ message: m, mine }) {
+  if (!active || !state) return false;
+  const conv = state.conversations.find((c) => c.conversation_id === m.conversation_id);
+  if (!conv) {
+    // A conversation this list doesn't know yet (a friend's first message): reload the list.
+    refreshList();
+    return true;
+  }
+  if (state.current?.conversation === m.conversation_id) {
+    append([m]);
+  } else if (!mine) {
+    conv.unread += 1;
+  }
+  Object.assign(conv, { last_body: m.body, last_sender: m.sender, last_at: m.created_at });
+  state.conversations.sort((a, b) => (b.last_at ?? '').localeCompare(a.last_at ?? ''));
+  drawList();
+  updateBadge();
+  return true;
 }
 
 export async function render(root, ctx, options = {}) {
@@ -71,6 +98,7 @@ export async function render(root, ctx, options = {}) {
     fill(els.pane, h('div', { class: 'chat-empty' }, icon('message-circle'), h('p', {}, 'Pick a friend to start talking.')));
   }
   listTimer = setInterval(refreshList, LIST_MS);
+  active = true;
 }
 
 // ---------------------------------------------------------------- the list
@@ -194,6 +222,9 @@ async function openFriend(friendId) {
 async function poll() {
   const cur = state?.current;
   if (!cur || document.hidden) return;
+  // With the live connection up, messages arrive by themselves: only a safety check every 30 s.
+  if (ctxRef?.isLive?.() && Date.now() - (cur.lastPoll ?? 0) < 30000) return;
+  cur.lastPoll = Date.now();
   try {
     const fresh = await api.chatMessages(cur.conversation, cur.lastId);
     if (state.current === cur) append(fresh);
