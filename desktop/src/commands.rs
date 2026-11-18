@@ -945,6 +945,65 @@ pub fn reset_friend_tag(state: State<'_, AppState>) -> Res<String> {
     Client::new().map_err(err)?.reset_friend_tag(&session).map_err(err)
 }
 
+// ---------------------------------------------------------------- weekly recap (local only)
+
+#[derive(Serialize)]
+pub struct KindCount {
+    category: Category,
+    label: &'static str,
+    picks: usize,
+}
+
+#[derive(Serialize)]
+pub struct MemoryView {
+    when: String,
+    title: String,
+    category: Category,
+    label: &'static str,
+    loved: bool,
+}
+
+#[derive(Serialize)]
+pub struct RecapView {
+    week_picks: usize,
+    week_minutes: u32,
+    week_loved: usize,
+    last_week_picks: usize,
+    last_week_minutes: u32,
+    streak_weeks: u32,
+    best_streak: u32,
+    this_week_active: bool,
+    /// "2026-W47": which week this is, so the UI can remember a dismissed recap.
+    week: String,
+    kinds: Vec<KindCount>,
+    memories: Vec<MemoryView>,
+}
+
+/// This week, last week, the streak and memories, from the history on this PC (no network).
+#[tauri::command(async)]
+pub fn get_recap() -> Res<RecapView> {
+    use chrono::Datelike;
+    let now = chrono::Local::now();
+    let r = History::load().recap(now);
+    Ok(RecapView {
+        week_picks: r.week_picks,
+        week_minutes: r.week_minutes,
+        week_loved: r.week_loved,
+        last_week_picks: r.last_week_picks,
+        last_week_minutes: r.last_week_minutes,
+        streak_weeks: r.streak_weeks,
+        best_streak: r.best_streak,
+        this_week_active: r.this_week_active,
+        week: format!("{}-W{:02}", now.iso_week().year(), now.iso_week().week()),
+        kinds: r.week_by_category.into_iter().map(|(category, picks)| KindCount { category, label: category.label(), picks }).collect(),
+        memories: r
+            .memories
+            .into_iter()
+            .map(|m| MemoryView { when: m.when, title: m.title, category: m.category, label: m.category.label(), loved: m.loved })
+            .collect(),
+    })
+}
+
 // ---------------------------------------------------------------- the live connection (instant)
 
 #[derive(Serialize, Clone)]

@@ -803,3 +803,523 @@ cost = "free"
 link = "https://skribbl.io"
 tags = ["friends", "party"]
 quality = 0.65
+
+# ---------------------------------------------------------------- more ideas (step 3)
+
+[[activity]]
+id = "stairs-workout"
+category = "sport"
+title = "Stair workout"
+detail = "Find a long staircase: walk up fast, walk down easy, 10 rounds. Add a few two-steps-at-a-time runs."
+min = 20
+max = 30
+energy = "high"
+outdoor = true
+social = "solo"
+cost = "free"
+tags = ["cardio"]
+quality = 0.65
+
+[[activity]]
+id = "trail-run"
+category = "sport"
+title = "Trail run in the hills"
+detail = "Pick a trail with some climbing, walk the steep bits, enjoy the view at the top."
+min = 45
+max = 90
+energy = "high"
+outdoor = true
+social = "either"
+cost = "free"
+tags = ["cardio", "running", "nature"]
+quality = 0.75
+
+[[activity]]
+id = "pilates"
+category = "sport"
+title = "Mat Pilates session"
+detail = "Hundreds, roll-ups, leg circles, side kicks: slow and controlled, on a towel if you have no mat."
+min = 25
+max = 40
+energy = "medium"
+outdoor = false
+social = "solo"
+cost = "free"
+tags = ["core", "mobility"]
+quality = 0.65
+
+[[activity]]
+id = "paddle"
+category = "sport"
+title = "Kayak or paddle board rental"
+detail = "Rent one by the water for an hour. Calm water first; sunscreen even if it's cloudy."
+min = 60
+max = 180
+energy = "medium"
+outdoor = true
+social = "either"
+cost = "paid"
+tags = ["water", "nature"]
+quality = 0.75
+
+[[activity]]
+id = "sunset-walk"
+category = "chill"
+title = "Walk to watch the sunset"
+detail = "Check the time of sunset, pick a spot facing west, get there ten minutes early."
+min = 30
+max = 60
+energy = "low"
+outdoor = true
+social = "either"
+cost = "free"
+tags = ["walk", "nature", "evening"]
+quality = 0.8
+
+[[activity]]
+id = "sign-language"
+category = "learn"
+title = "Learn 10 words of sign language"
+detail = "Greetings, thank you, please, names: practice them in front of a mirror until they feel natural."
+min = 15
+max = 25
+energy = "low"
+outdoor = false
+social = "either"
+cost = "free"
+tags = ["language"]
+quality = 0.65
+
+[[activity]]
+id = "documentary-notes"
+category = "learn"
+title = "Watch a documentary and write 3 takeaways"
+detail = "Pick one on a topic you know nothing about. Three lines of notes at the end make it stick."
+min = 45
+max = 100
+energy = "low"
+outdoor = false
+social = "either"
+cost = "free"
+tags = ["documentary"]
+quality = 0.7
+
+[[activity]]
+id = "learn-a-song"
+category = "learn"
+title = "Learn a song on an instrument you have"
+detail = "Guitar, keyboard, ukulele, even a recorder: one song, slowly, until you can play it through."
+min = 30
+max = 60
+energy = "medium"
+outdoor = false
+social = "solo"
+cost = "free"
+tags = ["music"]
+quality = 0.7
+
+[[activity]]
+id = "constellations"
+category = "learn"
+title = "Learn three constellations"
+detail = "Use a free sky map app, find them outside, then try again without the app."
+min = 20
+max = 40
+energy = "low"
+outdoor = true
+social = "either"
+cost = "free"
+tags = ["night", "space"]
+quality = 0.7
+
+[[activity]]
+id = "repair-something"
+category = "learn"
+title = "Fix something broken at home"
+detail = "That wobbly chair, a dripping tap, a loose button: find a tutorial and fix it for good."
+min = 30
+max = 90
+energy = "medium"
+outdoor = false
+social = "solo"
+cost = "free"
+tags = ["diy"]
+quality = 0.7
+
+[[activity]]
+id = "future-letter"
+category = "create"
+title = "Write a letter to your future self"
+detail = "Where you are, what you hope for, a question for later. Seal it with a date to open it."
+min = 20
+max = 40
+energy = "low"
+outdoor = false
+social = "solo"
+cost = "free"
+tags = ["writing"]
+quality = 0.7
+
+[[activity]]
+id = "mini-comic"
+category = "create"
+title = "Draw a 4-panel comic"
+detail = "Something that happened to you this week, in four boxes. Stick figures are allowed."
+min = 30
+max = 60
+energy = "low"
+outdoor = false
+social = "solo"
+cost = "free"
+tags = ["drawing"]
+quality = 0.65
+
+[[activity]]
+id = "build-something"
+category = "create"
+title = "Build something with LEGO or cardboard"
+detail = "A tiny house, a marble run, a phone stand: no instructions, just build."
+min = 30
+max = 120
+energy = "low"
+outdoor = false
+social = "either"
+cost = "free"
+tags = ["making"]
+quality = 0.65
+
+[[activity]]
+id = "video-diary"
+category = "create"
+title = "Record a 60-second video diary"
+detail = "One minute about your day. In a year you'll be glad you did."
+min = 10
+max = 20
+energy = "low"
+outdoor = false
+social = "solo"
+cost = "free"
+tags = ["video", "memories"]
+quality = 0.6
+
+[[activity]]
+id = "watercolor"
+category = "create"
+title = "Paint with watercolors"
+detail = "A cheap set is enough: try a sky gradient, then a simple landscape."
+min = 30
+max = 60
+energy = "low"
+outdoor = false
+social = "solo"
+cost = "cheap"
+tags = ["painting"]
+quality = 0.7
+
+[[activity]]
+id = "windowsill-herbs"
+category = "chill"
+title = "Plant herbs on your windowsill"
+detail = "Basil, mint or parsley in a pot. Water, light, and something to look after."
+min = 20
+max = 40
+energy = "low"
+outdoor = false
+social = "solo"
+cost = "cheap"
+tags = ["plants"]
+quality = 0.65
+
+[[activity]]
+id = "long-bath"
+category = "chill"
+title = "Long bath or shower with a playlist"
+detail = "Warm water, a calm playlist, phone out of reach."
+min = 20
+max = 40
+energy = "low"
+outdoor = false
+social = "solo"
+cost = "free"
+tags = ["relax"]
+quality = 0.6
+
+[[activity]]
+id = "jigsaw"
+category = "chill"
+title = "Jigsaw puzzle session"
+detail = "Edges first, then colors. Leave it out and come back to it all week."
+min = 30
+max = 120
+energy = "low"
+outdoor = false
+social = "either"
+cost = "cheap"
+tags = ["puzzle"]
+quality = 0.65
+
+[[activity]]
+id = "tea-ritual"
+category = "chill"
+title = "Try a new tea, slowly"
+detail = "A tea you've never had, brewed properly, and nothing else for fifteen minutes."
+min = 15
+max = 25
+energy = "low"
+outdoor = false
+social = "either"
+cost = "cheap"
+tags = ["relax"]
+quality = 0.6
+
+[[activity]]
+id = "three-good-things"
+category = "chill"
+title = "Write down three good things from today"
+detail = "Small counts: a good coffee, a nice message. It changes how the day ends."
+min = 10
+max = 15
+energy = "low"
+outdoor = false
+social = "solo"
+cost = "free"
+tags = ["journal"]
+quality = 0.6
+
+[[activity]]
+id = "detox-hour"
+category = "chill"
+title = "One hour without screens"
+detail = "Phone in a drawer, no computer. Read, walk, cook, or just do nothing."
+min = 60
+max = 60
+energy = "low"
+outdoor = false
+social = "either"
+cost = "free"
+tags = ["relax"]
+quality = 0.65
+
+[[activity]]
+id = "viewpoint"
+category = "chill"
+title = "Watch the city from a high spot"
+detail = "A hill, a rooftop terrace, a bridge: sit and watch the city move for a while."
+min = 20
+max = 40
+energy = "low"
+outdoor = true
+social = "either"
+cost = "free"
+tags = ["walk", "explore"]
+quality = 0.7
+
+[[activity]]
+id = "family-call"
+category = "social"
+title = "Video call with family"
+detail = "Someone you haven't seen in a while. Show them around, ask about their week."
+min = 20
+max = 60
+energy = "low"
+outdoor = false
+social = "solo"
+cost = "free"
+tags = ["family"]
+quality = 0.7
+
+[[activity]]
+id = "mini-tournament"
+category = "social"
+title = "Organize a mini tournament"
+detail = "Any game works: table football, a video game, cards. Brackets on paper, a silly trophy."
+min = 60
+max = 180
+energy = "medium"
+outdoor = false
+social = "group"
+cost = "free"
+tags = ["games"]
+quality = 0.7
+
+[[activity]]
+id = "market-together"
+category = "social"
+title = "Go to a local market together"
+detail = "Taste things, pick ingredients for a meal you'll cook together after."
+min = 45
+max = 90
+energy = "low"
+outdoor = true
+social = "group"
+cost = "cheap"
+tags = ["food", "explore"]
+quality = 0.7
+
+[[activity]]
+id = "petanque"
+category = "social"
+title = "Pétanque in the park"
+detail = "A set of boules, a flat sandy spot, teams of two. Measure with a string when it's close."
+min = 45
+max = 90
+energy = "low"
+outdoor = true
+social = "group"
+cost = "cheap"
+tags = ["outdoor", "games"]
+quality = 0.75
+
+[[activity]]
+id = "kind-messages"
+category = "social"
+title = "Send a kind message to three people"
+detail = "Tell them something you appreciate about them. It takes ten minutes and lasts all day."
+min = 10
+max = 20
+energy = "low"
+outdoor = false
+social = "solo"
+cost = "free"
+tags = ["friends"]
+quality = 0.7
+
+[[activity]]
+id = "themed-movie-night"
+category = "social"
+title = "Movie night with a theme"
+detail = "Pick a theme (one director, one year, 80s action), snacks to match, vote on the film."
+min = 120
+max = 180
+energy = "low"
+outdoor = false
+social = "group"
+cost = "free"
+tags = ["movies"]
+quality = 0.7
+
+[[activity]]
+id = "homemade-pizza"
+category = "food"
+title = "Make homemade pizza"
+detail = "Dough, tomato, mozzarella, whatever toppings you have. Hottest oven you can manage."
+min = 60
+max = 120
+energy = "medium"
+outdoor = false
+social = "either"
+cost = "cheap"
+tags = ["cooking"]
+quality = 0.75
+
+[[activity]]
+id = "three-ingredient-dessert"
+category = "food"
+title = "Make a 3-ingredient dessert"
+detail = "Chocolate mousse, banana pancakes or peanut butter cookies: three ingredients, done."
+min = 15
+max = 30
+energy = "low"
+outdoor = false
+social = "either"
+cost = "cheap"
+tags = ["baking"]
+quality = 0.65
+
+[[activity]]
+id = "meal-prep"
+category = "food"
+title = "Prep tomorrow's meals"
+detail = "Cook a big batch of one thing and pack it. Future you says thanks at lunch."
+min = 30
+max = 60
+energy = "medium"
+outdoor = false
+social = "solo"
+cost = "cheap"
+tags = ["cooking"]
+quality = 0.65
+
+[[activity]]
+id = "lemonade"
+category = "food"
+title = "Make fresh lemonade or iced tea"
+detail = "Lemons, sugar, water and ice, or tea brewed strong and cooled. A pitcher to share."
+min = 10
+max = 20
+energy = "low"
+outdoor = false
+social = "either"
+cost = "cheap"
+tags = ["drinks"]
+quality = 0.6
+
+[[activity]]
+id = "pancake-dinner"
+category = "food"
+title = "Pancakes for dinner"
+detail = "Breakfast for dinner: pancakes, fruit, something sweet and something salty."
+min = 20
+max = 40
+energy = "low"
+outdoor = false
+social = "either"
+cost = "cheap"
+tags = ["cooking"]
+quality = 0.65
+
+[[activity]]
+id = "speedrun-level"
+category = "game"
+title = "Speedrun the first level of a game you love"
+detail = "Time yourself, watch how others do it, try to beat your time five times."
+min = 20
+max = 60
+energy = "medium"
+outdoor = false
+social = "solo"
+cost = "free"
+tags = ["speedrun"]
+quality = 0.65
+
+[[activity]]
+id = "new-free-game"
+category = "game"
+title = "Try a free-to-play game you've never played"
+detail = "Pick one from a genre you never play. Give it thirty minutes before judging."
+min = 30
+max = 90
+energy = "medium"
+outdoor = false
+social = "either"
+cost = "free"
+tags = ["discovery"]
+quality = 0.6
+
+[[activity]]
+id = "daily-puzzle"
+category = "game"
+title = "A daily word or number puzzle"
+detail = "Word guessing, sudoku or crosswords: one a day, five minutes, keeps the brain warm."
+min = 5
+max = 15
+energy = "low"
+outdoor = false
+social = "solo"
+cost = "free"
+tags = ["puzzle"]
+quality = 0.6
+
+[[activity]]
+id = "finish-abandoned-game"
+category = "game"
+title = "Finish a game you abandoned"
+detail = "Look up where you were, watch a quick recap, and play to the credits."
+min = 60
+max = 180
+energy = "medium"
+outdoor = false
+social = "solo"
+cost = "free"
+tags = ["backlog"]
+quality = 0.7

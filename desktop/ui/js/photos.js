@@ -32,7 +32,16 @@ export function creditLine(credit) {
 
 /** An <img> that swaps itself for the category icon if it fails to load. */
 export function photo(c, fallbackClass = 'fallback') {
-  const fallback = () => h('div', { class: fallbackClass }, icon(categoryIcon(c.category)));
+  // No photo (or it failed to load): a printed poster in the kind's color, never an empty block.
+  const fallback = () =>
+    fallbackClass === 'fallback'
+      ? h(
+          'div',
+          { class: 'fallback poster', 'data-category': c.category ?? '' },
+          icon(categoryIcon(c.category), 'poster-big'),
+          h('span', { class: 'poster-label' }, icon(categoryIcon(c.category)), c.category_label ?? ''),
+        )
+      : h('div', { class: fallbackClass }, icon(categoryIcon(c.category)));
   const p = photoFor(c);
   if (!p) return fallback();
   const img = h('img', {

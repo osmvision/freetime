@@ -27,6 +27,8 @@ pub struct Config {
     pub notify_messages: bool,
     /// Share the imported Steam game list (app ids only) and taste with online friends.
     pub share_library: bool,
+    /// Look for a new version on GitHub a while after start and twice a day (installing asks first).
+    pub check_updates: bool,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -62,6 +64,7 @@ impl Default for Config {
             onboarded: false,
             notify_messages: true,
             share_library: false,
+            check_updates: true,
         }
     }
 }
