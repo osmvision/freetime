@@ -3,6 +3,7 @@
 // nothing is fetched when you leave this screen. Messages are always shown as plain text.
 
 import { api } from './api.js';
+import { locale } from './i18n.js';
 import { avatar } from './avatars.js';
 import { btn, emptyState, errText, fill, h, icon, pageHead, toast } from './dom.js';
 
@@ -211,7 +212,7 @@ function append(messages) {
     cur.seen.add(m.id);
     cur.lastId = Math.max(cur.lastId, m.id);
     const when = new Date(m.created_at);
-    const day = when.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' });
+    const day = when.toLocaleDateString(locale(), { weekday: 'long', day: 'numeric', month: 'long' });
     if (day !== cur.lastDay) {
       cur.lastDay = day;
       els.log.append(h('div', { class: 'chat-day' }, day));
@@ -223,7 +224,7 @@ function append(messages) {
         'div',
         { class: mine ? 'bubble mine' : 'bubble' },
         h('div', { class: 'bubble-text' }, m.body),
-        h('div', { class: 'bubble-time' }, when.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })),
+        h('div', { class: 'bubble-time' }, when.toLocaleTimeString(locale(), { hour: '2-digit', minute: '2-digit' })),
       ),
     );
   }

@@ -406,6 +406,12 @@ button.tag:hover {
   padding: 0;
 }
 
+.btn[aria-pressed="true"] {
+  border-color: var(--navy);
+  background: var(--navy);
+  color: #fff;
+}
+
 .btn:disabled {
   opacity: 0.55;
   cursor: default;

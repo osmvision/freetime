@@ -1,6 +1,7 @@
 // The main screen: today's ticket (the best pick), why it fits, and the rest of the book behind it.
 
 import { api } from './api.js';
+import { locale } from './i18n.js';
 import { cityPicker, openMeteoCredit } from './city.js';
 import {
   btn,
@@ -565,8 +566,8 @@ function shuffle() {
 
 function ticketDate() {
   const d = new Date();
-  const day = d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }).toUpperCase();
-  const time = d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+  const day = d.toLocaleDateString(locale(), { day: '2-digit', month: 'short' }).toUpperCase();
+  const time = d.toLocaleTimeString(locale(), { hour: '2-digit', minute: '2-digit' });
   return `${day} · ${time}`;
 }
 
