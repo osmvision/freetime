@@ -4,7 +4,7 @@
 //! never freeze the window.
 
 use freetime_core::{
-    account::{self, Client, ConversationEntry, FriendEntry, Message as ChatMessage, OnlineProfile, ProfileEdit, Session},
+    account::{self, Client, ConversationEntry, FriendEntry, Invite, Message as ChatMessage, NewInvite, OnlineProfile, ProfileEdit, Session},
     config::{self, Config},
     history::{self, History},
     keys::{self, KeySource, Keys},
@@ -51,6 +51,8 @@ pub struct AppState {
     shown: Mutex<HashMap<String, Suggestion>>,
     /// The signed-in session (opt-in). Only in memory; the refresh token is in Credential Manager.
     account: Mutex<Option<Session>>,
+    /// Friends' shared game lists (None = they don't share), with when they were fetched.
+    libraries: Mutex<HashMap<String, (Instant, Option<account::SharedLibrary>)>>,
 }
 
 #[derive(Default)]
@@ -188,20 +190,135 @@ fn remember<'a>(state: &AppState, cards: impl Iterator<Item = &'a Card>) {
     }
 }
 
-/// `party`: names of saved friends you're with (from their friend codes). Only used when the
-/// request is "with friends"; otherwise this is the solo ranking.
-fn rank(cfg: &Config, req: &Request, online: &Online, exclude: &[String], party: &[String]) -> Vec<Ranked> {
+/// An online friend picked in "Playing with": their id, and the name to show in reasons.
+#[derive(Deserialize, Clone)]
+pub struct OnlineMate {
+    id: String,
+    name: String,
+}
+
+/// Shared game lists of online friends, kept 10 minutes so re-ranking doesn't refetch them.
+fn friend_libraries(state: &AppState, mates: &[OnlineMate]) -> HashMap<String, account::SharedLibrary> {
+    const KEEP: Duration = Duration::from_secs(600);
+    let mut out = HashMap::new();
+    let missing: Vec<String> = {
+        let cache = lock(&state.libraries);
+        mates
+            .iter()
+            .filter(|m| match cache.get(&m.id) {
+                Some((at, lib)) if at.elapsed() < KEEP => {
+                    if let Some(l) = lib {
+                        out.insert(m.id.clone(), l.clone());
+                    }
+                    false
+                }
+                _ => true,
+            })
+            .map(|m| m.id.clone())
+            .collect()
+    };
+    if missing.is_empty() {
+        return out;
+    }
+    let (Ok(s), Ok(client)) = (live_session(state), Client::new()) else { return out };
+    if let Ok(libs) = client.libraries(&s, &missing) {
+        let mut cache = lock(&state.libraries);
+        for id in &missing {
+            let lib = libs.iter().find(|l| &l.user_id == id).cloned();
+            if let Some(l) = &lib {
+                out.insert(id.clone(), l.clone());
+            }
+            cache.insert(id.clone(), (Instant::now(), lib));
+        }
+    }
+    out
+}
+
+/// `party`: names of friends added by code; `mates`: online friends. Only used when the request
+/// is "with friends"; otherwise this is the solo ranking. Games everyone owns are looked up on
+/// the Steam store (cached) to tell co-op from versus and single-player.
+fn rank(state: &AppState, cfg: &Config, req: &Request, online: &Online, exclude: &[String], party: &[String], mates: &[OnlineMate]) -> Vec<Ranked> {
     let prefs = History::load().prefs(history::now());
     let exclude: HashSet<String> = exclude.iter().cloned().collect();
-    if !req.with_friends || party.is_empty() {
+    if !req.with_friends || (party.is_empty() && mates.is_empty()) {
         return freetime_core::rank(cfg, req, online, &prefs, &exclude);
     }
-    let chosen: Vec<Friend> = party::load_friends()
+    let mut chosen: Vec<Friend> = party::load_friends()
         .into_iter()
         .filter(|f| party.iter().any(|n| n.eq_ignore_ascii_case(&f.name)))
         .collect();
-    let party = party::Party::new(chosen, steam_import::load_library().as_ref());
-    freetime_core::rank_together(cfg, req, online, &prefs, &exclude, Some(&party))
+    if !mates.is_empty() {
+        let libs = friend_libraries(state, mates);
+        for m in mates.iter().take(20) {
+            let lib = libs.get(&m.id);
+            let mut taste = [0i8; 8];
+            if let Some(l) = lib {
+                for (slot, v) in taste.iter_mut().zip(&l.taste) {
+                    *slot = (*v).clamp(-100, 100) as i8;
+                }
+            }
+            let mut games = lib.map(|l| l.app_ids.clone()).unwrap_or_default();
+            games.sort_unstable();
+            games.dedup();
+            chosen.push(Friend { name: party::clean_name(&m.name), games, taste, added: 0, avatar: Default::default() });
+        }
+    }
+    let mut together = party::Party::new(chosen, steam_import::load_library().as_ref());
+    let shared = together.common_ids(24);
+    if !shared.is_empty() {
+        if let Ok(net) = HttpNet::new() {
+            together.set_modes(steam::together_modes(&net, &shared, 24));
+        }
+    }
+    freetime_core::rank_together(cfg, req, online, &prefs, &exclude, Some(&together))
+}
+
+// ---------------------------------------------------------------- sharing your game list (opt-in)
+
+#[derive(Serialize)]
+pub struct ShareView {
+    enabled: bool,
+    /// How many Steam games would be (or are) shared: the imported ones.
+    games: usize,
+}
+
+#[tauri::command(async)]
+pub fn get_share_library() -> Res<ShareView> {
+    let cfg = Config::load().map_err(err)?;
+    let games = steam_import::load_library().map_or(0, |l| l.games.len());
+    Ok(ShareView { enabled: cfg.share_library, games })
+}
+
+/// Uploads your Steam app ids and taste (or deletes them) and remembers the choice.
+fn upload_library(client: &Client, s: &Session) -> Res<usize> {
+    let cfg = Config::load().map_err(err)?;
+    let me = Friend::mine(cfg.display_name.as_deref().unwrap_or("Friend"), cfg.avatar, steam_import::load_library().as_ref(), &History::load().taste());
+    client.share_library(s, &me.games, &me.taste).map_err(err)?;
+    Ok(me.games.len())
+}
+
+#[tauri::command(async)]
+pub fn set_share_library(state: State<'_, AppState>, enabled: bool) -> Res<ShareView> {
+    let s = live_session(&state)?;
+    let client = Client::new().map_err(err)?;
+    if enabled {
+        upload_library(&client, &s)?;
+    } else {
+        client.stop_sharing_library(&s).map_err(err)?;
+    }
+    let mut cfg = Config::load().map_err(err)?;
+    cfg.share_library = enabled;
+    cfg.save().map_err(err)?;
+    get_share_library()
+}
+
+/// After a Steam import: refresh the shared list if sharing is on (best effort).
+fn refresh_shared_library(state: &AppState) {
+    if Config::load().map(|c| c.share_library).unwrap_or(false) {
+        if let (Ok(s), Ok(client)) = (live_session(state), Client::new()) {
+            let _ = upload_library(&client, &s);
+        }
+    }
 }
 
 #[derive(Serialize)]
@@ -317,10 +434,11 @@ pub fn suggest(
     exclude: Vec<String>,
     per_category: Option<usize>,
     party: Option<Vec<String>>,
+    mates: Option<Vec<OnlineMate>>,
 ) -> Res<Results> {
     let cfg = Config::load().map_err(err)?;
     let (online, partial) = current_online(&state, ONLINE_WAIT);
-    let ranked = rank(&cfg, &req, &online, &exclude, &party.unwrap_or_default());
+    let ranked = rank(&state, &cfg, &req, &online, &exclude, &party.unwrap_or_default(), &mates.unwrap_or_default());
     let per = per_category.unwrap_or(4).clamp(1, 12);
 
     let best = ranked.first().map(card);
@@ -348,7 +466,7 @@ pub struct SurpriseView {
 pub fn surprise(state: State<'_, AppState>, exclude: Vec<String>) -> Res<SurpriseView> {
     let cfg = Config::load().map_err(err)?;
     let (online, _) = current_online(&state, ONLINE_WAIT);
-    let ranked = rank(&cfg, &Request::for_now(), &online, &exclude, &[]);
+    let ranked = rank(&state, &cfg, &Request::for_now(), &online, &exclude, &[], &[]);
     let Some(i) = scoring::weighted_pick(&ranked, 6) else {
         return Ok(SurpriseView { pick: None, alternatives: Vec::new() });
     };
@@ -644,6 +762,8 @@ pub fn steam_import(app: AppHandle, steam_id64: String) -> Res<SteamImported> {
     let (library, notes) =
         steam_import::run_import(&net, key.as_ref().map(|k| k.value()), &steam_id64, now).map_err(err)?;
     refresh_in_background(&app);
+    // Sharing is on: friends get the new list too.
+    refresh_shared_library(&app.state::<AppState>());
     Ok(SteamImported { status: SteamStatus::of(Some(&library)), notes })
 }
 
@@ -830,6 +950,7 @@ pub fn watch_messages(app: AppHandle) {
     use tauri_plugin_notification::NotificationExt;
     thread::spawn(move || {
         let mut seen: HashMap<String, String> = HashMap::new();
+        let mut seen_invites: HashSet<i64> = HashSet::new();
         let mut baseline = true;
         thread::sleep(Duration::from_secs(8));
         loop {
@@ -838,8 +959,23 @@ pub fn watch_messages(app: AppHandle) {
             let signed_in = lock(&state.account).is_some() || account::has_saved_session();
             if !enabled || !signed_in {
                 seen.clear();
+                seen_invites.clear();
                 baseline = true;
             } else if let (Ok(s), Ok(client)) = (live_session(&state), Client::new()) {
+                // Invites waiting for an answer: badge, and a notification for new ones.
+                if let Ok(invites) = client.invites(&s) {
+                    let waiting: Vec<&Invite> = invites.iter().filter(|i| i.direction == "incoming" && i.status == "pending").collect();
+                    let _ = app.emit("invites-updated", waiting.len());
+                    let focused = app.get_webview_window("main").and_then(|w| w.is_focused().ok()).unwrap_or(false);
+                    for i in waiting {
+                        if seen_invites.insert(i.id) && !baseline && !focused {
+                            let at = chrono::DateTime::parse_from_rfc3339(&i.starts_at)
+                                .map(|t| t.with_timezone(&chrono::Local).format("%H:%M").to_string())
+                                .unwrap_or_default();
+                            let _ = app.notification().builder().title(format!("{} invites you", i.other_name)).body(format!("{} · {at}", i.title)).show();
+                        }
+                    }
+                }
                 if let Ok(convs) = client.conversations(&s) {
                     let _ = app.emit("unread-updated", convs.iter().map(|c| c.unread).sum::<i64>());
                     let focused = app.get_webview_window("main").and_then(|w| w.is_focused().ok()).unwrap_or(false);
@@ -880,6 +1016,49 @@ pub fn set_notify_messages(enabled: bool) -> Res<()> {
 #[tauri::command(async)]
 pub fn get_notify_messages() -> Res<bool> {
     Ok(Config::load().map_err(err)?.notify_messages)
+}
+
+// ---------------------------------------------------------------- free now and invites
+
+/// "I'm free for N minutes" (0 = not any more). Returns when it ends.
+#[tauri::command(async)]
+pub fn set_free(state: State<'_, AppState>, minutes: u32) -> Res<Option<String>> {
+    let s = live_session(&state)?;
+    Client::new().map_err(err)?.set_free(&s, minutes).map_err(err)
+}
+
+#[tauri::command(async)]
+pub fn get_invites(state: State<'_, AppState>) -> Res<Vec<Invite>> {
+    let s = live_session(&state)?;
+    Client::new().map_err(err)?.invites(&s).map_err(err)
+}
+
+/// Sends one pick to several friends. Returns how many invites went out.
+#[tauri::command(async)]
+pub fn send_invites(state: State<'_, AppState>, invites: Vec<NewInvite>) -> Res<usize> {
+    if invites.len() > 20 {
+        return Err("invite at most 20 friends at once".to_string());
+    }
+    let s = live_session(&state)?;
+    let client = Client::new().map_err(err)?;
+    let mut sent = 0;
+    for invite in &invites {
+        client.send_invite(&s, invite).map_err(err)?;
+        sent += 1;
+    }
+    Ok(sent)
+}
+
+#[tauri::command(async)]
+pub fn answer_invite(state: State<'_, AppState>, id: i64, accept: bool) -> Res<()> {
+    let s = live_session(&state)?;
+    Client::new().map_err(err)?.answer_invite(&s, id, accept).map_err(err)
+}
+
+#[tauri::command(async)]
+pub fn cancel_invite(state: State<'_, AppState>, id: i64) -> Res<()> {
+    let s = live_session(&state)?;
+    Client::new().map_err(err)?.cancel_invite(&s, id).map_err(err)
 }
 
 // ---------------------------------------------------------------- your data (GDPR) and reports

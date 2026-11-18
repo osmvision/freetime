@@ -20,6 +20,7 @@ import {
   wait,
 } from './dom.js';
 import { creditLine, photo, photoFor } from './photos.js';
+import { freeStrip, invitable, invitePanel } from './together.js';
 
 const TIMES = [15, 30, 45, 60, 90, 120, 180, 240];
 const ENERGY = [
@@ -80,7 +81,18 @@ export function init(root, boot, context) {
   els.cityPrompt = h('div');
   els.rate = h('div');
   els.results = h('div', { 'aria-live': 'polite' });
-  root.replaceChildren(els.head, els.context, els.cityPrompt, els.rate, els.results);
+  els.free = h('div');
+  root.replaceChildren(els.head, els.context, els.free, els.cityPrompt, els.rate, els.results);
+  // Who's free and "I'm free" (signed in only). Refreshed every minute while Discover is on screen.
+  // When the friend list first arrives (or changes size), redraw so the ticket gets its Invite button.
+  state.together = freeStrip(els.free, () => state.req.minutes, () => {
+    renderContext();
+    if (state.results?.best && !state.loading) renderResults(state.results);
+  });
+  state.together.refresh();
+  setInterval(() => {
+    if (!document.hidden && !root.hidden) state.together.refresh();
+  }, 60000);
   renderHead();
   renderContext();
   renderCityPrompt();
@@ -113,7 +125,8 @@ async function loadFriends() {
     state.friends = [];
   }
   const known = new Set(state.friends.map((f) => f.name.toLowerCase()));
-  state.party = state.party.filter((n) => known.has(n.toLowerCase()));
+  // Online friends ("online:<id>") are checked against the online list when it arrives.
+  state.party = state.party.filter((n) => n.startsWith('online:') || known.has(n.toLowerCase()));
   if (els.context) renderContext();
 }
 
@@ -270,10 +283,15 @@ function renderContext() {
   );
 }
 
-/** Which saved friends you're with; without any saved, a shortcut to add one. */
+/** Online friends (keys "online:<id>") and friends added by code (keys are their names). */
+const onlineFriends = () => state.together?.friends() ?? [];
+const partyLabel = (key) =>
+  key.startsWith('online:') ? (onlineFriends().find((f) => `online:${f.user_id}` === key)?.display_name ?? null) : key;
+
+/** Who you're with: online friends and friends added by code; without any, a shortcut to add one. */
 function partySelect() {
-  if (!state.friends.length) {
-    return btn({ label: 'Add a friend’s code', icon: 'user-plus', kind: 'quiet', small: true, onclick: () => ctx.goto('friends') });
+  if (!state.friends.length && !onlineFriends().length) {
+    return btn({ label: 'Add a friend', icon: 'user-plus', kind: 'quiet', small: true, onclick: () => ctx.goto('friends') });
   }
   const isOn = (o) => state.party.some((n) => n.toLowerCase() === o.id.toLowerCase());
   return select({
@@ -282,11 +300,15 @@ function partySelect() {
     title: 'Playing with',
     multi: true,
     value: () => {
-      if (!state.party.length) return 'Choose friends';
-      if (state.party.length <= 2) return state.party.join(', ');
-      return `${state.party.length} friends`;
+      const names = state.party.map(partyLabel).filter(Boolean);
+      if (!names.length) return 'Choose friends';
+      if (names.length <= 2) return names.join(', ');
+      return `${names.length} friends`;
     },
-    options: () => state.friends.map((f) => ({ id: f.name, label: f.common ? `${f.name} · ${f.common} games in common` : f.name, icon: 'user' })),
+    options: () => [
+      ...onlineFriends().map((f) => ({ id: `online:${f.user_id}`, label: f.free_until && new Date(f.free_until) > new Date() ? `${f.display_name} · free now` : f.display_name, icon: 'user' })),
+      ...state.friends.map((f) => ({ id: f.name, label: f.common ? `${f.name} · ${f.common} games in common` : `${f.name} · code`, icon: 'ticket' })),
+    ],
     isOn,
     pick: (o) => {
       state.party = isOn(o) ? state.party.filter((n) => n.toLowerCase() !== o.id.toLowerCase()) : [...state.party, o.id];
@@ -294,6 +316,16 @@ function partySelect() {
       return true;
     },
   });
+}
+
+/** What `suggest` needs: names of code friends, and online friends as { id, name }. */
+function partyForRequest() {
+  if (!state.req.with_friends) return { party: [], mates: [] };
+  const mates = state.party
+    .filter((k) => k.startsWith('online:'))
+    .map((k) => ({ id: k.slice(7), name: partyLabel(k) }))
+    .filter((m) => m.name);
+  return { party: state.party.filter((k) => !k.startsWith('online:')), mates };
 }
 
 let openMenu = null;
@@ -507,7 +539,8 @@ async function runSuggest({ keepShuffle = false, quiet = false, announce = null 
   if (!quiet || !state.results) renderLoading();
   let refreshAfter = false;
   try {
-    const res = await api.suggest(state.req, [...state.hidden, ...state.shuffled], state.req.with_friends ? state.party : []);
+    const { party, mates } = partyForRequest();
+    const res = await api.suggest(state.req, [...state.hidden, ...state.shuffled], party, mates);
     state.results = res;
     renderResults(res);
     renderHead();
@@ -655,6 +688,19 @@ function coupon(c, { label = 'Admit one' } = {}) {
           { class: 'coupon-actions' },
           btn({ label: 'Start', icon: 'play', kind: 'primary', onclick: () => start(c, el) }),
           link ? btn({ label: link.text, icon: link.icon, onclick: () => openLink(c.link) }) : null,
+          state.together?.friends().length && invitable(c)
+            ? btn({
+                label: 'Invite',
+                icon: 'users',
+                onclick: (e) => {
+                  const actions = e.currentTarget.closest('.coupon-actions');
+                  const open = actions.nextElementSibling?.classList.contains('invite-panel');
+                  if (open) return actions.nextElementSibling.remove();
+                  const panel = invitePanel(c, state.together.friends(), () => panel.remove());
+                  actions.after(panel);
+                },
+              })
+            : null,
           btn({ label: 'Not this one', icon: 'x', kind: 'quiet', onclick: () => voidCoupon(c, el) }),
         ),
       ),

@@ -31,6 +31,11 @@ const ctx = {
   friendsChanged: () => discover.friendsChanged(),
   accountChanged: () => renderMe(),
   openChat: (friendId) => goto('messages', { friend: friendId }),
+  setInvites: (n) => {
+    const badge = document.getElementById('invites-badge');
+    badge.hidden = !n;
+    badge.textContent = n > 99 ? '99+' : String(n);
+  },
   setUnread: (n) => {
     const badge = document.getElementById('unread-badge');
     badge.hidden = !n;
@@ -185,6 +190,7 @@ async function start() {
   discover.init(views.discover, boot, ctx);
   if (after === 'profile') goto('settings', { focus: 'profile' });
   await listen('unread-updated', (n) => ctx.setUnread(n));
+  await listen('invites-updated', (n) => ctx.setInvites(n));
   await listen('online-updated', (online) => {
     renderTags(online);
     discover.onOnline(online);

@@ -2,6 +2,7 @@
 // account and no server, folded away below.
 
 import { api } from './api.js';
+import { invitesPanel } from './together.js';
 import { AVATAR_COLORS, AVATAR_ICONS, avatar } from './avatars.js';
 import { btn, emptyState, errText, fill, h, icon, pageHead, toast } from './dom.js';
 
@@ -62,8 +63,11 @@ async function onlineSection(box, ctx) {
   const incoming = data.friends.filter((f) => f.state === 'incoming');
   const outgoing = data.friends.filter((f) => f.state === 'outgoing');
 
+  const invitesBox = h('div');
+  invitesPanel(invitesBox, ctx);
   fill(
     box,
+    invitesBox,
     addByTag(reload),
     incoming.length || outgoing.length
       ? h(

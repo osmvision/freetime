@@ -358,16 +358,95 @@ fn price_detail(label: &str, price: Option<&Price>, final_minor: u64, discount: 
 struct AppInfo {
     genres: Vec<String>,
     categories: Vec<String>,
+    /// Steam's category ids (stable across languages); empty in caches written before they were kept.
+    #[serde(default)]
+    category_ids: Vec<u32>,
     metacritic: Option<u32>,
+}
+
+fn app_cache_path() -> std::path::PathBuf {
+    config::data_dir().join("steam_apps.json")
+}
+
+fn load_app_cache() -> HashMap<String, AppInfo> {
+    fs::read_to_string(app_cache_path()).ok().and_then(|s| serde_json::from_str(&s).ok()).unwrap_or_default()
+}
+
+fn save_app_cache(cache: &HashMap<String, AppInfo>) {
+    let _ = fs::create_dir_all(config::data_dir());
+    if let Ok(json) = serde_json::to_string(cache) {
+        let _ = fs::write(app_cache_path(), json);
+    }
+}
+
+/// How a game can be played together, from its Steam store categories.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+pub enum Together {
+    /// Co-op (online, LAN or split screen): play on the same side.
+    Coop,
+    /// Multiplayer, but against each other (or an MMO).
+    Versus,
+    /// Single-player only: owning it together doesn't help.
+    Solo,
+    Unknown,
+}
+
+fn together_of(info: &AppInfo) -> Together {
+    // Steam category ids: 9 Co-op, 38 Online Co-op, 48 LAN Co-op, 39 Shared/Split Screen Co-op,
+    // 1 Multi-player, 36 Online PvP, 49 PvP, 47 LAN PvP, 20 MMO, 27 Cross-Platform Multiplayer,
+    // 24 Shared/Split Screen, 2 Single-player.
+    let ids = &info.category_ids;
+    let has_id = |list: &[u32]| ids.iter().any(|i| list.contains(i));
+    let has_name = |needle: &str| info.categories.iter().any(|c| c.to_lowercase().contains(needle));
+    if has_id(&[9, 38, 48, 39]) || has_name("co-op") {
+        Together::Coop
+    } else if has_id(&[1, 36, 49, 47, 20, 27, 24]) || has_name("multi-player") || has_name("pvp") || has_name("mmo") {
+        Together::Versus
+    } else if has_id(&[2]) || has_name("single-player") {
+        Together::Solo
+    } else {
+        Together::Unknown
+    }
+}
+
+/// Co-op / versus / solo for these games, from the cache, fetching at most `max_fetch` missing
+/// ones from the store (in parallel, each with the usual timeout). Results are cached for good.
+pub fn together_modes(net: &dyn Net, appids: &[u32], max_fetch: usize) -> HashMap<u32, Together> {
+    let mut cache = load_app_cache();
+    let (modes, changed) = together_modes_in(net, appids, max_fetch, &mut cache);
+    if changed {
+        save_app_cache(&cache);
+    }
+    modes
+}
+
+/// The same, on a given cache (returns whether it was filled in).
+fn together_modes_in(net: &dyn Net, appids: &[u32], max_fetch: usize, cache: &mut HashMap<String, AppInfo>) -> (HashMap<u32, Together>, bool) {
+    let missing: Vec<String> = appids
+        .iter()
+        .map(|a| a.to_string())
+        .filter(|a| cache.get(a).map_or(true, |i| i.category_ids.is_empty() && i.categories.is_empty()))
+        .take(max_fetch)
+        .collect();
+    let mut changed = false;
+    if !missing.is_empty() {
+        let fetched: Vec<(String, AppInfo)> = std::thread::scope(|scope| {
+            let handles: Vec<_> = missing
+                .iter()
+                .map(|id| scope.spawn(move || app_details(net, id, None).ok().map(|info| (id.clone(), info))))
+                .collect();
+            handles.into_iter().filter_map(|h| h.join().ok().flatten()).collect()
+        });
+        changed = !fetched.is_empty();
+        cache.extend(fetched);
+    }
+    let modes = appids.iter().map(|a| (*a, cache.get(&a.to_string()).map_or(Together::Unknown, together_of))).collect();
+    (modes, changed)
 }
 
 /// Uses genres to guess session length, energy and whether it's multiplayer.
 fn enrich(net: &dyn Net, items: &mut [Suggestion], cc: Option<&str>) {
-    let path = config::data_dir().join("steam_apps.json");
-    let mut cache: HashMap<String, AppInfo> = fs::read_to_string(&path)
-        .ok()
-        .and_then(|s| serde_json::from_str(&s).ok())
-        .unwrap_or_default();
+    let mut cache = load_app_cache();
     let mut fetched = 0;
     for s in items.iter_mut() {
         let appid = s.id.trim_start_matches("steam:").to_string();
@@ -386,10 +465,7 @@ fn enrich(net: &dyn Net, items: &mut [Suggestion], cc: Option<&str>) {
         apply(s, &cache[&appid]);
     }
     if fetched > 0 {
-        let _ = fs::create_dir_all(config::data_dir());
-        if let Ok(json) = serde_json::to_string(&cache) {
-            let _ = fs::write(&path, json);
-        }
+        save_app_cache(&cache);
     }
 }
 
@@ -411,9 +487,15 @@ fn app_details(net: &dyn Net, appid: &str, cc: Option<&str>) -> Result<AppInfo> 
             })
             .unwrap_or_default()
     };
+    let category_ids = data
+        .and_then(|d| d.get("categories"))
+        .and_then(Value::as_array)
+        .map(|a| a.iter().filter_map(|x| x.get("id").and_then(Value::as_u64)).map(|x| x as u32).collect())
+        .unwrap_or_default();
     Ok(AppInfo {
         genres: names("genres"),
         categories: names("categories"),
+        category_ids,
         metacritic: data
             .and_then(|d| d.get("metacritic"))
             .and_then(|m| m.get("score"))
@@ -492,6 +574,37 @@ mod tests {
     const PRICES: &str = include_str!("../../fixtures/steam_prices.json");
     const FEATURED_URL: &str = "https://store.steampowered.com/api/featuredcategories";
     const APPDETAILS_URL: &str = "https://store.steampowered.com/api/appdetails";
+
+    #[test]
+    fn how_games_are_played_together() {
+        let info = |ids: &[u32], names: &[&str]| AppInfo {
+            category_ids: ids.to_vec(),
+            categories: names.iter().map(|s| s.to_string()).collect(),
+            ..Default::default()
+        };
+        assert_eq!(together_of(&info(&[2, 1, 38], &[])), Together::Coop, "online co-op wins over the rest");
+        assert_eq!(together_of(&info(&[2, 1, 36], &[])), Together::Versus);
+        assert_eq!(together_of(&info(&[2], &[])), Together::Solo);
+        assert_eq!(together_of(&info(&[], &[])), Together::Unknown);
+        // Caches from before ids were kept: the English names still work.
+        assert_eq!(together_of(&info(&[], &["Single-player", "Online Co-op"])), Together::Coop);
+        assert_eq!(together_of(&info(&[], &["Single-player"])), Together::Solo);
+    }
+
+    #[test]
+    fn modes_come_from_the_store_and_are_cached() {
+        let body = r#"{"620":{"success":true,"data":{"categories":[{"id":2,"description":"Single-player"},{"id":9,"description":"Co-op"}]}}}"#;
+        let net = FakeNet::new().on(APPDETAILS_URL, body);
+        let mut cache = HashMap::new();
+        let (modes, changed) = together_modes_in(&net, &[620], 5, &mut cache);
+        assert_eq!(modes[&620], Together::Coop);
+        assert!(changed && cache.contains_key("620"));
+        // Second time: from the cache, no request.
+        let offline = FakeNet::new();
+        let (again, changed) = together_modes_in(&offline, &[620], 5, &mut cache);
+        assert_eq!((again[&620], changed), (Together::Coop, false));
+        assert!(offline.calls().is_empty());
+    }
 
     fn detail(items: &[Suggestion], id: &str) -> String {
         items.iter().find(|s| s.id == id).unwrap().detail.clone()
