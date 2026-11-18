@@ -1678,7 +1678,7 @@ button.tag:hover {
 
 .friends-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(380px, 100%), 1fr));
   gap: 18px;
   align-items: start;
   margin-bottom: 18px;
@@ -1747,13 +1747,98 @@ button.tag:hover {
 
 .avatar {
   display: grid;
+  flex: none;
   place-items: center;
   width: 44px;
   height: 44px;
   border-radius: 50%;
-  background: var(--navy);
-  color: var(--on-navy);
-  font: 800 20px/1 var(--display);
+  background: var(--av, var(--navy));
+  color: #fff;
+}
+
+.avatar .icon {
+  width: 22px;
+  height: 22px;
+}
+
+.avatar.lg {
+  width: 72px;
+  height: 72px;
+}
+
+.avatar.lg .icon {
+  width: 36px;
+  height: 36px;
+}
+
+.avatar.sm {
+  width: 32px;
+  height: 32px;
+}
+
+.avatar.sm .icon {
+  width: 16px;
+  height: 16px;
+}
+
+/* your look: preview + name, then icon and color pickers */
+.look {
+  display: flex;
+  align-items: flex-end;
+  gap: 16px;
+}
+
+.look-name {
+  flex: 1;
+}
+
+.look-icons {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(44px, 1fr));
+  gap: 4px;
+}
+
+.look-icon {
+  display: grid;
+  place-items: center;
+  height: 44px;
+  border: 1.5px solid transparent;
+  border-radius: var(--r-control);
+  background: var(--stock);
+  color: var(--text-2);
+}
+
+.look-icon:hover {
+  border-color: var(--rule-soft);
+  color: var(--navy);
+}
+
+.look-icon[aria-pressed="true"] {
+  border-color: var(--purple);
+  background: var(--lavender);
+  color: var(--purple);
+}
+
+.look-colors {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.look-color {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--av);
+  color: #fff;
+}
+
+.look-color[aria-pressed="true"] {
+  outline: 2px solid var(--navy);
+  outline-offset: 2px;
 }
 
 /* ---------------------------------------------------------------- motion */

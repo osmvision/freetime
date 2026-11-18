@@ -33,6 +33,9 @@ const ICONS = [
   'cloud-sun', 'cloud', 'cloud-rain', 'cloud-fog', 'cloud-lightning', 'snowflake', 'moon', 'wind',
   // categories
   'gamepad-2', 'circle-play', 'activity', 'graduation-cap', 'palette', 'leaf', 'utensils',
+  // avatars (see ui/js/avatars.js)
+  'rocket', 'ghost', 'cat', 'dog', 'crown', 'star', 'flame', 'mountain', 'bike', 'coffee', 'pizza',
+  'music', 'trophy', 'sword', 'dice-5', 'skull',
 ];
 
 mkdirSync(join(root, 'ui', 'fonts'), { recursive: true });

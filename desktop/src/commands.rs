@@ -10,7 +10,7 @@ use freetime_core::{
     net::HttpNet,
     model::*,
     open,
-    party::{self, Friend},
+    party::{self, Avatar, Friend},
     providers::{
         self,
         steam::{self, SteamStatus},
@@ -685,6 +685,7 @@ pub fn set_city(app: AppHandle, place: Option<Place>) -> Res<SettingsView> {
 #[derive(Serialize)]
 pub struct FriendView {
     name: String,
+    avatar: Avatar,
     games: usize,
     /// Steam games you both own (0 until your own games are imported).
     common: usize,
@@ -697,6 +698,7 @@ fn friend_views(friends: &[Friend]) -> Vec<FriendView> {
         .iter()
         .map(|f| FriendView {
             name: f.name.clone(),
+            avatar: f.avatar.checked(),
             games: f.games.len(),
             common: lib.as_ref().map_or(0, |l| l.games.iter().filter(|g| f.owns(g.appid)).count()),
             added: f.added,
@@ -707,23 +709,29 @@ fn friend_views(friends: &[Friend]) -> Vec<FriendView> {
 #[derive(Serialize)]
 pub struct MyCode {
     name: String,
+    avatar: Avatar,
     code: String,
     /// How many Steam game ids the code carries (0 = not imported yet).
     games: usize,
 }
 
-/// Your friend code. `name` (optional) updates the nickname put in it. Nothing is sent: the
-/// user copies the code and shares it themselves.
+/// Your friend code. `name` and `avatar` (optional) update what's put in it. Nothing is sent:
+/// the user copies the code and shares it themselves.
 #[tauri::command(async)]
-pub fn my_friend_code(name: Option<String>) -> Res<MyCode> {
+pub fn my_friend_code(name: Option<String>, avatar: Option<Avatar>) -> Res<MyCode> {
     let mut cfg = Config::load().map_err(err)?;
-    if let Some(n) = name {
-        cfg.display_name = Some(party::clean_name(&n));
+    if name.is_some() || avatar.is_some() {
+        if let Some(n) = name {
+            cfg.display_name = Some(party::clean_name(&n));
+        }
+        if let Some(a) = avatar {
+            cfg.avatar = a.checked();
+        }
         cfg.save().map_err(err)?;
     }
     let name = cfg.display_name.clone().unwrap_or_else(|| "Friend".to_string());
-    let me = Friend::mine(&name, steam_import::load_library().as_ref(), &History::load().taste());
-    Ok(MyCode { name: me.name.clone(), code: me.encode(), games: me.games.len() })
+    let me = Friend::mine(&name, cfg.avatar, steam_import::load_library().as_ref(), &History::load().taste());
+    Ok(MyCode { name: me.name.clone(), avatar: me.avatar, code: me.encode(), games: me.games.len() })
 }
 
 #[tauri::command(async)]

@@ -2,7 +2,8 @@
 // Nothing here talks to a server: the code is shown, the user copies and sends it themselves.
 
 import { api } from './api.js';
-import { btn, emptyState, errText, h, icon, pageHead, toast } from './dom.js';
+import { AVATAR_COLORS, AVATAR_ICONS, avatar } from './avatars.js';
+import { btn, emptyState, errText, fill, h, icon, pageHead, toast } from './dom.js';
 
 const head = () =>
   pageHead(
@@ -45,6 +46,7 @@ function myCodePanel(mine, ctx) {
           : h('span', {}, 'No Steam games yet: ', h('button', { type: 'button', class: 'link', onclick: () => ctx.goto('settings') }, 'import them in Settings'), ' to find games you both own'),
       ),
       h('li', {}, icon('heart'), 'Your taste per kind of idea, learned from your ratings'),
+      h('li', {}, icon('palette'), 'Your name, avatar icon and color'),
       h('li', {}, icon('check'), 'Nothing else: no SteamID, no history, no location, no account'),
     );
   paintInside(mine);
@@ -73,12 +75,57 @@ function myCodePanel(mine, ctx) {
     }
   });
 
+  // Your look: an icon and a color, carried in the code so friends see it too.
+  const look = { ...mine.avatar };
+  const preview = h('div', { class: 'look-preview' });
+  const icons = h('div', { class: 'look-icons', role: 'group', 'aria-label': 'Avatar icon' });
+  const colors = h('div', { class: 'look-colors', role: 'group', 'aria-label': 'Avatar color' });
+  const paintLook = () => {
+    fill(preview, avatar(look, 'lg'));
+    fill(
+      icons,
+      AVATAR_ICONS.map((name, i) =>
+        h(
+          'button',
+          { type: 'button', class: 'look-icon', 'aria-pressed': String(look.icon === i), 'aria-label': name.replace(/-\d+$/, '').replace(/-/g, ' '), onclick: () => setLook({ icon: i }) },
+          icon(name),
+        ),
+      ),
+    );
+    fill(
+      colors,
+      AVATAR_COLORS.map((c, i) =>
+        h('button', { type: 'button', class: 'look-color', vars: { '--av': c.hex }, 'aria-pressed': String(look.color === i), 'aria-label': c.name, title: c.name, onclick: () => setLook({ color: i }) }, look.color === i ? icon('check') : null),
+      ),
+    );
+  };
+  let lookSeq = 0;
+  const setLook = async (change) => {
+    Object.assign(look, change);
+    paintLook();
+    const mine = ++lookSeq;
+    try {
+      const m = await api.myFriendCode(null, { ...look });
+      if (mine === lookSeq) code.value = m.code;
+    } catch (e) {
+      toast(errText(e), 'error');
+    }
+  };
+  paintLook();
+
   return h(
     'section',
     { class: 'panel section' },
     h('div', { class: 'section-top' }, icon('ticket'), h('h2', {}, 'Your friend code')),
     h('p', { class: 'section-desc' }, 'Send it to a friend. When they add it, freetime can pick things you can do together.'),
-    h('label', { class: 'field' }, h('span', { class: 'field-label' }, 'Your name in the code'), name),
+    h(
+      'div',
+      { class: 'look' },
+      preview,
+      h('label', { class: 'field look-name' }, h('span', { class: 'field-label' }, 'Your name in the code'), name),
+    ),
+    h('div', { class: 'field' }, h('span', { class: 'field-label' }, 'Icon'), icons),
+    h('div', { class: 'field' }, h('span', { class: 'field-label' }, 'Color'), colors),
     code,
     h('div', { class: 'row' }, btn({ label: 'Copy code', icon: 'copy', kind: 'primary', onclick: () => copy(code) })),
     h('div', { class: 'field' }, h('span', { class: 'field-label' }, 'What the code contains'), inside),
@@ -167,7 +214,7 @@ function friendsList(root, ctx, friends) {
       h(
         'div',
         { class: 'friend' },
-        h('span', { class: 'avatar', 'aria-hidden': 'true' }, f.name.slice(0, 1).toUpperCase()),
+        avatar(f.avatar),
         h(
           'div',
           { class: 'entry-main' },

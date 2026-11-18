@@ -19,6 +19,8 @@ pub struct Config {
     pub youtube: YoutubeConfig,
     /// Nickname put in your friend code (see `party`). Never sent anywhere by itself.
     pub display_name: Option<String>,
+    /// Avatar icon and color put in your friend code.
+    pub avatar: crate::party::Avatar,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -50,6 +52,7 @@ impl Default for Config {
             steam: SteamConfig::default(),
             youtube: YoutubeConfig::default(),
             display_name: None,
+            avatar: Default::default(),
         }
     }
 }

@@ -26,7 +26,7 @@ export const api = {
   steamImport: (steamId64) => invoke('steam_import', { steamId64 }),
   steamForget: () => invoke('steam_forget'),
   // Friend codes: nothing is sent anywhere, the user shares the code themselves.
-  myFriendCode: (name = null) => invoke('my_friend_code', { name }),
+  myFriendCode: (name = null, avatar = null) => invoke('my_friend_code', { name, avatar }),
   friends: () => invoke('get_friends'),
   addFriend: (code) => invoke('add_friend', { code }),
   removeFriend: (name) => invoke('remove_friend', { name }),

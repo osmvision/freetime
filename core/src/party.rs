@@ -7,8 +7,10 @@
 //! A code comes from someone else, so it is parsed as untrusted input: size limits, a strict
 //! format, a checksum against paste mistakes, and no trailing bytes.
 //!
-//! Format (version 1): `FT1.` + base64url (no padding) of
-//! `[version u8][name len u8][name utf-8][taste: 8 x i8][game count varint][app id deltas varint...][fletcher16 u16 BE]`.
+//! Format: `FT1.` + base64url (no padding) of
+//! `[version u8][name len u8][name utf-8][taste: 8 x i8][avatar icon u8][avatar color u8]`
+//! `[game count varint][app id deltas varint...][fletcher16 u16 BE]`.
+//! Version 1 had no avatar bytes; it is still read (default avatar).
 
 use crate::{
     config,
@@ -21,7 +23,11 @@ use serde::{Deserialize, Serialize};
 use std::{collections::HashSet, fs, path::PathBuf};
 
 pub const PREFIX: &str = "FT1.";
-const VERSION: u8 = 1;
+const VERSION: u8 = 2;
+/// Avatar icons and colors are indexes into lists the UI owns (`ui/js/avatars.js`); the lists
+/// only ever grow, and an index this version doesn't know falls back to the default.
+pub const AVATAR_ICONS: u8 = 24;
+pub const AVATAR_COLORS: u8 = 8;
 /// Longest code accepted (about 10,000 games), so a pasted novel can't eat memory.
 const MAX_CODE_LEN: usize = 60_000;
 const MAX_GAMES: usize = 10_000;
@@ -41,11 +47,30 @@ pub struct Friend {
     /// Unix time it was added (0 for your own code).
     #[serde(default)]
     pub added: i64,
+    #[serde(default)]
+    pub avatar: Avatar,
+}
+
+/// The look of a profile before accounts exist: an icon and a color, both from fixed lists.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Avatar {
+    pub icon: u8,
+    pub color: u8,
+}
+
+impl Avatar {
+    /// Unknown indexes (from a newer app, or a hand-edited file) become the default.
+    pub fn checked(self) -> Avatar {
+        Avatar {
+            icon: if self.icon < AVATAR_ICONS { self.icon } else { 0 },
+            color: if self.color < AVATAR_COLORS { self.color } else { 0 },
+        }
+    }
 }
 
 impl Friend {
     /// Your own code: your nickname, your imported Steam games and your learned taste.
-    pub fn mine(name: &str, library: Option<&Library>, taste: &[(Category, f64)]) -> Friend {
+    pub fn mine(name: &str, avatar: Avatar, library: Option<&Library>, taste: &[(Category, f64)]) -> Friend {
         let mut games: Vec<u32> = library.map(|l| l.games.iter().map(|g| g.appid).filter(|id| *id > 0).collect()).unwrap_or_default();
         games.sort_unstable();
         games.dedup();
@@ -54,7 +79,7 @@ impl Friend {
         for (cat, aff) in taste {
             t[index(*cat)] = (aff.clamp(-1.0, 1.0) * 100.0).round() as i8;
         }
-        Friend { name: clean_name(name), games, taste: t, added: 0 }
+        Friend { name: clean_name(name), games, taste: t, added: 0, avatar: avatar.checked() }
     }
 
     pub fn owns(&self, appid: u32) -> bool {
@@ -71,6 +96,8 @@ impl Friend {
         let mut out = vec![VERSION, name.len() as u8];
         out.extend_from_slice(name.as_bytes());
         out.extend(self.taste.iter().map(|t| *t as u8));
+        let avatar = self.avatar.checked();
+        out.extend([avatar.icon, avatar.color]);
         let mut games = self.games.clone();
         games.sort_unstable();
         games.dedup();
@@ -101,7 +128,7 @@ impl Friend {
 
         let mut r = Reader { buf: payload, pos: 0 };
         let version = r.byte()?;
-        ensure!(version == VERSION, "this code comes from a newer freetime: update the app");
+        ensure!(version == 1 || version == VERSION, "this code comes from a newer freetime: update the app");
         let name_len = r.byte()? as usize;
         ensure!(name_len <= MAX_NAME_CHARS * 4, "the name in the code is too long");
         let name = std::str::from_utf8(r.take(name_len)?).context("the name in the code isn't valid text")?;
@@ -109,6 +136,7 @@ impl Friend {
         for t in &mut taste {
             *t = (r.byte()? as i8).clamp(-100, 100);
         }
+        let avatar = if version >= 2 { Avatar { icon: r.byte()?, color: r.byte()? }.checked() } else { Avatar::default() };
         let count = r.varint()? as usize;
         ensure!(count <= MAX_GAMES, "the code lists too many games");
         let mut games = Vec::with_capacity(count);
@@ -122,7 +150,7 @@ impl Friend {
             games.push(prev as u32);
         }
         ensure!(r.pos == payload.len(), "the code has extra data at the end");
-        Ok(Friend { name: clean_name(name), games, taste, added: 0 })
+        Ok(Friend { name: clean_name(name), games, taste, added: 0, avatar })
     }
 }
 
@@ -371,7 +399,7 @@ mod tests {
     use crate::providers::steam_import::LibraryGame;
 
     fn friend(name: &str, games: &[u32]) -> Friend {
-        Friend { name: name.into(), games: games.to_vec(), taste: [0; 8], added: 0 }
+        Friend { name: name.into(), games: games.to_vec(), taste: [0; 8], added: 0, avatar: Avatar::default() }
     }
 
     fn library(games: &[(u32, &str)]) -> Library {
@@ -397,6 +425,30 @@ mod tests {
         assert_eq!(back.name, "Julian");
         assert_eq!(back.games, vec![440, 570, 730, 1145360]);
         assert_eq!(back.taste, f.taste);
+    }
+
+    #[test]
+    fn avatars_travel_and_unknown_ones_fall_back() {
+        let mut f = friend("Julian", &[570]);
+        f.avatar = Avatar { icon: 7, color: 3 };
+        assert_eq!(Friend::decode(&f.encode()).unwrap().avatar, Avatar { icon: 7, color: 3 });
+        f.avatar = Avatar { icon: 200, color: 99 };
+        assert_eq!(Friend::decode(&f.encode()).unwrap().avatar, Avatar::default());
+    }
+
+    #[test]
+    fn version_1_codes_still_work() {
+        // Version 1: no avatar bytes.
+        let mut out = vec![1u8, 3];
+        out.extend_from_slice(b"Sam");
+        out.extend([10u8; 8]);
+        put_varint(&mut out, 2);
+        put_varint(&mut out, 440);
+        put_varint(&mut out, 130);
+        let sum = fletcher16(&out);
+        out.extend_from_slice(&sum.to_be_bytes());
+        let f = Friend::decode(&format!("{PREFIX}{}", b64_encode(&out))).unwrap();
+        assert_eq!((f.name.as_str(), f.games.as_slice(), f.avatar), ("Sam", &[440u32, 570][..], Avatar::default()));
     }
 
     #[test]
@@ -441,7 +493,7 @@ mod tests {
     #[test]
     fn my_code_carries_only_game_ids_and_taste() {
         let lib = library(&[(570, "Dota 2"), (730, "Counter-Strike 2")]);
-        let me = Friend::mine("Me", Some(&lib), &[(Category::Sport, 0.5), (Category::Food, -2.0)]);
+        let me = Friend::mine("Me", Avatar::default(), Some(&lib), &[(Category::Sport, 0.5), (Category::Food, -2.0)]);
         assert_eq!(me.games, vec![570, 730]);
         assert_eq!(me.taste[index(Category::Sport)], 50);
         assert_eq!(me.taste[index(Category::Food)], -100);
