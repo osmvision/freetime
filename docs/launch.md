@@ -82,9 +82,12 @@ in (up to 100). Everyone else gets "Access blocked". To open sign-in to everyone
 2. **Branding**:
    - App name: `freetime`
    - User support email: an address you're happy to show publicly
-   - Application home page: `https://github.com/osmvision/freetime`
-   - Privacy policy link: `https://github.com/osmvision/freetime/blob/main/docs/privacy.md`
-   - Authorized domains: `tgvphbmbxfembnsfdxlp.supabase.co` (the sign-in redirect goes there)
+   - Application home page: `https://osmvision.github.io/freetime/` (the website, see below)
+   - Privacy policy link: `https://osmvision.github.io/freetime/privacy.html`
+   - Terms of service link: leave empty
+   - Authorized domains: `osmvision.github.io` and `tgvphbmbxfembnsfdxlp.supabase.co`
+     (the sign-in redirect goes there). Google refuses `github.com` links because nobody but
+     GitHub can prove they own that domain, which is why the links point at the website.
    - **Leave the logo empty.** Uploading a logo starts a Google review that takes days or weeks.
 3. **Data access**: only `openid`, `.../auth/userinfo.email` and `.../auth/userinfo.profile`.
    These are "non-sensitive" scopes: no security assessment is needed.
@@ -99,6 +102,16 @@ instead, both optional and both for later:
   Google Search Console (a GitHub Pages site on your own domain works). Google then reviews it.
 - A **custom domain** for Supabase (a paid Supabase add-on), such as `auth.yourdomain`.
 
+## 4. The website
+
+`site/` is the launch page, published by `.github/workflows/pages.yml` at
+https://osmvision.github.io/freetime/ on every push to `main` that touches it.
+`python site/build.py` builds it into `_site/`. It reuses the app's fonts, icon, idea photos and
+titles, generates `privacy.html` from `docs/privacy.md` and `credits.html` from the photo credits,
+and its download buttons point at the newest installer through GitHub's API.
+
+One-time setup: repo **Settings → Pages → Source: GitHub Actions**.
+
 ## Before announcing it
 
 - [ ] Updater secrets set, and the key and password backed up.
@@ -107,3 +120,4 @@ instead, both optional and both for later:
 - [ ] Google sign-in screen published, and sign-in tested with an account that isn't a test user.
 - [ ] Signing certificate chosen (optional for a first small launch).
 - [ ] `docs/privacy.md` reviewed: it mentions the update check.
+- [ ] Website live, and the Google Branding links switched to it.
