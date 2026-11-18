@@ -79,7 +79,7 @@ desktop/   Tauri app
 The Rust toolchain used here is `stable-x86_64-pc-windows-gnu` with MinGW-w64 (WinLibs) on the PATH,
 so no Visual Studio install is needed.
 
-MinGW's `windres` (which embeds the app icon) breaks on paths with spaces, so `.cargo/config.toml`
-sends build output to `a build folder without spaces` instead of `target/`. The built apps are
-there, e.g. `debug\freetime-desktop.exe`. If the project moves to a path without spaces, that file
-can be deleted.
+With the GNU toolchain, MinGW's `windres` (which embeds the app icon) breaks when the project path
+contains spaces. If yours does, copy `.cargo/config.toml.example` to `.cargo/config.toml` and set a
+build folder without spaces. That file is personal and ignored by git. With the MSVC toolchain, or a
+path without spaces, nothing is needed.

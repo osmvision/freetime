@@ -3,3 +3,5 @@
 /desktop/node_modules
 # API keys stay local (see .env.example)
 .env
+# Personal build settings (see .cargo/config.toml.example)
+/.cargo/config.toml

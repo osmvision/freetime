@@ -1,0 +1,5 @@
+# Only needed with the GNU toolchain (MinGW) when the project path contains spaces:
+# windres, which embeds the app icon, can't handle them.
+# Copy this file to .cargo/config.toml (ignored by git) and pick a folder without spaces.
+[build]
+target-dir = "C:/cargo-target/freetime"
