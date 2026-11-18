@@ -12,6 +12,8 @@ fn main() {
             commands::refresh_in_background(app.handle());
             // New-message notifications: only does anything while signed in and enabled.
             commands::watch_messages(app.handle().clone());
+            // Instant messages and invites (Realtime): only while signed in.
+            commands::watch_live(app.handle().clone());
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -43,6 +45,7 @@ fn main() {
             commands::get_account,
             commands::save_profile,
             commands::reset_friend_tag,
+            commands::live_status,
             commands::get_share_library,
             commands::set_share_library,
             commands::set_free,
