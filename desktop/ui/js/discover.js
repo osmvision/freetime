@@ -269,6 +269,7 @@ function renderContext() {
       icon: () => 'heart',
       value: () => {
         const n = r.categories.length;
+        if (n === 0) return 'None';
         if (n === state.categories.length) return 'Anything';
         if (n === 1) return state.categories.find((c) => c.id === r.categories[0])?.label ?? '1 kind';
         return `${n} kinds`;
@@ -279,16 +280,29 @@ function renderContext() {
       isOn: (o) => r.categories.includes(o.id),
       pick: (o) => {
         const on = r.categories.includes(o.id);
-        if (on && r.categories.length === 1) {
-          toast('Keep at least one kind of idea');
-          return false;
-        }
-        r.categories = on ? r.categories.filter((x) => x !== o.id) : [...r.categories, o.id];
-        changed();
+        setCategories(on ? r.categories.filter((x) => x !== o.id) : [...r.categories, o.id]);
         return true;
+      },
+      // Select all / clear all; an empty pick only lasts while the menu is open.
+      bulk: {
+        all: () => setCategories(state.categories.map((c) => c.id)),
+        none: () => setCategories([]),
+        allOn: () => r.categories.length === state.categories.length,
+        noneOn: () => r.categories.length === 0,
+      },
+      onClose: () => {
+        if (r.categories.length) return;
+        toast('No kind picked: showing everything');
+        setCategories(state.categories.map((c) => c.id));
       },
     }),
   );
+}
+
+/** Sets the kinds of ideas wanted. None picked (while the menu is open) asks for nothing yet. */
+function setCategories(ids) {
+  state.req.categories = state.categories.map((c) => c.id).filter((id) => ids.includes(id));
+  if (state.req.categories.length) changed();
 }
 
 /** Online friends (keys "online:<id>") and friends added by code (keys are their names). */
@@ -340,10 +354,11 @@ let openMenu = null;
 
 function closeMenu(focusButton = false) {
   if (!openMenu) return;
-  const { menu, button } = openMenu;
+  const { menu, button, onClose } = openMenu;
   openMenu = null;
   menu.remove();
   button.setAttribute('aria-expanded', 'false');
+  onClose?.();
   if (focusButton) button.focus();
 }
 
@@ -387,7 +402,7 @@ function placeMenu(menu, button) {
 }
 
 /** A context select: a labelled button that opens a small menu of options. */
-function select({ name, icon: iconOf, value, options, isOn, pick, multi = false, title }) {
+function select({ name, icon: iconOf, value, options, isOn, pick, multi = false, title, bulk, onClose }) {
   const valueEl = h('span', { class: 'select-value' });
   const iconSlot = h('span', { class: 'icon-slot' });
   const button = h(
@@ -407,11 +422,36 @@ function select({ name, icon: iconOf, value, options, isOn, pick, multi = false,
 
   function open() {
     const list = typeof options === 'function' ? options() : options;
-    const menu = h('div', { class: 'menu', role: 'group', 'aria-label': title ?? name });
+    const menu = h('div', { class: bulk ? 'menu has-bulk' : 'menu', role: 'group', 'aria-label': title ?? name });
     const draw = () =>
       fill(
         menu,
         title ? h('div', { class: 'menu-title' }, title) : null,
+        bulk
+          ? h(
+              'div',
+              { class: 'menu-bulk' },
+              ['all', 'none'].map((which) =>
+                h(
+                  'button',
+                  {
+                    type: 'button',
+                    class: 'menu-bulk-btn',
+                    'data-bulk': which,
+                    disabled: (which === 'all' ? bulk.allOn() : bulk.noneOn()) || null,
+                    onclick: () => {
+                      bulk[which]();
+                      paint();
+                      draw();
+                      menu.querySelector(`[data-bulk="${which === 'all' ? 'none' : 'all'}"]`)?.focus({ preventScroll: true });
+                    },
+                  },
+                  icon(which === 'all' ? 'check' : 'x'),
+                  which === 'all' ? 'Select all' : 'Clear all',
+                ),
+              ),
+            )
+          : null,
         list.map((o) =>
           h(
             'button',
@@ -440,7 +480,8 @@ function select({ name, icon: iconOf, value, options, isOn, pick, multi = false,
     wrap.append(menu);
     placeMenu(menu, button);
     button.setAttribute('aria-expanded', 'true');
-    openMenu = { menu, button, wrap };
+    // After closing, the label shows what onClose may have changed.
+    openMenu = { menu, button, wrap, onClose: () => { onClose?.(); paint(); } };
     (menu.querySelector('.option[aria-pressed="true"]') ?? menu.querySelector('.option'))?.focus({ preventScroll: true });
   }
 

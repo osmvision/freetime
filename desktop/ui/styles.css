@@ -3923,3 +3923,53 @@ body[data-view="messages"] .assistant-panel {
     right: 92px;
   }
 }
+
+/* ---------------------------------------------------------------- select all / clear all in a menu */
+
+/* wide enough for both buttons on one line (set here: the translated labels arrive after placing) */
+.menu.has-bulk {
+  min-width: min(360px, calc(100vw - 16px));
+}
+
+.menu-bulk {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  /* the options set the menu's width, not these buttons (their text grows once translated) */
+  width: 0;
+  min-width: 100%;
+  padding: 0 4px 6px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid var(--rule-soft);
+}
+
+.menu-bulk-btn {
+  display: inline-flex;
+  flex: 1 1 auto;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 4px 10px;
+  border: 1.5px solid var(--rule-soft);
+  border-radius: 5px;
+  background: none;
+  color: var(--ink);
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.menu-bulk-btn:hover:not(:disabled) {
+  border-color: var(--lavender-line);
+  background: var(--lavender);
+}
+
+.menu-bulk-btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.menu-bulk-btn .icon {
+  width: 15px;
+  height: 15px;
+}
