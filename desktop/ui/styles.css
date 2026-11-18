@@ -2223,13 +2223,15 @@ button.tag:hover {
   background: var(--stock);
 }
 
-.report-form .reasons {
+.report-form .reasons,
+.invite-panel .reasons {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
 }
 
-.report-form .reasons button {
+.report-form .reasons button,
+.invite-panel .reasons button {
   height: 34px;
   padding: 0 12px;
   border: 1.5px solid var(--rule-soft);
@@ -2238,7 +2240,8 @@ button.tag:hover {
   font-size: 14px;
 }
 
-.report-form .reasons button[aria-pressed="true"] {
+.report-form .reasons button[aria-pressed="true"],
+.invite-panel .reasons button[aria-pressed="true"] {
   border-color: var(--purple);
   background: var(--lavender);
   color: var(--purple);
@@ -2249,6 +2252,139 @@ button.tag:hover {
   display: flex;
   gap: 4px;
   margin-left: auto;
+}
+
+/* ---------------------------------------------------------------- free now and invites */
+
+.free-strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 14px;
+  margin: -8px 0 22px;
+  padding: 10px 14px;
+  border: 1.5px dashed var(--lavender-line);
+  border-radius: var(--r-ticket);
+  background: var(--coupon);
+}
+
+.free-strip > .icon {
+  width: 20px;
+  height: 20px;
+  color: var(--purple);
+}
+
+.free-strip > .btn {
+  margin-left: auto;
+}
+
+.free-list {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+}
+
+.free-label {
+  font: 700 13px/1 var(--display);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--good);
+}
+
+.free-friend {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+}
+
+.free-until {
+  color: var(--text-3);
+  font: 400 12px/1 var(--figures);
+}
+
+.free-none {
+  color: var(--text-3);
+  font-size: 14px;
+}
+
+.invite-panel {
+  display: grid;
+  gap: 10px;
+  padding: 14px 16px;
+  border: 1.5px solid var(--lavender-line);
+  border-radius: 8px;
+  background: var(--stock);
+}
+
+.invite-people {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.invite-person {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 44px;
+  padding: 0 12px 0 6px;
+  border: 1.5px solid var(--rule-soft);
+  border-radius: 22px;
+  background: var(--coupon);
+  font-weight: 600;
+}
+
+.invite-person[aria-pressed="true"] {
+  border-color: var(--purple);
+  background: var(--lavender);
+  color: var(--purple);
+}
+
+.free-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--good);
+}
+
+.invite-row {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 0;
+  border-bottom: 1px dashed rgba(13, 27, 61, 0.2);
+}
+
+.invite-row:last-child {
+  border-bottom: 0;
+}
+
+.invite-what {
+  color: var(--text-2);
+  font-size: 14px;
+}
+
+.invite-title {
+  font-weight: 700;
+  color: var(--purple);
+}
+
+.invite-state {
+  padding: 4px 9px;
+  border-radius: 4px;
+  background: var(--stock);
+  color: var(--text-3);
+  font: 700 13px/1 var(--display);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.invite-state.accepted {
+  background: #e3f1ea;
+  color: var(--good);
 }
 
 /* ---------------------------------------------------------------- friends */

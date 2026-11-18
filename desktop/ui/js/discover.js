@@ -20,6 +20,7 @@ import {
   wait,
 } from './dom.js';
 import { creditLine, photo, photoFor } from './photos.js';
+import { freeStrip, invitable, invitePanel } from './together.js';
 
 const TIMES = [15, 30, 45, 60, 90, 120, 180, 240];
 const ENERGY = [
@@ -80,7 +81,17 @@ export function init(root, boot, context) {
   els.cityPrompt = h('div');
   els.rate = h('div');
   els.results = h('div', { 'aria-live': 'polite' });
-  root.replaceChildren(els.head, els.context, els.cityPrompt, els.rate, els.results);
+  els.free = h('div');
+  root.replaceChildren(els.head, els.context, els.free, els.cityPrompt, els.rate, els.results);
+  // Who's free and "I'm free" (signed in only). Refreshed every minute while Discover is on screen.
+  // When the friend list first arrives (or changes size), redraw so the ticket gets its Invite button.
+  state.together = freeStrip(els.free, () => state.req.minutes, () => {
+    if (state.results?.best && !state.loading) renderResults(state.results);
+  });
+  state.together.refresh();
+  setInterval(() => {
+    if (!document.hidden && !root.hidden) state.together.refresh();
+  }, 60000);
   renderHead();
   renderContext();
   renderCityPrompt();
@@ -655,6 +666,19 @@ function coupon(c, { label = 'Admit one' } = {}) {
           { class: 'coupon-actions' },
           btn({ label: 'Start', icon: 'play', kind: 'primary', onclick: () => start(c, el) }),
           link ? btn({ label: link.text, icon: link.icon, onclick: () => openLink(c.link) }) : null,
+          state.together?.friends().length && invitable(c)
+            ? btn({
+                label: 'Invite',
+                icon: 'users',
+                onclick: (e) => {
+                  const actions = e.currentTarget.closest('.coupon-actions');
+                  const open = actions.nextElementSibling?.classList.contains('invite-panel');
+                  if (open) return actions.nextElementSibling.remove();
+                  const panel = invitePanel(c, state.together.friends(), () => panel.remove());
+                  actions.after(panel);
+                },
+              })
+            : null,
           btn({ label: 'Not this one', icon: 'x', kind: 'quiet', onclick: () => voidCoupon(c, el) }),
         ),
       ),

@@ -399,3 +399,90 @@ test('at most 10 reports an hour', async () => {
     });
   });
 });
+// ---------------------------------------------------------------- free now and invites
+
+const invite = (q, to, extra = {}) =>
+  q.one(
+    'insert into public.invites (to_user, idea_id, title, category, starts_at, note) values ($1, $2, $3, $4, $5, $6) returning id, from_user, status',
+    [to, extra.idea ?? 'steam:570', extra.title ?? 'Dota 2', extra.category ?? 'game', extra.at ?? new Date(Date.now() + 3600e3).toISOString(), extra.note ?? ''],
+  );
+
+test('free now: friends see it, others do not, and it can be cleared', async () => {
+  await withPeople(async ({ tags, step }) => {
+    await befriend(ALICE, BOB);
+    await step(CAROL, (q) => q.one('select public.send_friend_request($1)', [tags[ALICE]]));
+    const until = (await step(ALICE, (q) => q.one('select public.set_free(90) as u'))).u;
+    assert.ok(until);
+    const seenByBob = await step(BOB, (q) => q.one('select free_until from public.my_friends() where user_id = $1', [ALICE]));
+    assert.ok(seenByBob.free_until, 'a friend sees it');
+    const seenByCarol = await step(CAROL, (q) => q.one('select free_until from public.my_friends() where user_id = $1', [ALICE]));
+    assert.equal(seenByCarol.free_until, null, 'a pending request does not');
+    await step(ALICE, (q) => q.one('select public.set_free(0)'));
+    assert.equal((await step(BOB, (q) => q.one('select free_until from public.my_friends() where user_id = $1', [ALICE]))).free_until, null);
+    await step(null, async (q) => {
+      await fails(q.one('select public.set_free(30)'), /permission denied/);
+    });
+  });
+});
+
+test('invites: only to friends, sent as yourself, seen by the two people only', async () => {
+  await withPeople(async ({ step }) => {
+    await step(ALICE, async (q) => {
+      await fails(invite(q, BOB), /row-level security/);
+    });
+    await befriend(ALICE, BOB);
+    const sent = await step(ALICE, (q) => invite(q, BOB));
+    assert.deepEqual({ from: sent.from_user, status: sent.status }, { from: ALICE, status: 'pending' });
+    await step(ALICE, async (q) => {
+      await fails(q.rows("insert into public.invites (from_user, to_user, idea_id, title, category, starts_at) values ($1, $2, 'steam:1', 'x', 'game', now())", [BOB, ALICE]), /permission denied/);
+    });
+    assert.equal((await step(CAROL, (q) => q.rows('select * from public.invites'))).length, 0);
+    assert.equal((await step(CAROL, (q) => q.rows('select * from public.my_invites()'))).length, 0);
+    const bobView = await step(BOB, (q) => q.one('select direction, other, other_name, title from public.my_invites()'));
+    assert.deepEqual(bobView, { direction: 'incoming', other: ALICE, other_name: 'Friend', title: 'Dota 2' });
+  });
+});
+
+test('invites: the invited person answers, the sender can only cancel', async () => {
+  await withPeople(async ({ step }) => {
+    await befriend(ALICE, BOB);
+    const { id } = await step(ALICE, (q) => invite(q, BOB));
+    await step(ALICE, async (q) => {
+      // The sender can't accept for them: the row is theirs to cancel, so this is refused outright.
+      await fails(q.rows("update public.invites set status = 'accepted' where id = $1 returning id", [id]), /row-level security/);
+    });
+    assert.equal((await step(CAROL, (q) => q.rows("update public.invites set status = 'declined' where id = $1 returning id", [id]))).length, 0);
+    const answered = await step(BOB, (q) => q.one("update public.invites set status = 'accepted' where id = $1 returning status, answered_at", [id]));
+    assert.equal(answered.status, 'accepted');
+    assert.ok(answered.answered_at);
+    assert.equal((await step(BOB, (q) => q.rows("update public.invites set status = 'declined' where id = $1 returning id", [id]))).length, 0, 'answered once');
+    assert.equal((await step(ALICE, (q) => q.rows("update public.invites set status = 'cancelled' where id = $1 returning id", [id]))).length, 1);
+    await step(BOB, async (q) => {
+      await fails(q.rows("update public.invites set title = 'changed' where id = $1", [id]), /permission denied/);
+    });
+  });
+});
+
+test('invites: blocked people, bad times and text are refused; 30 an hour at most', async () => {
+  await withPeople(async ({ step }) => {
+    await befriend(ALICE, BOB);
+    await step(ALICE, async (q) => {
+      await fails(invite(q, BOB, { at: new Date(Date.now() + 30 * 86400e3).toISOString() }), /between now and next week/);
+    });
+    await step(ALICE, async (q) => {
+      await fails(invite(q, BOB, { title: 'bad\u0007title' }), /check constraint/);
+    });
+    await step(ALICE, async (q) => {
+      await fails(invite(q, BOB, { idea: 'javascript:alert(1)' }), /check constraint/);
+    });
+    await step(ALICE, async (q) => {
+      await fails(invite(q, BOB, { category: 'nope' }), /check constraint/);
+    });
+    for (let i = 0; i < 30; i++) await step(ALICE, (q) => invite(q, BOB));
+    await step(ALICE, async (q) => {
+      await fails(invite(q, BOB), /too many invites/);
+    });
+    await step(BOB, (q) => q.rows('insert into public.blocks (blocker, blocked) values ($1, $2)', [BOB, ALICE]));
+    assert.equal((await step(BOB, (q) => q.rows('select * from public.my_invites()'))).length, 0, 'invites from blocked people disappear');
+  });
+});

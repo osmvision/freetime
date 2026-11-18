@@ -4,7 +4,7 @@
 //! never freeze the window.
 
 use freetime_core::{
-    account::{self, Client, ConversationEntry, FriendEntry, Message as ChatMessage, OnlineProfile, ProfileEdit, Session},
+    account::{self, Client, ConversationEntry, FriendEntry, Invite, Message as ChatMessage, NewInvite, OnlineProfile, ProfileEdit, Session},
     config::{self, Config},
     history::{self, History},
     keys::{self, KeySource, Keys},
@@ -830,6 +830,7 @@ pub fn watch_messages(app: AppHandle) {
     use tauri_plugin_notification::NotificationExt;
     thread::spawn(move || {
         let mut seen: HashMap<String, String> = HashMap::new();
+        let mut seen_invites: HashSet<i64> = HashSet::new();
         let mut baseline = true;
         thread::sleep(Duration::from_secs(8));
         loop {
@@ -838,8 +839,23 @@ pub fn watch_messages(app: AppHandle) {
             let signed_in = lock(&state.account).is_some() || account::has_saved_session();
             if !enabled || !signed_in {
                 seen.clear();
+                seen_invites.clear();
                 baseline = true;
             } else if let (Ok(s), Ok(client)) = (live_session(&state), Client::new()) {
+                // Invites waiting for an answer: badge, and a notification for new ones.
+                if let Ok(invites) = client.invites(&s) {
+                    let waiting: Vec<&Invite> = invites.iter().filter(|i| i.direction == "incoming" && i.status == "pending").collect();
+                    let _ = app.emit("invites-updated", waiting.len());
+                    let focused = app.get_webview_window("main").and_then(|w| w.is_focused().ok()).unwrap_or(false);
+                    for i in waiting {
+                        if seen_invites.insert(i.id) && !baseline && !focused {
+                            let at = chrono::DateTime::parse_from_rfc3339(&i.starts_at)
+                                .map(|t| t.with_timezone(&chrono::Local).format("%H:%M").to_string())
+                                .unwrap_or_default();
+                            let _ = app.notification().builder().title(format!("{} invites you", i.other_name)).body(format!("{} · {at}", i.title)).show();
+                        }
+                    }
+                }
                 if let Ok(convs) = client.conversations(&s) {
                     let _ = app.emit("unread-updated", convs.iter().map(|c| c.unread).sum::<i64>());
                     let focused = app.get_webview_window("main").and_then(|w| w.is_focused().ok()).unwrap_or(false);
@@ -880,6 +896,49 @@ pub fn set_notify_messages(enabled: bool) -> Res<()> {
 #[tauri::command(async)]
 pub fn get_notify_messages() -> Res<bool> {
     Ok(Config::load().map_err(err)?.notify_messages)
+}
+
+// ---------------------------------------------------------------- free now and invites
+
+/// "I'm free for N minutes" (0 = not any more). Returns when it ends.
+#[tauri::command(async)]
+pub fn set_free(state: State<'_, AppState>, minutes: u32) -> Res<Option<String>> {
+    let s = live_session(&state)?;
+    Client::new().map_err(err)?.set_free(&s, minutes).map_err(err)
+}
+
+#[tauri::command(async)]
+pub fn get_invites(state: State<'_, AppState>) -> Res<Vec<Invite>> {
+    let s = live_session(&state)?;
+    Client::new().map_err(err)?.invites(&s).map_err(err)
+}
+
+/// Sends one pick to several friends. Returns how many invites went out.
+#[tauri::command(async)]
+pub fn send_invites(state: State<'_, AppState>, invites: Vec<NewInvite>) -> Res<usize> {
+    if invites.len() > 20 {
+        return Err("invite at most 20 friends at once".to_string());
+    }
+    let s = live_session(&state)?;
+    let client = Client::new().map_err(err)?;
+    let mut sent = 0;
+    for invite in &invites {
+        client.send_invite(&s, invite).map_err(err)?;
+        sent += 1;
+    }
+    Ok(sent)
+}
+
+#[tauri::command(async)]
+pub fn answer_invite(state: State<'_, AppState>, id: i64, accept: bool) -> Res<()> {
+    let s = live_session(&state)?;
+    Client::new().map_err(err)?.answer_invite(&s, id, accept).map_err(err)
+}
+
+#[tauri::command(async)]
+pub fn cancel_invite(state: State<'_, AppState>, id: i64) -> Res<()> {
+    let s = live_session(&state)?;
+    Client::new().map_err(err)?.cancel_invite(&s, id).map_err(err)
 }
 
 // ---------------------------------------------------------------- your data (GDPR) and reports

@@ -362,6 +362,41 @@ impl Client {
         Ok(())
     }
 
+    // ------------------------------------------------------------ free now and invites
+
+    /// Tells friends you're free for `minutes` (0 = not free any more). Returns the end time.
+    pub fn set_free(&self, s: &Session, minutes: u32) -> Result<Option<String>> {
+        let v = self.call("POST", "/rest/v1/rpc/set_free", Some(&s.access_token), Some(&json!({ "minutes": minutes.min(600) })), None)?;
+        Ok(v.as_str().map(str::to_string))
+    }
+
+    /// Invites you sent or got, from a day ago onward.
+    pub fn invites(&self, s: &Session) -> Result<Vec<Invite>> {
+        let v = self.call("POST", "/rest/v1/rpc/my_invites", Some(&s.access_token), Some(&json!({})), None)?;
+        serde_json::from_value(v).context("unexpected invites response")
+    }
+
+    pub fn send_invite(&self, s: &Session, invite: &NewInvite) -> Result<()> {
+        let body = serde_json::to_value(invite.checked()?)?;
+        self.call("POST", "/rest/v1/invites", Some(&s.access_token), Some(&body), None)?;
+        Ok(())
+    }
+
+    /// Accept or decline an invite sent to you.
+    pub fn answer_invite(&self, s: &Session, id: i64, accept: bool) -> Result<()> {
+        let status = if accept { "accepted" } else { "declined" };
+        let v = self.call("PATCH", &format!("/rest/v1/invites?id=eq.{id}"), Some(&s.access_token), Some(&json!({ "status": status })), Some("return=representation"))?;
+        if v.as_array().map_or(true, Vec::is_empty) {
+            bail!("that invite isn't waiting any more");
+        }
+        Ok(())
+    }
+
+    pub fn cancel_invite(&self, s: &Session, id: i64) -> Result<()> {
+        self.call("PATCH", &format!("/rest/v1/invites?id=eq.{id}"), Some(&s.access_token), Some(&json!({ "status": "cancelled" })), None)?;
+        Ok(())
+    }
+
     // ------------------------------------------------------------ friends
 
     /// Friends and requests (incoming and outgoing), never anyone else.
@@ -489,6 +524,71 @@ pub struct FriendEntry {
     pub bio: String,
     pub status_text: String,
     pub since: Option<String>,
+    /// Set while this friend is free (only shown for accepted friends).
+    #[serde(default)]
+    pub free_until: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Invite {
+    pub id: i64,
+    /// "incoming" or "outgoing".
+    pub direction: String,
+    pub other: String,
+    pub other_name: String,
+    pub other_icon: i16,
+    pub other_color: i16,
+    pub idea_id: String,
+    pub title: String,
+    pub category: String,
+    pub starts_at: String,
+    pub note: String,
+    /// "pending", "accepted", "declined" or "cancelled".
+    pub status: String,
+    pub created_at: String,
+}
+
+/// A pick to send to a friend. Same limits as the database, checked here for clear messages.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NewInvite {
+    pub to_user: String,
+    pub idea_id: String,
+    pub title: String,
+    pub category: String,
+    /// RFC 3339.
+    pub starts_at: String,
+    #[serde(default)]
+    pub note: String,
+}
+
+impl NewInvite {
+    pub fn checked(&self) -> Result<NewInvite> {
+        ensure_uuid(&self.to_user)?;
+        let (kind, rest) = self.idea_id.split_once(':').unwrap_or(("", ""));
+        if self.idea_id.len() > 80
+            || kind.is_empty()
+            || !kind.chars().all(|c| c.is_ascii_lowercase())
+            || rest.is_empty()
+            || !rest.chars().all(|c| c.is_ascii_alphanumeric() || "_.-".contains(c))
+        {
+            bail!("this pick can't be sent");
+        }
+        const KINDS: [&str; 8] = ["game", "video", "sport", "learn", "create", "chill", "social", "food"];
+        if !KINDS.contains(&self.category.as_str()) {
+            bail!("this pick can't be sent");
+        }
+        let clean = |s: &str| s.chars().filter(|c| !c.is_control()).collect::<String>().trim().to_string();
+        let title: String = clean(&self.title).chars().take(120).collect();
+        if title.is_empty() {
+            bail!("this pick can't be sent");
+        }
+        let note = clean(&self.note);
+        if note.chars().count() > 140 {
+            bail!("the note is limited to 140 characters");
+        }
+        let at = chrono::DateTime::parse_from_rfc3339(&self.starts_at).map_err(|_| anyhow!("pick a time"))?;
+        Ok(NewInvite { to_user: self.to_user.clone(), idea_id: self.idea_id.clone(), title, category: self.category.clone(), starts_at: at.to_rfc3339(), note })
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -533,7 +633,7 @@ fn ensure_uuid(id: &str) -> Result<()> {
 
 // ---------------------------------------------------------------- the online profile
 
-const PROFILE_COLUMNS: &str = "display_name,avatar_icon,avatar_color,bio,status_text,friend_tag";
+const PROFILE_COLUMNS: &str = "display_name,avatar_icon,avatar_color,bio,status_text,friend_tag,free_until";
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct OnlineProfile {
@@ -543,6 +643,9 @@ pub struct OnlineProfile {
     pub bio: String,
     pub status_text: String,
     pub friend_tag: String,
+    /// While you've said you're free.
+    #[serde(default)]
+    pub free_until: Option<String>,
 }
 
 fn first_profile(v: Value) -> Result<OnlineProfile> {
@@ -700,6 +803,25 @@ mod tests {
         assert!(clean_message(" \n\t ").is_err());
         assert!(clean_message(&"x".repeat(2001)).is_err());
         assert_eq!(clean_message(&"x".repeat(2000)).unwrap().len(), 2000);
+    }
+
+    #[test]
+    fn invites_are_checked_before_sending() {
+        let ok = NewInvite {
+            to_user: "3f0c1a2b-1111-4222-8333-444455556666".into(),
+            idea_id: "steam:570".into(),
+            title: " Dota 2\n".into(),
+            category: "game".into(),
+            starts_at: "2026-11-18T21:00:00+01:00".into(),
+            note: String::new(),
+        };
+        assert_eq!(ok.checked().unwrap().title, "Dota 2");
+        assert!(NewInvite { idea_id: "javascript:alert(1)".into(), ..ok.clone() }.checked().is_err());
+        assert!(NewInvite { idea_id: "Steam:570".into(), ..ok.clone() }.checked().is_err());
+        assert!(NewInvite { category: "nope".into(), ..ok.clone() }.checked().is_err());
+        assert!(NewInvite { starts_at: "tonight".into(), ..ok.clone() }.checked().is_err());
+        assert!(NewInvite { note: "n".repeat(141), ..ok.clone() }.checked().is_err());
+        assert!(NewInvite { to_user: "not-a-uuid".into(), ..ok }.checked().is_err());
     }
 
     #[test]
