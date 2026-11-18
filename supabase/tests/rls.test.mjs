@@ -316,3 +316,86 @@ test('your lists show only your own friends, requests and chats', async () => {
     });
   });
 });
+
+// ---------------------------------------------------------------- your data, and reports
+
+test('export contains your data and nobody else’s', async () => {
+  await withPeople(async ({ step }) => {
+    await befriend(ALICE, BOB);
+    const conv = (await step(ALICE, (q) => q.one('select public.open_direct($1) as id', [BOB]))).id;
+    await step(ALICE, (q) => q.rows('insert into public.messages (conversation_id, body) values ($1, $2)', [conv, 'from alice']));
+    await step(BOB, (q) => q.rows('insert into public.messages (conversation_id, body) values ($1, $2)', [conv, 'from bob']));
+    const data = (await step(ALICE, (q) => q.one('select public.export_my_data() as d'))).d;
+    assert.equal(data.account.id, ALICE);
+    assert.equal(data.account.email, 'a@test');
+    assert.equal(data.profile.id, ALICE);
+    assert.deepEqual(data.messages_you_sent.map((m) => m.body), ['from alice']);
+    assert.equal(data.friendships.length, 1);
+    await step(null, async (q) => {
+      await fails(q.one('select public.export_my_data()'), /permission denied/);
+    });
+  });
+});
+
+test('deleting your account removes your login and everything linked to it', async () => {
+  await withPeople(async ({ step }) => {
+    await befriend(ALICE, BOB);
+    const conv = (await step(ALICE, (q) => q.one('select public.open_direct($1) as id', [BOB]))).id;
+    await step(ALICE, (q) => q.rows('insert into public.messages (conversation_id, body) values ($1, $2)', [conv, 'bye']));
+    await step(ALICE, (q) => q.one('select public.delete_my_account()'));
+    const left = (await db.query('select (select count(*) from auth.users where id = $1)::int as users, (select count(*) from public.profiles where id = $1)::int as profiles, (select count(*) from public.friendships)::int as friendships, (select count(*) from public.messages where sender = $1)::int as messages', [ALICE])).rows[0];
+    assert.deepEqual(left, { users: 0, profiles: 0, friendships: 0, messages: 0 });
+    assert.equal((await db.query('select count(*)::int as n from public.profiles where id = $1', [BOB])).rows[0].n, 1, 'Bob is untouched');
+    await step(null, async (q) => {
+      await fails(q.one('select public.delete_my_account()'), /permission denied/);
+    });
+  });
+});
+
+test('reports: only about people you know, with their messages from your chats', async () => {
+  await withPeople(async ({ step }) => {
+    await step(ALICE, async (q) => {
+      await fails(q.rows("insert into public.reports (target, reason) values ($1, 'spam')", [CAROL]), /only report people you are connected with/);
+    });
+    await befriend(ALICE, BOB);
+    await befriend(BOB, CAROL);
+    const ab = (await step(ALICE, (q) => q.one('select public.open_direct($1) as id', [BOB]))).id;
+    const bc = (await step(BOB, (q) => q.one('select public.open_direct($1) as id', [CAROL]))).id;
+    const bobToAlice = (await step(BOB, (q) => q.one('insert into public.messages (conversation_id, body) values ($1, $2) returning id', [ab, 'rude']))).id;
+    const bobToCarol = (await step(BOB, (q) => q.one('insert into public.messages (conversation_id, body) values ($1, $2) returning id', [bc, 'private']))).id;
+    const aliceOwn = (await step(ALICE, (q) => q.one('insert into public.messages (conversation_id, body) values ($1, $2) returning id', [ab, 'mine']))).id;
+
+    const filed = await step(ALICE, (q) => q.one("insert into public.reports (target, reason, details, message_ids) values ($1, 'harassment', 'see message', $2) returning reporter, status", [BOB, [bobToAlice]]));
+    assert.deepEqual(filed, { reporter: ALICE, status: 'open' });
+    await step(ALICE, async (q) => {
+      await fails(q.rows("insert into public.reports (target, reason, message_ids) values ($1, 'spam', $2)", [BOB, [bobToCarol]]), /can't be attached/);
+    });
+    await step(ALICE, async (q) => {
+      await fails(q.rows("insert into public.reports (target, reason, message_ids) values ($1, 'spam', $2)", [BOB, [aliceOwn]]), /can't be attached/);
+    });
+    await step(ALICE, async (q) => {
+      await fails(q.rows("insert into public.reports (target, reason, reporter) values ($1, 'spam', $2)", [BOB, CAROL]), /permission denied/);
+    });
+    await step(ALICE, async (q) => {
+      await fails(q.rows("insert into public.reports (target, reason, status) values ($1, 'spam', 'dismissed')", [BOB]), /permission denied/);
+    });
+    await step(ALICE, async (q) => {
+      await fails(q.rows("insert into public.reports (target, reason) values ($1, 'because')", [BOB]), /check constraint/);
+    });
+    assert.equal((await step(BOB, (q) => q.rows('select * from public.reports'))).length, 0, 'the reported person never sees it');
+    assert.equal((await step(ALICE, (q) => q.rows('select * from public.reports'))).length, 1);
+    await step(ALICE, async (q) => {
+      await fails(q.rows("update public.reports set status = 'dismissed'"), /permission denied/);
+    });
+  });
+});
+
+test('at most 10 reports an hour', async () => {
+  await withPeople(async ({ step }) => {
+    await befriend(ALICE, BOB);
+    for (let i = 0; i < 10; i++) await step(ALICE, (q) => q.rows("insert into public.reports (target, reason) values ($1, 'spam')", [BOB]));
+    await step(ALICE, async (q) => {
+      await fails(q.rows("insert into public.reports (target, reason) values ($1, 'spam')", [BOB]), /too many reports/);
+    });
+  });
+});

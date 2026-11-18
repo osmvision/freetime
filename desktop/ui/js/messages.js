@@ -132,7 +132,7 @@ async function openFriend(friendId) {
     toast(errText(e), 'error');
     return;
   }
-  state.current = { conversation, friend: friendId, lastId: 0, seen: new Set(), lastDay: null };
+  state.current = { conversation, friend: friendId, lastId: 0, seen: new Set(), lastDay: null, theirs: [] };
   const conv = state.conversations.find((c) => c.conversation_id === conversation);
   if (conv) conv.unread = 0;
   drawList();
@@ -151,6 +151,7 @@ async function openFriend(friendId) {
     els.input.style.height = 'auto';
     els.input.style.height = `${Math.min(els.input.scrollHeight, 160)}px`;
   });
+  const reportForm = reportBox(friend);
   fill(
     els.pane,
     h(
@@ -158,7 +159,23 @@ async function openFriend(friendId) {
       { class: 'chat-head' },
       avatar({ icon: friend.avatar_icon, color: friend.avatar_color }),
       h('div', { class: 'entry-main' }, h('div', { class: 'entry-title' }, friend.display_name), friend.status_text ? h('div', { class: 'entry-sub' }, friend.status_text) : null),
+      h(
+        'div',
+        { class: 'head-tools' },
+        btn({
+          label: `Report ${friend.display_name}`,
+          icon: 'flag',
+          kind: 'quiet',
+          small: true,
+          square: true,
+          onclick: () => {
+            reportForm.hidden = !reportForm.hidden;
+          },
+        }),
+        blockButton(friend),
+      ),
     ),
+    reportForm,
     els.log,
     h('div', { class: 'chat-compose' }, els.input, els.send),
   );
@@ -200,6 +217,7 @@ function append(messages) {
       els.log.append(h('div', { class: 'chat-day' }, day));
     }
     const mine = m.sender === state.me;
+    if (!mine) cur.theirs.push(m.id);
     els.log.append(
       h(
         'div',
@@ -211,6 +229,96 @@ function append(messages) {
   }
   if (atBottom || news.some((m) => m.sender === state.me)) els.log.scrollTop = els.log.scrollHeight;
   api.markRead(cur.conversation, cur.lastId).catch(() => {});
+}
+
+// ---------------------------------------------------------------- report and block
+
+const REASONS = [
+  ['harassment', 'Harassment'],
+  ['spam', 'Spam'],
+  ['hate', 'Hate'],
+  ['sexual', 'Sexual content'],
+  ['violence', 'Violence or threats'],
+  ['self_harm', 'Self-harm'],
+  ['impersonation', 'Pretending to be someone'],
+  ['other', 'Something else'],
+];
+
+/** The report form: a reason, optional details, and optionally their last messages. */
+function reportBox(friend) {
+  let reason = null;
+  const reasons = h('div', { class: 'reasons', role: 'group', 'aria-label': 'Reason' });
+  const paint = () =>
+    reasons.replaceChildren(
+      ...REASONS.map(([id, label]) =>
+        h('button', { type: 'button', 'aria-pressed': String(reason === id), onclick: () => { reason = id; paint(); } }, label),
+      ),
+    );
+  paint();
+  const details = h('input', { class: 'input', type: 'text', maxlength: 500, placeholder: 'What happened? (optional)', 'aria-label': 'Details' });
+  const attach = h('input', { type: 'checkbox', checked: true });
+  const box = h(
+    'div',
+    { class: 'report-form', hidden: true },
+    h('strong', {}, `Report ${friend.display_name} to the freetime team`),
+    reasons,
+    details,
+    h('label', { class: 'check' }, attach, 'Attach their last 10 messages from this chat, so the team can see what happened'),
+    h(
+      'div',
+      { class: 'row' },
+      btn({
+        label: 'Send report',
+        icon: 'flag',
+        kind: 'primary',
+        small: true,
+        onclick: async () => {
+          if (!reason) return toast('Pick a reason first');
+          const ids = attach.checked ? state.current?.theirs.slice(-10) ?? [] : [];
+          try {
+            await api.reportUser(friend.user_id, reason, details.value, ids);
+            toast('Report sent. Thank you: the freetime team will look at it.', 'ok', 6000);
+            box.hidden = true;
+          } catch (e) {
+            toast(errText(e), 'error', 6000);
+          }
+        },
+      }),
+      btn({ label: 'Cancel', kind: 'quiet', small: true, onclick: () => (box.hidden = true) }),
+    ),
+    h('span', { class: 'hint' }, `${friend.display_name} isn’t told who reported them. You can also block them.`),
+  );
+  return box;
+}
+
+/** Block, with a second click to confirm. Ends the friendship and stops messages both ways. */
+function blockButton(friend) {
+  const b = btn({ label: `Block ${friend.display_name}`, icon: 'ban', kind: 'quiet', small: true, square: true });
+  let armed = null;
+  b.addEventListener('click', async () => {
+    if (!armed) {
+      b.classList.add('armed');
+      b.title = 'Click again to block';
+      armed = setTimeout(() => {
+        armed = null;
+        b.classList.remove('armed');
+        b.title = `Block ${friend.display_name}`;
+      }, 4000);
+      return;
+    }
+    clearTimeout(armed);
+    try {
+      await api.blockUser(friend.user_id);
+      toast(`${friend.display_name} is blocked`, 'ok');
+      clearInterval(timer);
+      state.current = null;
+      fill(els.pane, h('div', { class: 'chat-empty' }, icon('ban'), h('p', {}, `${friend.display_name} is blocked. You won’t get their messages or requests.`)));
+      refreshList();
+    } catch (e) {
+      toast(errText(e), 'error');
+    }
+  });
+  return b;
 }
 
 async function send() {

@@ -1908,6 +1908,64 @@ button.tag:hover {
   justify-content: flex-end;
 }
 
+.danger-zone {
+  display: grid;
+  gap: 10px;
+  margin-top: 6px;
+  padding: 14px 16px;
+  border: 1.5px solid var(--red);
+  border-radius: 8px;
+  background: #fff5f5;
+}
+
+.danger-zone p {
+  margin: 0;
+  color: var(--text);
+}
+
+.danger-zone .input {
+  flex: 0 1 200px;
+  font-family: var(--figures);
+  font-weight: 700;
+}
+
+/* the report form under the chat header */
+.report-form {
+  display: grid;
+  gap: 10px;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--rule-soft);
+  background: var(--stock);
+}
+
+.report-form .reasons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.report-form .reasons button {
+  height: 34px;
+  padding: 0 12px;
+  border: 1.5px solid var(--rule-soft);
+  border-radius: 17px;
+  background: var(--coupon);
+  font-size: 14px;
+}
+
+.report-form .reasons button[aria-pressed="true"] {
+  border-color: var(--purple);
+  background: var(--lavender);
+  color: var(--purple);
+  font-weight: 700;
+}
+
+.chat-head .head-tools {
+  display: flex;
+  gap: 4px;
+  margin-left: auto;
+}
+
 /* ---------------------------------------------------------------- friends */
 
 .online-friends {
@@ -2068,9 +2126,25 @@ button.tag:hover {
 
 .chat-pane {
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr) auto;
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
   min-width: 0;
   min-height: 0;
+}
+
+.chat-pane > .chat-head {
+  grid-row: 1;
+}
+
+.chat-pane > .report-form {
+  grid-row: 2;
+}
+
+.chat-pane > .chat-messages {
+  grid-row: 3;
+}
+
+.chat-pane > .chat-compose {
+  grid-row: 4;
 }
 
 .chat-pane > .empty,

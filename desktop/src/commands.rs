@@ -820,6 +820,32 @@ pub fn reset_friend_tag(state: State<'_, AppState>) -> Res<String> {
     Client::new().map_err(err)?.reset_friend_tag(&session).map_err(err)
 }
 
+// ---------------------------------------------------------------- your data (GDPR) and reports
+
+/// Saves everything stored about you online to Downloads; returns the file path.
+#[tauri::command(async)]
+pub fn export_my_data(state: State<'_, AppState>) -> Res<String> {
+    let s = live_session(&state)?;
+    let data = Client::new().map_err(err)?.export_my_data(&s).map_err(err)?;
+    let path = account::save_export(&data, chrono::Local::now()).map_err(err)?;
+    Ok(path.display().to_string())
+}
+
+/// Deletes the online account for good. The solo app and its data on this PC stay.
+#[tauri::command(async)]
+pub fn delete_my_account(state: State<'_, AppState>) -> Res<()> {
+    let s = live_session(&state)?;
+    Client::new().map_err(err)?.delete_my_account(&s).map_err(err)?;
+    *lock(&state.account) = None;
+    Ok(())
+}
+
+#[tauri::command(async)]
+pub fn report_user(state: State<'_, AppState>, user_id: String, reason: String, details: String, message_ids: Vec<i64>) -> Res<()> {
+    let s = live_session(&state)?;
+    Client::new().map_err(err)?.report(&s, &user_id, &reason, &details, &message_ids).map_err(err)
+}
+
 // ---------------------------------------------------------------- online friends and messages
 
 #[derive(Serialize)]

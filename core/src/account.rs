@@ -330,6 +330,38 @@ impl Client {
         v.as_str().map(str::to_string).ok_or_else(|| anyhow!("unexpected response"))
     }
 
+    // ------------------------------------------------------------ your data
+
+    /// Everything stored about you online, as JSON (GDPR export).
+    pub fn export_my_data(&self, s: &Session) -> Result<Value> {
+        self.call("POST", "/rest/v1/rpc/export_my_data", Some(&s.access_token), Some(&json!({})), None)
+    }
+
+    /// Deletes your online account for good: login, profile, friendships, your messages.
+    pub fn delete_my_account(&self, s: &Session) -> Result<()> {
+        self.call("POST", "/rest/v1/rpc/delete_my_account", Some(&s.access_token), Some(&json!({})), None)?;
+        forget_refresh_token()
+    }
+
+    /// Reports someone you're connected with, optionally with some of their messages.
+    pub fn report(&self, s: &Session, target: &str, reason: &str, details: &str, message_ids: &[i64]) -> Result<()> {
+        ensure_uuid(target)?;
+        const REASONS: [&str; 8] = ["spam", "harassment", "hate", "sexual", "violence", "self_harm", "impersonation", "other"];
+        if !REASONS.contains(&reason) {
+            bail!("pick a reason");
+        }
+        let details: String = details.chars().filter(|c| !c.is_control() || *c == '\n').take(500).collect();
+        let ids: Vec<i64> = message_ids.iter().copied().filter(|id| *id > 0).take(20).collect();
+        self.call(
+            "POST",
+            "/rest/v1/reports",
+            Some(&s.access_token),
+            Some(&json!({ "target": target, "reason": reason, "details": details.trim(), "message_ids": ids })),
+            None,
+        )?;
+        Ok(())
+    }
+
     // ------------------------------------------------------------ friends
 
     /// Friends and requests (incoming and outgoing), never anyone else.
@@ -554,6 +586,15 @@ impl ProfileEdit {
         }
         Ok(ProfileEdit { display_name: name, avatar_icon: self.avatar_icon, avatar_color: self.avatar_color, bio, status_text: status })
     }
+}
+
+/// Writes an export to the Downloads folder (or freetime's data folder) and returns the path.
+pub fn save_export(data: &Value, now: chrono::DateTime<chrono::Local>) -> Result<std::path::PathBuf> {
+    let dir = dirs::download_dir().unwrap_or_else(crate::config::data_dir);
+    std::fs::create_dir_all(&dir)?;
+    let path = dir.join(format!("freetime-export-{}.json", now.format("%Y%m%d-%H%M%S")));
+    std::fs::write(&path, serde_json::to_string_pretty(data)?)?;
+    Ok(path)
 }
 
 // ---------------------------------------------------------------- Windows Credential Manager
