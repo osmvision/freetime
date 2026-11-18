@@ -6,8 +6,9 @@ Phases 0 and 2 onward are proposals. Read the decisions at the end before starti
 ## Goal
 
 Let people use freetime together: find friends who are free at the same time, pick something
-together (for example, Steam games you both own), invite each other, talk, and later join
-communities. The solo app keeps working exactly as today, offline and without an account.
+together (for example, Steam games you both own), invite each other, talk, customize their
+profile, and later join communities with their own channels and staff. The solo app keeps
+working exactly as today, offline and without an account.
 
 Non-goals for now: voice or video calls, file and image sharing in chat, a public directory of
 users, ads, selling anything.
@@ -67,7 +68,7 @@ server later without rewriting the data model.
 
 | Table | What it holds | Who can read it |
 | --- | --- | --- |
-| `profiles` | id, display name, avatar choice, linked SteamID (optional), created_at | Friends; your own row |
+| `profiles` | id, display name, avatar (icon + color, later an image), banner color, bio, status, favorite games, linked SteamID (optional), field visibility, created_at | Per field, as the user chose (see Profiles); your own row |
 | `friendships` | requester, addressee, status (pending, accepted, blocked) | The two people involved |
 | `availability` | "free until" time, minutes, energy, visibility (friends / nobody) | Accepted friends, if visible |
 | `invites` | a ticket (idea id, title, time) sent to friends, with answers | Sender and invitees |
@@ -75,7 +76,11 @@ server later without rewriting the data model.
 | `conversation_members` | conversation, user, role, muted | Members only |
 | `messages` | conversation, sender, text (max 2,000 chars), created_at, edited, deleted | Members only |
 | `communities` | name, description, visibility (invite-only first) | Members (invite-only) |
-| `community_members` | community, user, role (owner, moderator, member) | Members |
+| `community_members` | community, user, role (owner, admin, moderator, member), joined_at, muted_until | Members |
+| `channels` | community, name, kind (chat, announcements), slow-mode seconds, staff-only posting | Members |
+| `channel_messages` | channel, sender, text, pinned, created_at, deleted | Members of the community |
+| `staff_threads` | community, member, status (open, closed): a private "contact staff" conversation | The member and the community's staff |
+| `staff_actions` | community, staff member, action (delete, mute, kick, ban, pin, role change), target, reason, time | The community's staff (audit log) |
 | `reports` | who reported what, reason, status | The reporter and moderators |
 | `blocks` | blocker, blocked | The blocker |
 
@@ -96,6 +101,54 @@ that a blocked user cannot send a message or a friend request.
   report message or user, delete your own messages.
 - **Retention:** messages kept 12 months by default, then removed automatically. Deleted
   messages are removed from the database, not just hidden.
+
+## Profiles
+
+What you can customize:
+
+- **Display name** (2 to 24 characters, unique per user, not per name: two people can both be
+  "Sam").
+- **Avatar:** first an icon from freetime's own icon set plus a color, so no image ever needs
+  checking. Image upload comes later (see below).
+- **Banner color** from the app's palette, and an optional **bio** (up to 160 characters).
+- **Status:** "Free tonight", "Busy", or a short custom text (up to 60 characters), with an
+  optional end time.
+- **Favorite games:** up to 5, picked from your imported Steam games.
+- **Linked accounts:** Steam (proven through Steam's login, see above), shown only if you want.
+
+Every field has its own visibility: everyone in a community you share, friends only, or
+nobody. Defaults are friends only. Names and bios are text only (no links, no formatting) and
+checked against a blocklist for slurs.
+
+**Image avatars (later phase):** PNG, JPEG or WebP only, at most 1 MB, uploaded through an Edge
+Function that re-encodes the image to 256x256 WebP. Re-encoding strips hidden metadata (camera
+GPS location included) and anything that isn't a picture. Images are served with a fixed
+content type, can be reported, and staff or the freetime team can remove them.
+
+**Before accounts exist (phase 1b):** the friend code can carry your avatar icon and color too,
+so friends' avatars look right in the Friends tab, still with no server.
+
+## Communities, channels and staff
+
+- **Channels:** each community has text channels, for example `#general`, plus an
+  `#announcements` channel where only staff can post. Members read and write in the channels
+  of communities they belong to; nobody outside can read them.
+- **Staff roles:** owner (one per community), admins, moderators. A small badge next to their
+  name shows the role; it comes from the server, so nobody can fake it by naming themselves
+  "Admin".
+- **What staff can do:** pin and delete messages, mute a member for a while, kick, ban, approve
+  join requests, set slow mode on a channel, and manage channels (admins and the owner). Only the
+  owner can appoint or remove admins.
+- **Contact staff:** any member can open a private conversation with the community's staff team
+  ("mod mail"), to ask a question, report something, or appeal a mute or ban. Every staff member
+  of that community sees it; the member sees only the replies, not which moderator wrote them
+  unless they sign.
+- **Accountability:** every staff action is written to an audit log that the community's staff
+  can read. The owner can undo a moderator's ban. Above all communities, the **freetime team**
+  can be contacted from Settings for reports about a whole community or about staff.
+- **Safety defaults:** new members can't post for 10 minutes, links in community messages are
+  plain text until a member has been there a day, slow mode is available per channel, and
+  communities start invite-only with join requests.
 
 ### Encryption
 
@@ -119,6 +172,11 @@ that a blocked user cannot send a message or a friend request.
 | Scraping users or friend lists | No public search or directory; profiles visible to friends only; friend requests by invite code or Discord/Steam ID |
 | Cost or denial-of-service on the backend | Rate limits in Edge Functions, Supabase usage alerts, spending cap |
 | Antivirus flags the app again | No background network before sign-in, every call visible, signed release builds (code-signing certificate) |
+| Offensive or illegal avatar images | Icons first; uploads later, re-encoded, reportable, removable by staff and the freetime team |
+| A photo avatar reveals where it was taken | Server-side re-encoding strips all metadata, including GPS |
+| Someone poses as staff | Role badges come only from the server; names like "Admin" or "freetime team" are reserved |
+| Staff abuse their powers | Audit log of every staff action, owner can undo, appeals through "contact staff" and the freetime team |
+| A community gets flooded (raid, spam) | Join requests, new-member posting delay, slow mode, rate limits, staff mute and ban |
 | Supply-chain attack through dependencies | `cargo audit` and `npm audit` in CI, Dependabot, locked versions, review before upgrading |
 
 ## Privacy and the law (France / EU)
@@ -147,11 +205,12 @@ canary check), a manual check of the threat table, and a release that antivirus 
 | Phase | What ships | Server? |
 | --- | --- | --- |
 | 0. Foundations | Supabase project (EU), schema + RLS + tests, CI with audits and secret scanning, branch protection on GitHub | Set up, not used by the app yet |
-| 1. Pick with a friend | Paste a friend's SteamID or share a code: games you both own, ideas that suit both | No |
-| 2. Accounts + friends | Discord sign-in, Steam linking, profiles, friend requests by code, block, "who's free tonight", privacy page, export and delete | Yes |
+| 1. Pick with a friend (built) | Friend codes: games you both own, ideas that suit both | No |
+| 1b. Local profile look | Choose an avatar icon and color; it travels in your friend code | No |
+| 2. Accounts + profiles + friends | Discord sign-in, Steam linking, customizable profiles (icon avatar, banner, bio, status, favorite games, per-field visibility), friend requests by code, block, "who's free tonight", privacy page, export and delete | Yes |
 | 3. Chat + invites | Direct and group chat between friends, ticket invites, report and mute, retention | Yes |
-| 4. Communities | Invite-only communities, roles, shared idea lists, planned sessions, report queue | Yes |
-| 5. Optional | End-to-end encrypted direct messages, public communities with an admin team | Yes |
+| 4. Communities + staff | Invite-only communities, channels with an announcements channel, staff roles and badges, staff tools, "contact staff", audit log, shared idea lists, planned sessions | Yes |
+| 5. Optional | Image avatars (re-encoded), end-to-end encrypted direct messages, public communities with the freetime team moderating | Yes |
 
 ## Working on it together
 
