@@ -1,7 +1,8 @@
 # freetime social: accounts, friends, chat and communities
 
 Status: phase 1 (friend codes, no server) is built: see `core/src/party.rs` and the Friends tab.
-Phases 0 and 2 onward are proposals. Read the decisions at the end before starting them.
+Phase 0 has started: `supabase/migrations` (profiles, friends, blocks) with permission tests in
+`supabase/tests`. Phases 2 onward are proposals. Read the decisions at the end before starting them.
 
 ## Goal
 

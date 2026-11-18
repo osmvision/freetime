@@ -11,3 +11,4 @@
 /.claude/
 # Impeccable's generated reference boards
 /.impeccable/reference/
+/supabase/tests/node_modules
