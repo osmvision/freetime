@@ -299,6 +299,12 @@ h1 { font-size: clamp(56px, 10vw, 128px); font-weight: 800; display: grid; }
 .promise p { color: var(--on-navy-2); font-size: 16px; }
 .link-light { font: 700 16px/1 var(--display); letter-spacing: 0.1em; text-transform: uppercase; color: #fff; text-underline-offset: 6px; }
 
+/* ---------------------------------------------------------------- support */
+
+.support { display: grid; grid-template-columns: 1.2fr 1fr; gap: clamp(32px, 6vw, 80px); align-items: center; }
+.support-buttons { display: grid; gap: 12px; justify-items: start; }
+.support-buttons .note { margin-top: 4px; }
+
 /* ---------------------------------------------------------------- faq */
 
 details { border-top: 1px solid var(--line); }
@@ -368,6 +374,7 @@ details p { padding: 0 0 24px; color: var(--text-2); max-width: 62ch; }
   .split, .split-rev { grid-template-columns: 1fr; }
   .split-rev .card-shot { order: 2; }
   .promises { grid-template-columns: 1fr 1fr; }
+  .support { grid-template-columns: 1fr; }
   .stub-float { right: 6px; bottom: -28px; padding: 12px 16px; }
   .stub-float .stub-v { font-size: 28px; }
 }
@@ -378,7 +385,8 @@ details p { padding: 0 0 24px; color: var(--text-2); max-width: 62ch; }
   .hero { padding-top: 48px; }
   .eyebrow { font-size: 11px; letter-spacing: 0.1em; padding: 7px 12px; }
   .btn-lg { padding: 14px 18px; font-size: 17px; }
-  .cta-row .btn { width: 100%; justify-content: center; }
+  .cta-row .btn, .support-buttons .btn { width: 100%; justify-content: center; }
+  .support-buttons { justify-items: stretch; }
   .window { border-radius: 10px; transform: none; }
   .window-bar { height: 24px; }
   .stub-float { display: none; }

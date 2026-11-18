@@ -80,6 +80,13 @@ const FR = {
   'Report a problem': 'Signaler un problème',
   'Made by two friends. MIT license.': 'Fait par deux amis. Licence MIT.',
   '← Back to freetime': '← Retour à freetime',
+  Support: 'Soutenir',
+  'Keep it free.': 'Gardons-le gratuit.',
+  'No ads and no tracking. If freetime gives you good hours, a coffee helps two friends keep building it.': 'Pas de pub, pas de pistage. Si freetime te fait passer de bons moments, un café aide deux amis à continuer de le construire.',
+  'Buy us a coffee': 'Offre-nous un café',
+  'Sponsor on GitHub': 'Soutenir sur GitHub',
+  'Ko-fi and GitHub handle the payment. freetime never sees it.': 'Ko-fi et GitHub gèrent le paiement. freetime ne le voit jamais.',
+  'Support freetime': 'Soutenir freetime',
   'Photos of the built-in ideas, with their authors and free licenses.': 'Les photos des idées intégrées, avec leurs auteurs et licences libres.',
 };
 
