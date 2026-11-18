@@ -1684,6 +1684,149 @@ button.tag:hover {
   margin-bottom: 18px;
 }
 
+/* ---------------------------------------------------------------- first-run welcome */
+
+.welcome {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  display: grid;
+  place-items: center;
+  padding: 24px 16px;
+  background: var(--navy);
+  overflow-y: auto;
+  animation: issue 0.4s var(--ease) backwards;
+}
+
+.welcome-ticket {
+  display: flex;
+  flex-direction: column;
+  width: min(760px, 100%);
+  border-radius: var(--r-ticket);
+  background: var(--coupon);
+  box-shadow: 0 30px 80px -30px rgba(0, 0, 0, 0.6);
+}
+
+.welcome-ticket .coupon-head {
+  border-radius: var(--r-ticket) var(--r-ticket) 0 0;
+  background: var(--navy-3);
+}
+
+.welcome-body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 28px 32px 24px;
+}
+
+.welcome-title {
+  margin: 0;
+  font: 800 46px/0.98 var(--display);
+  text-transform: uppercase;
+  text-wrap: balance;
+}
+
+.welcome-step {
+  margin: 0;
+  font: 800 32px/1 var(--display);
+  text-transform: uppercase;
+}
+
+.welcome-lead {
+  margin: 0;
+  max-width: 58ch;
+  color: var(--text-2);
+  font-size: 17px;
+}
+
+.welcome-cta {
+  margin-top: 4px;
+}
+
+.welcome-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 24px 18px;
+  border-top: 2px dashed rgba(13, 27, 61, 0.25);
+}
+
+.welcome-dots {
+  display: flex;
+  gap: 6px;
+}
+
+.welcome-dots span {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--lavender-line);
+}
+
+.welcome-dots span.on {
+  width: 22px;
+  border-radius: 4px;
+  background: var(--purple);
+}
+
+.welcome-kinds {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 8px;
+}
+
+.kind {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 52px;
+  padding: 0 14px;
+  border: 1.5px solid var(--rule-soft);
+  border-radius: var(--r-control);
+  background: var(--coupon);
+  font-weight: 600;
+  text-align: left;
+}
+
+.kind .icon {
+  width: 20px;
+  height: 20px;
+  color: var(--text-3);
+}
+
+.kind[aria-pressed="true"] {
+  border-color: var(--purple);
+  background: var(--lavender);
+  color: var(--purple);
+}
+
+.kind[aria-pressed="true"] .icon {
+  color: var(--purple);
+}
+
+.suggest button[aria-pressed="true"] {
+  border-style: solid;
+  border-color: var(--purple);
+  background: var(--lavender);
+  color: var(--purple);
+}
+
+.city-status.ok {
+  color: var(--good);
+  font-weight: 600;
+}
+
+@media (max-width: 860px) {
+  .welcome-body {
+    padding: 22px 18px 18px;
+  }
+
+  .welcome-title {
+    font-size: 34px;
+  }
+}
+
 /* ---------------------------------------------------------------- profile chip and badges */
 
 .me-chip {

@@ -21,6 +21,8 @@ pub struct Config {
     pub display_name: Option<String>,
     /// Avatar icon and color put in your friend code.
     pub avatar: crate::party::Avatar,
+    /// The first-run welcome was finished or skipped: it isn't shown again.
+    pub onboarded: bool,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -53,6 +55,7 @@ impl Default for Config {
             youtube: YoutubeConfig::default(),
             display_name: None,
             avatar: Default::default(),
+            onboarded: false,
         }
     }
 }

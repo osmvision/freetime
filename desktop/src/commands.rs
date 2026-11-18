@@ -244,6 +244,8 @@ pub struct SetupState {
     city: Option<String>,
     /// First launch: ask once where the user is (they can skip).
     needs_city: bool,
+    /// The first-run welcome hasn't been finished or skipped yet.
+    needs_welcome: bool,
     steam: bool,
     youtube: bool,
 }
@@ -271,6 +273,7 @@ pub fn bootstrap(state: State<'_, AppState>) -> Res<Boot> {
         setup: SetupState {
             city: cfg.city.clone(),
             needs_city: cfg.city.is_none() && !cfg.asked_for_city,
+            needs_welcome: !cfg.onboarded,
             steam: steam_import::load_library().is_some(),
             youtube: Keys::resolve().youtube.is_some() || !cfg.youtube.channels.is_empty(),
         },
@@ -681,6 +684,29 @@ pub fn set_city(app: AppHandle, place: Option<Place>) -> Res<SettingsView> {
     cfg.save().map_err(err)?;
     refresh_in_background(&app);
     Ok(settings_view(&cfg))
+}
+
+// ---------------------------------------------------------------- first-run welcome
+
+/// Ends the welcome (finished or skipped). `interests`, if given, become the YouTube topics.
+#[tauri::command(async)]
+pub fn finish_welcome(interests: Option<Vec<String>>) -> Res<()> {
+    let mut cfg = Config::load().map_err(err)?;
+    if let Some(list) = interests {
+        let mut clean: Vec<String> = Vec::new();
+        for i in list {
+            let t: String = i.chars().filter(|c| !c.is_control()).collect::<String>().trim().chars().take(40).collect();
+            if !t.is_empty() && !clean.iter().any(|c| c.eq_ignore_ascii_case(&t)) {
+                clean.push(t);
+            }
+        }
+        clean.truncate(12);
+        if !clean.is_empty() {
+            cfg.interests = clean;
+        }
+    }
+    cfg.onboarded = true;
+    cfg.save().map_err(err)
 }
 
 // ---------------------------------------------------------------- account (opt-in, Supabase)

@@ -33,6 +33,7 @@ fn main() {
             commands::get_friends,
             commands::add_friend,
             commands::remove_friend,
+            commands::finish_welcome,
             commands::account_status,
             commands::sign_in,
             commands::sign_out,

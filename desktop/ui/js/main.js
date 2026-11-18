@@ -6,6 +6,7 @@ import * as friendsView from './friends.js';
 import * as historyView from './history.js';
 import * as messagesView from './messages.js';
 import { avatar } from './avatars.js';
+import { runWelcome } from './welcome.js';
 import * as settingsView from './settings.js';
 
 const views = {
@@ -167,10 +168,17 @@ async function start() {
   }
   await loadPhotos();
   renderMe();
-  const boot = await api.bootstrap();
+  let boot = await api.bootstrap();
+  let after = 'discover';
+  if (boot.setup.needs_welcome) {
+    after = await runWelcome(boot);
+    boot = await api.bootstrap();
+    renderMe();
+  }
   city = boot.setup.city;
   renderTags(boot.online);
   discover.init(views.discover, boot, ctx);
+  if (after === 'profile') goto('settings', { focus: 'profile' });
   await listen('online-updated', (online) => {
     renderTags(online);
     discover.onOnline(online);
