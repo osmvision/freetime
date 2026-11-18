@@ -645,12 +645,15 @@ pub struct ConversationEntry {
     pub unread: i64,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Message {
     pub id: i64,
     pub sender: String,
     pub body: String,
     pub created_at: String,
+    /// Set on messages that arrive live (see `realtime`); absent when loading a chat.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub conversation_id: Option<String>,
 }
 
 /// Same limits as the database: 1 to 2,000 characters, line breaks and tabs allowed.

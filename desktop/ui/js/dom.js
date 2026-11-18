@@ -134,6 +134,7 @@ export function linkLabel(item) {
   if (link.includes('youtu.be/') || link.includes('youtube.com/watch')) return { text: 'Watch on YouTube', icon: 'circle-play' };
   if (link.includes('youtube.com/results')) return { text: 'Search YouTube', icon: 'search' };
   if (link.includes('store.steampowered.com')) return { text: 'View on Steam', icon: 'external-link' };
+  if (link.startsWith('https://store.epicgames.com/')) return { text: 'Get it free on Epic', icon: 'external-link' };
   return { text: 'Open link', icon: 'external-link' };
 }
 
@@ -141,6 +142,7 @@ export function linkLabel(item) {
 export function sourceLabel(c) {
   const id = c.id ?? '';
   if (id.startsWith('steam:')) return c.tags?.includes('store') ? 'Steam store' : 'Your Steam library';
+  if (id.startsWith('epic:')) return 'Epic Games Store';
   if (id.startsWith('yt:')) return 'YouTube';
   if (id.startsWith('ytsearch:')) return 'YouTube search';
   return 'freetime idea';

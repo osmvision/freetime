@@ -10,6 +10,7 @@ use freetime_core::{
     keys::{self, KeySource, Keys},
     net::HttpNet,
     model::*,
+    realtime,
     open,
     party::{self, Avatar, Friend},
     providers::{
@@ -55,6 +56,10 @@ pub struct AppState {
     libraries: Mutex<HashMap<String, (Instant, Option<account::SharedLibrary>)>>,
     /// Assistant chats whose answer should stop streaming (the user pressed Stop).
     pub(crate) assistant_stop: Mutex<HashSet<String>>,
+    /// The live connection (Realtime) is up: changes arrive instantly.
+    live: std::sync::atomic::AtomicBool,
+    /// Friends' display names by id, for notifications from the live connection.
+    names: Mutex<HashMap<String, String>>,
 }
 
 #[derive(Default)]
@@ -965,6 +970,155 @@ pub fn reset_friend_tag(state: State<'_, AppState>) -> Res<String> {
     Client::new().map_err(err)?.reset_friend_tag(&session).map_err(err)
 }
 
+// ---------------------------------------------------------------- weekly recap (local only)
+
+#[derive(Serialize)]
+pub struct KindCount {
+    category: Category,
+    label: &'static str,
+    picks: usize,
+}
+
+#[derive(Serialize)]
+pub struct MemoryView {
+    when: String,
+    title: String,
+    category: Category,
+    label: &'static str,
+    loved: bool,
+}
+
+#[derive(Serialize)]
+pub struct RecapView {
+    week_picks: usize,
+    week_minutes: u32,
+    week_loved: usize,
+    last_week_picks: usize,
+    last_week_minutes: u32,
+    streak_weeks: u32,
+    best_streak: u32,
+    this_week_active: bool,
+    /// "2026-W47": which week this is, so the UI can remember a dismissed recap.
+    week: String,
+    kinds: Vec<KindCount>,
+    memories: Vec<MemoryView>,
+}
+
+/// This week, last week, the streak and memories, from the history on this PC (no network).
+#[tauri::command(async)]
+pub fn get_recap() -> Res<RecapView> {
+    use chrono::Datelike;
+    let now = chrono::Local::now();
+    let r = History::load().recap(now);
+    Ok(RecapView {
+        week_picks: r.week_picks,
+        week_minutes: r.week_minutes,
+        week_loved: r.week_loved,
+        last_week_picks: r.last_week_picks,
+        last_week_minutes: r.last_week_minutes,
+        streak_weeks: r.streak_weeks,
+        best_streak: r.best_streak,
+        this_week_active: r.this_week_active,
+        week: format!("{}-W{:02}", now.iso_week().year(), now.iso_week().week()),
+        kinds: r.week_by_category.into_iter().map(|(category, picks)| KindCount { category, label: category.label(), picks }).collect(),
+        memories: r
+            .memories
+            .into_iter()
+            .map(|m| MemoryView { when: m.when, title: m.title, category: m.category, label: m.category.label(), loved: m.loved })
+            .collect(),
+    })
+}
+
+// ---------------------------------------------------------------- the live connection (instant)
+
+#[derive(Serialize, Clone)]
+struct LiveMessage {
+    message: ChatMessage,
+    /// Sent by the signed-in user (from this or another device).
+    mine: bool,
+}
+
+/// A friend's display name, from the cache or the friends list (fetched once when missing).
+fn friend_name(state: &AppState, id: &str) -> String {
+    if let Some(n) = lock(&state.names).get(id) {
+        return n.clone();
+    }
+    if let (Ok(s), Ok(client)) = (live_session(state), Client::new()) {
+        if let Ok(friends) = client.friends(&s) {
+            let mut names = lock(&state.names);
+            for f in friends {
+                names.insert(f.user_id, f.display_name);
+            }
+        }
+    }
+    lock(&state.names).get(id).cloned().unwrap_or_else(|| "A friend".to_string())
+}
+
+fn on_live_event(app: &AppHandle, event: realtime::Event) {
+    use std::sync::atomic::Ordering;
+    use tauri_plugin_notification::NotificationExt;
+    let state = app.state::<AppState>();
+    let me = lock(&state.account).as_ref().map(|s| s.user_id.clone()).unwrap_or_default();
+    let notify = || {
+        Config::load().map(|c| c.notify_messages).unwrap_or(false)
+            && !app.get_webview_window("main").and_then(|w| w.is_focused().ok()).unwrap_or(false)
+    };
+    match event {
+        realtime::Event::Live => {
+            state.live.store(true, Ordering::Relaxed);
+            let _ = app.emit("live-status", true);
+        }
+        realtime::Event::Down => {
+            state.live.store(false, Ordering::Relaxed);
+            let _ = app.emit("live-status", false);
+        }
+        realtime::Event::Message(m) => {
+            let mine = m.sender == me;
+            if !mine && notify() {
+                let preview: String = m.body.split_whitespace().collect::<Vec<_>>().join(" ");
+                let preview = if preview.chars().count() > 120 { preview.chars().take(117).collect::<String>() + "…" } else { preview };
+                let _ = app.notification().builder().title(format!("{} on freetime", friend_name(&state, &m.sender))).body(preview).show();
+            }
+            let _ = app.emit("message-new", LiveMessage { message: m, mine });
+        }
+        realtime::Event::Invite { from_user, to_user, title, starts_at, inserted, status, .. } => {
+            if inserted && to_user == me && status == "pending" && notify() {
+                let at = chrono::DateTime::parse_from_rfc3339(&starts_at)
+                    .map(|t| t.with_timezone(&chrono::Local).format("%H:%M").to_string())
+                    .unwrap_or_default();
+                let _ = app.notification().builder().title(format!("{} invites you", friend_name(&state, &from_user))).body(format!("{title} · {at}")).show();
+            }
+            let _ = app.emit("invites-changed", ());
+        }
+    }
+}
+
+/// Keeps the live connection while signed in (nothing at all while signed out).
+pub fn watch_live(app: AppHandle) {
+    thread::spawn(move || {
+        let stop = std::sync::atomic::AtomicBool::new(false);
+        let for_token = app.clone();
+        let for_events = app.clone();
+        realtime::run(
+            move || {
+                let state = for_token.state::<AppState>();
+                let signed_in = lock(&state.account).is_some() || account::has_saved_session();
+                if !signed_in {
+                    return None;
+                }
+                live_session(&state).ok().map(|s| s.access_token)
+            },
+            move |e| on_live_event(&for_events, e),
+            &stop,
+        );
+    });
+}
+
+#[tauri::command]
+pub fn live_status(state: State<'_, AppState>) -> bool {
+    state.live.load(std::sync::atomic::Ordering::Relaxed)
+}
+
 // ---------------------------------------------------------------- message notifications
 
 /// While signed in (and if enabled), checks for new messages every minute: updates the unread
@@ -991,7 +1145,9 @@ pub fn watch_messages(app: AppHandle) {
                 if let Ok(invites) = client.invites(&s) {
                     let waiting: Vec<&Invite> = invites.iter().filter(|i| i.direction == "incoming" && i.status == "pending").collect();
                     let _ = app.emit("invites-updated", waiting.len());
-                    let focused = app.get_webview_window("main").and_then(|w| w.is_focused().ok()).unwrap_or(false);
+                    // Quiet while the window is in front, or while the live connection already notified.
+                    let focused = app.get_webview_window("main").and_then(|w| w.is_focused().ok()).unwrap_or(false)
+                        || state.live.load(std::sync::atomic::Ordering::Relaxed);
                     for i in waiting {
                         if seen_invites.insert(i.id) && !baseline && !focused {
                             let at = chrono::DateTime::parse_from_rfc3339(&i.starts_at)
@@ -1003,7 +1159,9 @@ pub fn watch_messages(app: AppHandle) {
                 }
                 if let Ok(convs) = client.conversations(&s) {
                     let _ = app.emit("unread-updated", convs.iter().map(|c| c.unread).sum::<i64>());
-                    let focused = app.get_webview_window("main").and_then(|w| w.is_focused().ok()).unwrap_or(false);
+                    // Quiet while the window is in front, or while the live connection already notified.
+                    let focused = app.get_webview_window("main").and_then(|w| w.is_focused().ok()).unwrap_or(false)
+                        || state.live.load(std::sync::atomic::Ordering::Relaxed);
                     let mut fresh = Vec::new();
                     for c in &convs {
                         let last = c.last_at.clone().unwrap_or_default();

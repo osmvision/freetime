@@ -13,6 +13,7 @@ pub mod model;
 pub mod open;
 pub mod party;
 pub mod providers;
+pub mod realtime;
 pub mod region;
 pub mod scoring;
 pub mod vdf;

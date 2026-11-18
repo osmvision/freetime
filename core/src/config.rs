@@ -28,6 +28,8 @@ pub struct Config {
     /// Share the imported Steam game list (app ids only) and taste with online friends.
     pub share_library: bool,
     pub assistant: AssistantConfig,
+    /// Look for a new version on GitHub a while after start and twice a day (installing asks first).
+    pub check_updates: bool,
 }
 
 /// The chat assistant (needs a MISTRAL_API_KEY, see `keys`).
@@ -72,6 +74,7 @@ impl Default for Config {
             notify_messages: true,
             share_library: false,
             assistant: AssistantConfig::default(),
+            check_updates: true,
         }
     }
 }

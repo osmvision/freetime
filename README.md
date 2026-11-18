@@ -7,6 +7,10 @@ a YouTube video that fits the time you have, a sport that suits the weather, or 
 Tell it how much time you have, your energy, who's with you, whether you'll go outside and your
 budget. It ranks ideas from every source, explains why, and learns from your 👍 / 👎.
 
+**Download for Windows:** <https://osmvision.github.io/freetime/> (or the
+[latest release](https://github.com/osmvision/freetime/releases/latest)) ·
+[Privacy policy](docs/privacy.md) · [Code signing policy](docs/code-signing.md)
+
 ## Desktop app (Tauri)
 
 ```sh
@@ -83,3 +87,14 @@ With the GNU toolchain, MinGW's `windres` (which embeds the app icon) breaks whe
 contains spaces. If yours does, copy `.cargo/config.toml.example` to `.cargo/config.toml` and set a
 build folder without spaces. That file is personal and ignored by git. With the MSVC toolchain, or a
 path without spaces, nothing is needed.
+
+## Code signing policy
+
+Free code signing provided by [SignPath.io](https://about.signpath.io/), certificate by
+[SignPath Foundation](https://signpath.org/) (application in progress: releases are not signed yet).
+
+- Committers and reviewers: [osmvision](https://github.com/osmvision), [Julien-13](https://github.com/Julien-13)
+- Approvers: [osmvision](https://github.com/osmvision)
+- Privacy policy: [docs/privacy.md](docs/privacy.md)
+
+The full policy, covering how releases are built, approved and signed, is in [docs/code-signing.md](docs/code-signing.md).

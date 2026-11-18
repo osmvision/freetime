@@ -1073,6 +1073,67 @@ button.tag:hover {
   height: 44px;
 }
 
+/* No photo: a screen-printed poster in the kind's color, with an oversized icon. */
+.fallback.poster {
+  --poster: var(--navy-3);
+  display: block;
+  overflow: hidden;
+  background:
+    radial-gradient(120% 90% at 0% 0%, rgba(255, 255, 255, 0.16), transparent 60%),
+    var(--poster);
+  color: #fff;
+}
+
+.fallback.poster[data-category="game"] { --poster: #4b2e83; }
+.fallback.poster[data-category="video"] { --poster: #3b4866; }
+.fallback.poster[data-category="sport"] { --poster: #1f6b4a; }
+.fallback.poster[data-category="learn"] { --poster: #1f4fa3; }
+.fallback.poster[data-category="create"] { --poster: #8a5a00; }
+.fallback.poster[data-category="chill"] { --poster: #0f5e63; }
+.fallback.poster[data-category="social"] { --poster: #7a2e5e; }
+.fallback.poster[data-category="food"] { --poster: #9a3f1c; }
+
+.fallback.poster .poster-big {
+  position: absolute;
+  right: -14%;
+  bottom: -22%;
+  width: 78%;
+  height: auto;
+  aspect-ratio: 1;
+  opacity: 0.22;
+  transform: rotate(-12deg);
+}
+
+.fallback.poster .poster-big svg {
+  stroke-width: 1.2;
+}
+
+.fallback.poster .poster-label {
+  position: absolute;
+  left: 16px;
+  top: 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font: 800 20px/1 var(--display);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.fallback.poster .poster-label .icon {
+  width: 22px;
+  height: 22px;
+}
+
+.leaf-photo .fallback.poster .poster-label {
+  font-size: 15px;
+}
+
+.leaf-photo .fallback.poster .poster-label .icon {
+  width: 16px;
+  height: 16px;
+}
+
 .leaf-source {
   position: absolute;
   left: 10px;
@@ -2252,6 +2313,146 @@ button.tag:hover {
   display: flex;
   gap: 4px;
   margin-left: auto;
+}
+
+/* ---------------------------------------------------------------- weekly recap */
+
+.recap-box {
+  margin-bottom: 22px;
+}
+
+.recap {
+  border-radius: var(--r-ticket);
+  background: var(--coupon);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+.recap .coupon-head {
+  border-radius: 0;
+}
+
+.recap-figures {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.recap-figure {
+  padding: 16px 20px;
+  border-right: 1px dashed var(--line-soft);
+}
+
+.recap-figure:last-child {
+  border-right: 0;
+}
+
+.recap-figure .stat-value {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.recap-figure.streak .icon {
+  width: 22px;
+  height: 22px;
+  color: var(--red);
+}
+
+.recap-sub {
+  margin-top: 4px;
+  color: var(--text-3);
+  font-size: 13px;
+}
+
+.recap-kinds {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 0 20px 16px;
+}
+
+.recap-kind {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border-radius: 14px;
+  background: var(--lavender);
+  color: var(--purple);
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.recap-memories {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 12px 20px 16px;
+  border-top: 1px dashed var(--line-soft);
+  list-style: none;
+}
+
+.recap-memories li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  font-size: 15px;
+}
+
+.recap-memories .icon {
+  color: var(--purple);
+}
+
+.recap-when {
+  font: 700 13px/1 var(--display);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+
+.recap-what {
+  font-weight: 600;
+}
+
+.recap-loved {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--good);
+  font-size: 13px;
+}
+
+.recap-loved .icon {
+  width: 14px;
+  height: 14px;
+  color: var(--good);
+}
+
+.streak-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  padding: 4px 10px;
+  border-radius: 14px;
+  background: var(--red-wash);
+  color: var(--text);
+  font: 700 14px/1 var(--display);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.streak-chip .icon {
+  width: 16px;
+  height: 16px;
+  color: var(--red);
+}
+
+@media (max-width: 860px) {
+  .recap-figures {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 /* ---------------------------------------------------------------- free now and invites */
@@ -3640,5 +3841,85 @@ body[data-view="messages"] .assistant-panel {
   .assistant-panel,
   body[data-view="messages"] .assistant-panel {
     bottom: 8px;
+  }
+}
+
+/* ---------------------------------------------------------------- updates */
+
+.update-notice {
+  position: fixed;
+  left: 24px;
+  bottom: 24px;
+  z-index: 80;
+  display: flex;
+  gap: 12px;
+  max-width: 440px;
+  padding: 16px 18px;
+  border-radius: 10px;
+  background: var(--navy);
+  color: var(--on-navy);
+  box-shadow: var(--shadow);
+  animation: issue 0.3s var(--ease) backwards;
+}
+
+.update-notice > .icon {
+  width: 20px;
+  height: 20px;
+  margin-top: 2px;
+  color: #cdbff0;
+}
+
+.update-text {
+  display: grid;
+  gap: 6px;
+  font-size: 14px;
+}
+
+.update-text strong {
+  font-size: 15px;
+}
+
+.update-text .row {
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.update-notice .btn {
+  white-space: nowrap;
+}
+
+.update-version {
+  align-items: center;
+  gap: 12px;
+}
+
+.update-notice .btn.quiet {
+  color: var(--on-navy);
+}
+
+.update-result:empty {
+  display: none;
+}
+
+@media (max-width: 600px) {
+  .update-notice {
+    left: 16px;
+    right: 16px;
+    max-width: none;
+  }
+}
+
+/* the tab bar is at the bottom: the notice sits above it, left of the assistant bubble */
+@media (max-width: 1100px) {
+  .update-notice {
+    bottom: 84px;
+  }
+}
+
+@media (max-width: 600px) {
+  .update-notice {
+    right: 92px;
   }
 }

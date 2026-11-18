@@ -20,18 +20,648 @@
     "license": "CC BY 2.5",
     "license_url": "https://creativecommons.org/licenses/by/2.5"
   },
-  "badminton": {
-    "title": "File:Fence 12, Badminton Horse Trials - geograph.org.uk - 794809.jpg",
-    "page": "https://commons.wikimedia.org/wiki/File:Fence_12,_Badminton_Horse_Trials_-_geograph.org.uk_-_794809.jpg",
-    "author": "Trish Steel",
-    "license": "CC BY-SA 2.0",
-    "license_url": "https://creativecommons.org/licenses/by-sa/2.0"
-  },
   "origami": {
     "title": "File:Cranes made by Origami paper.jpg",
     "page": "https://commons.wikimedia.org/wiki/File:Cranes_made_by_Origami_paper.jpg",
     "author": "Laitche",
     "license": "Public domain",
     "license_url": ""
+  },
+  "yoga-flow": {
+    "title": "Yoga Pose",
+    "page": "https://www.flickr.com/photos/102904429@N08/16158788524",
+    "author": "goranhas",
+    "license": "CC BY 2.0",
+    "license_url": "https://creativecommons.org/licenses/by/2.0/"
+  },
+  "pushup-ladder": {
+    "title": "push ups",
+    "page": "https://www.flickr.com/photos/8411191@N07/2640812473",
+    "author": "sun dazed",
+    "license": "CC BY-SA 2.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/2.0/"
+  },
+  "core": {
+    "title": "Girl doing plank exercise in a skate park",
+    "page": "https://www.flickr.com/photos/182613284@N02/48441874352",
+    "author": "PTPioneer",
+    "license": "CC BY 2.0",
+    "license_url": "https://creativecommons.org/licenses/by/2.0/"
+  },
+  "jump-rope": {
+    "title": "Womens Fitness Equipment Skipping Rope",
+    "page": "https://www.flickr.com/photos/110671496@N06/17122891210",
+    "author": "Jonathan Rolande",
+    "license": "CC BY 2.0",
+    "license_url": "https://creativecommons.org/licenses/by/2.0/"
+  },
+  "pickup-football": {
+    "title": "Amateur football match",
+    "page": "https://www.flickr.com/photos/94015160@N03/8878950165",
+    "author": "遠望jupiter",
+    "license": "CC BY-SA 2.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/2.0/"
+  },
+  "basketball": {
+    "title": "Basketball hoop",
+    "page": "https://www.flickr.com/photos/93755244@N00/7189993560",
+    "author": "Håkan Dahlström",
+    "license": "CC BY 2.0",
+    "license_url": "https://creativecommons.org/licenses/by/2.0/"
+  },
+  "table-tennis": {
+    "title": "Women's World Cup Table Tennis",
+    "page": "https://www.flickr.com/photos/12780680@N02/2838287018",
+    "author": "cm.yong",
+    "license": "CC BY 2.0",
+    "license_url": "https://creativecommons.org/licenses/by/2.0/"
+  },
+  "swim": {
+    "title": "Swimming Pool Lanes",
+    "page": "https://www.flickr.com/photos/126219266@N06/30083358625",
+    "author": "gliak00",
+    "license": "CC BY-SA 2.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/2.0/"
+  },
+  "skate": {
+    "title": "SkateBoard",
+    "page": "https://www.flickr.com/photos/19111958@N07/3674686528",
+    "author": "TomenoNaoki",
+    "license": "CC BY 2.0",
+    "license_url": "https://creativecommons.org/licenses/by/2.0/"
+  },
+  "hike": {
+    "title": "Backbone Trail",
+    "page": "https://www.flickr.com/photos/38729417@N06/3721529218",
+    "author": "Santa Monica Mountains National Recreation Area",
+    "license": "Public domain",
+    "license_url": "https://creativecommons.org/publicdomain/mark/1.0/"
+  },
+  "rustlings": {
+    "title": "New desk and project",
+    "page": "https://www.flickr.com/photos/85473033@N00/2373519184",
+    "author": "AMagill",
+    "license": "CC BY 2.0",
+    "license_url": "https://creativecommons.org/licenses/by/2.0/"
+  },
+  "advent-of-code": {
+    "title": "Jon Satrom - QTzrk (2011) http://Jonsatrom.com/ & Videogramo - olympic Games (2010) http://www.videogramo.8bitpeoples.com",
+    "page": "https://www.flickr.com/photos/68716054@N00/5486667090",
+    "author": "Rosa Menkman",
+    "license": "CC BY 2.0",
+    "license_url": "https://creativecommons.org/licenses/by/2.0/"
+  },
+  "language-sprint": {
+    "title": "Dictionary - career",
+    "page": "https://www.flickr.com/photos/124247024@N07/14086774111",
+    "author": "flazingo_photos",
+    "license": "CC BY-SA 2.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/2.0/"
+  },
+  "touch-typing": {
+    "title": "computer keyboard",
+    "page": "https://www.flickr.com/photos/141776778@N02/29164807165",
+    "author": "abegum",
+    "license": "CC BY 2.0",
+    "license_url": "https://creativecommons.org/licenses/by/2.0/"
+  },
+  "free-lecture": {
+    "title": "UBA Law school lecture hall",
+    "page": "https://www.flickr.com/photos/24265317@N00/2903467649",
+    "author": "AHLN",
+    "license": "CC BY 2.0",
+    "license_url": "https://creativecommons.org/licenses/by/2.0/"
+  },
+  "juggling": {
+    "title": "Juggling Balls",
+    "page": "https://www.flickr.com/photos/26782864@N00/11913451826",
+    "author": "wwarby",
+    "license": "CC BY 2.0",
+    "license_url": "https://creativecommons.org/licenses/by/2.0/"
+  },
+  "sketch-window": {
+    "title": "sketchbook drawing",
+    "page": "https://www.flickr.com/photos/38911919@N00/8334896941",
+    "author": "deborah's perspective",
+    "license": "CC BY 2.0",
+    "license_url": "https://creativecommons.org/licenses/by/2.0/"
+  },
+  "photo-walk": {
+    "title": "Street Photographer Leaning",
+    "page": "https://www.flickr.com/photos/27506472@N04/15213907569",
+    "author": "Nick Page Photos",
+    "license": "CC BY 2.0",
+    "license_url": "https://creativecommons.org/licenses/by/2.0/"
+  },
+  "tiny-game": {
+    "title": "Hooray for consumer electronics!",
+    "page": "https://www.flickr.com/photos/73508025@N00/115515640",
+    "author": "DoctorButtsMD",
+    "license": "CC BY-SA 2.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/2.0/"
+  },
+  "walk-podcast": {
+    "title": "Path at Kasteel de Wittenburg",
+    "page": "https://www.flickr.com/photos/92082510@N04/22282849871",
+    "author": "*rboed*",
+    "license": "CC BY 2.0",
+    "license_url": "https://creativecommons.org/licenses/by/2.0/"
+  },
+  "power-nap": {
+    "title": "Got Hammock?",
+    "page": "https://www.flickr.com/photos/14771153@N04/7433810112",
+    "author": "slgckgc",
+    "license": "CC BY 2.0",
+    "license_url": "https://creativecommons.org/licenses/by/2.0/"
+  },
+  "breathing": {
+    "title": "From my meditation window 17",
+    "page": "https://www.flickr.com/photos/8315797@N03/1030114969",
+    "author": "Guy Tetreault",
+    "license": "CC BY 2.0",
+    "license_url": "https://creativecommons.org/licenses/by/2.0/"
+  },
+  "read-chapter": {
+    "title": "Reading a book on the street",
+    "page": "https://www.flickr.com/photos/67177481@N07/13855281853",
+    "author": "Monique Broekhuisen",
+    "license": "CC BY 2.0",
+    "license_url": "https://creativecommons.org/licenses/by/2.0/"
+  },
+  "full-album": {
+    "title": "Turntable rig",
+    "page": "https://www.flickr.com/photos/12289718@N00/5776603357",
+    "author": "Schill",
+    "license": "CC BY 2.0",
+    "license_url": "https://creativecommons.org/licenses/by/2.0/"
+  },
+  "reset-room": {
+    "title": "Old Living Room Interior",
+    "page": "https://www.flickr.com/photos/155403590@N07/48230253692",
+    "author": "dejankrsmanovic",
+    "license": "CC BY 2.0",
+    "license_url": "https://creativecommons.org/licenses/by/2.0/"
+  },
+  "stargazing": {
+    "title": "Milky Way - night sky galaxy photography",
+    "page": "https://www.flickr.com/photos/185415957@N05/51368012889",
+    "author": "blues-photography",
+    "license": "Public domain",
+    "license_url": "https://creativecommons.org/publicdomain/mark/1.0/"
+  },
+  "karaoke": {
+    "title": "Karaoke",
+    "page": "https://www.flickr.com/photos/119678691@N02/15023569046",
+    "author": "be creator",
+    "license": "CC BY 2.0",
+    "license_url": "https://creativecommons.org/licenses/by/2.0/"
+  },
+  "invite-over": {
+    "title": "Dinner table",
+    "page": "https://www.flickr.com/photos/82775126@N00/486360327",
+    "author": "gromgull",
+    "license": "CC BY 2.0",
+    "license_url": "https://creativecommons.org/licenses/by/2.0/"
+  },
+  "new-recipe": {
+    "title": "Cooks Kitchen",
+    "page": "https://www.flickr.com/photos/13729869@N04/8725469979",
+    "author": "Kendyl Young",
+    "license": "CC BY 2.0",
+    "license_url": "https://creativecommons.org/licenses/by/2.0/"
+  },
+  "aglio-olio": {
+    "title": "Spaghetti Aglio, Olio e Peperoncino（ペペロンチーノ）",
+    "page": "https://www.flickr.com/photos/50902562@N00/138067687",
+    "author": "kawanet",
+    "license": "CC BY 2.0",
+    "license_url": "https://creativecommons.org/licenses/by/2.0/"
+  },
+  "bake": {
+    "title": "Cookies Baking",
+    "page": "https://www.flickr.com/photos/14771153@N04/3322277271",
+    "author": "slgckgc",
+    "license": "CC BY 2.0",
+    "license_url": "https://creativecommons.org/licenses/by/2.0/"
+  },
+  "cook-off": {
+    "title": "cooking together",
+    "page": "https://www.flickr.com/photos/11921146@N03/4004900258",
+    "author": "Rachel Tayse",
+    "license": "CC BY 2.0",
+    "license_url": "https://creativecommons.org/licenses/by/2.0/"
+  },
+  "new-restaurant": {
+    "title": "Street Food 3",
+    "page": "https://www.flickr.com/photos/52099334@N08/16734314021",
+    "author": "David Guyler",
+    "license": "CC BY 2.0",
+    "license_url": "https://creativecommons.org/licenses/by/2.0/"
+  },
+  "chess-puzzles": {
+    "title": "Chess Board before Sanding",
+    "page": "https://www.flickr.com/photos/16077535@N00/6212511464",
+    "author": "Dan Zen",
+    "license": "CC BY 2.0",
+    "license_url": "https://creativecommons.org/licenses/by/2.0/"
+  },
+  "chess-blitz": {
+    "title": "chess pieces",
+    "page": "https://www.flickr.com/photos/21793854@N02/8588036926",
+    "author": "ºNit Soto",
+    "license": "CC BY-SA 2.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/2.0/"
+  },
+  "map-quiz": {
+    "title": "world map in Arabic",
+    "page": "https://www.flickr.com/photos/15662856@N00/3680459923",
+    "author": "mikel_maron",
+    "license": "CC BY 2.0",
+    "license_url": "https://creativecommons.org/licenses/by/2.0/"
+  },
+  "board-games": {
+    "title": "Game Zone!: Board Game Fun",
+    "page": "https://www.flickr.com/photos/26204872@N08/14444131010",
+    "author": "San José Public Library",
+    "license": "CC BY-SA 2.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/2.0/"
+  },
+  "browser-party": {
+    "title": "friends laugh together",
+    "page": "https://www.flickr.com/photos/35735307@N00/7010137419",
+    "author": "ozmafan",
+    "license": "CC BY 2.0",
+    "license_url": "https://creativecommons.org/licenses/by/2.0/"
+  },
+  "trail-run": {
+    "title": "West Highland Way running",
+    "page": "https://www.flickr.com/photos/28560980@N07/7797831448",
+    "author": "Robin McConnell",
+    "license": "CC BY 2.0",
+    "license_url": "https://creativecommons.org/licenses/by/2.0/"
+  },
+  "pilates": {
+    "title": "Hatha yoga in Japanese @ Semperviva",
+    "page": "https://www.flickr.com/photos/47022937@N03/4440276422",
+    "author": "GoToVan",
+    "license": "CC BY 2.0",
+    "license_url": "https://creativecommons.org/licenses/by/2.0/"
+  },
+  "sunset-walk": {
+    "title": "sunset sea",
+    "page": "https://www.flickr.com/photos/45098669@N06/7761053624",
+    "author": "zbigphotography (1M+ views)",
+    "license": "CC BY-SA 2.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/2.0/"
+  },
+  "sign-language": {
+    "title": "Learning sign language",
+    "page": "https://www.flickr.com/photos/44124370018@N01/4469841629",
+    "author": "daveynin",
+    "license": "CC BY 2.0",
+    "license_url": "https://creativecommons.org/licenses/by/2.0/"
+  },
+  "documentary-notes": {
+    "title": "110413 Documentary film event debuts in Tunisia | مهرجان الفيلم الوثائقي يبدأ فعالياته في تونس | Début d'un festival du film documentaire en Tunisie",
+    "page": "https://www.flickr.com/photos/29324474@N02/5706955395",
+    "author": "Magharebia",
+    "license": "CC BY 2.0",
+    "license_url": "https://creativecommons.org/licenses/by/2.0/"
+  },
+  "learn-a-song": {
+    "title": "This Old Guitar",
+    "page": "https://www.flickr.com/photos/37996646802@N01/4270950372",
+    "author": "cogdogblog",
+    "license": "CC0",
+    "license_url": "https://creativecommons.org/publicdomain/zero/1.0/"
+  },
+  "constellations": {
+    "title": "night sky looking towards Orion",
+    "page": "https://www.flickr.com/photos/99858941@N00/3149039897",
+    "author": "kronerda",
+    "license": "CC BY 2.0",
+    "license_url": "https://creativecommons.org/licenses/by/2.0/"
+  },
+  "repair-something": {
+    "title": "Workbench",
+    "page": "https://www.flickr.com/photos/80522246@N00/2514975647",
+    "author": "1lenore",
+    "license": "CC BY 2.0",
+    "license_url": "https://creativecommons.org/licenses/by/2.0/"
+  },
+  "future-letter": {
+    "title": "Neil Degrasse Tyson's handwritten letter",
+    "page": "https://www.flickr.com/photos/38869431@N00/20180258941",
+    "author": "juhansonin",
+    "license": "CC BY 2.0",
+    "license_url": "https://creativecommons.org/licenses/by/2.0/"
+  },
+  "mini-comic": {
+    "title": "Frank Cho",
+    "page": "https://www.flickr.com/photos/53936799@N05/6983851546",
+    "author": "5of7",
+    "license": "CC BY-SA 2.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/2.0/"
+  },
+  "build-something": {
+    "title": "Inside-out Lego brick",
+    "page": "https://www.flickr.com/photos/17425845@N00/265899784",
+    "author": "oskay",
+    "license": "CC BY 2.0",
+    "license_url": "https://creativecommons.org/licenses/by/2.0/"
+  },
+  "watercolor": {
+    "title": "Splashed watercolor painting",
+    "page": "https://www.flickr.com/photos/38861831@N07/5914617335",
+    "author": "Tucia",
+    "license": "CC BY 2.0",
+    "license_url": "https://creativecommons.org/licenses/by/2.0/"
+  },
+  "windowsill-herbs": {
+    "title": "sage, mint, basil",
+    "page": "https://www.flickr.com/photos/40098061@N00/2542762898",
+    "author": "saragoldsmith",
+    "license": "CC BY 2.0",
+    "license_url": "https://creativecommons.org/licenses/by/2.0/"
+  },
+  "jigsaw": {
+    "title": "Jigsaw Puzzle - Light",
+    "page": "https://www.flickr.com/photos/9294749@N03/3795594507",
+    "author": "Scarygami",
+    "license": "CC BY-SA 2.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/2.0/"
+  },
+  "tea-ritual": {
+    "title": "your best is for using",
+    "page": "https://www.flickr.com/photos/58143970@N00/5549360739",
+    "author": "various brennemans",
+    "license": "CC BY-SA 2.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/2.0/"
+  },
+  "three-good-things": {
+    "title": "Diary and beer",
+    "page": "https://www.flickr.com/photos/11302107@N05/3008143555",
+    "author": "shirokazan",
+    "license": "CC BY 2.0",
+    "license_url": "https://creativecommons.org/licenses/by/2.0/"
+  },
+  "viewpoint": {
+    "title": "Tehran",
+    "page": "https://www.flickr.com/photos/79721788@N00/8753482289",
+    "author": "D-Stanley",
+    "license": "CC BY 2.0",
+    "license_url": "https://creativecommons.org/licenses/by/2.0/"
+  },
+  "family-call": {
+    "title": "Workspace @ Nottingham Flat",
+    "page": "https://www.flickr.com/photos/35339157@N00/5378333486",
+    "author": "David Wellbeloved",
+    "license": "CC BY 2.0",
+    "license_url": "https://creativecommons.org/licenses/by/2.0/"
+  },
+  "mini-tournament": {
+    "title": "Supporting Soccer Aid: Ghanaian children playing table football",
+    "page": "https://www.flickr.com/photos/14214150@N02/7267148732",
+    "author": "DFID - UK Department for International Development",
+    "license": "CC BY-SA 2.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/2.0/"
+  },
+  "petanque": {
+    "title": "Week end en Sologne",
+    "page": "https://www.flickr.com/photos/11605977@N04/8004075219",
+    "author": "DenisDenis",
+    "license": "CC BY 2.0",
+    "license_url": "https://creativecommons.org/licenses/by/2.0/"
+  },
+  "homemade-pizza": {
+    "title": "Homemade Pizza",
+    "page": "https://www.flickr.com/photos/13907834@N00/4513041272",
+    "author": "MSVG",
+    "license": "CC BY 2.0",
+    "license_url": "https://creativecommons.org/licenses/by/2.0/"
+  },
+  "three-ingredient-dessert": {
+    "title": "Chocolate Mousse with sponge and ganache icing - Ganache Chocolate",
+    "page": "https://www.flickr.com/photos/10559879@N00/2369828523",
+    "author": "avlxyz",
+    "license": "CC BY-SA 2.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/2.0/"
+  },
+  "meal-prep": {
+    "title": "Meal prep container",
+    "page": "https://www.flickr.com/photos/155807330@N05/44260855980",
+    "author": "ella.o",
+    "license": "CC BY 2.0",
+    "license_url": "https://creativecommons.org/licenses/by/2.0/"
+  },
+  "lemonade": {
+    "title": "Water and Lemonade Pitchers",
+    "page": "https://www.flickr.com/photos/72362970@N00/89054355",
+    "author": "Waldo Jaquith",
+    "license": "CC BY-SA 2.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/2.0/"
+  },
+  "pancake-dinner": {
+    "title": "Pancake Stack",
+    "page": "https://www.flickr.com/photos/30216515@N05/9643549915",
+    "author": "LeonardKong",
+    "license": "CC BY 2.0",
+    "license_url": "https://creativecommons.org/licenses/by/2.0/"
+  },
+  "speedrun-level": {
+    "title": "game controller: ps2 pad",
+    "page": "https://www.flickr.com/photos/20056291@N00/2521665297",
+    "author": "nicolasnova",
+    "license": "CC BY 2.0",
+    "license_url": "https://creativecommons.org/licenses/by/2.0/"
+  },
+  "new-free-game": {
+    "title": "Forget-Me-Not for Mac",
+    "page": "https://www.flickr.com/photos/35448539@N00/6090745896",
+    "author": "blakespot",
+    "license": "CC BY 2.0",
+    "license_url": "https://creativecommons.org/licenses/by/2.0/"
+  },
+  "finish-abandoned-game": {
+    "title": "Hero of the guitar",
+    "page": "https://www.flickr.com/photos/26406919@N00/487812367",
+    "author": "Unhindered by Talent",
+    "license": "CC BY-SA 2.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/2.0/"
+  },
+  "hiit-home": {
+    "title": "Kandahar Crossfit ANZAC Day",
+    "page": "https://www.flickr.com/photos/78025572@N04/6978020210",
+    "author": "Crossfit Kandahar",
+    "license": "CC BY-SA 2.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/2.0/"
+  },
+  "mobility": {
+    "title": "Stretching",
+    "page": "https://www.flickr.com/photos/78428166@N00/4018987877",
+    "author": "Tobyotter",
+    "license": "CC BY 2.0",
+    "license_url": "https://creativecommons.org/licenses/by/2.0/"
+  },
+  "dance-workout": {
+    "title": "The Big Lunch held on Vicarage Road in Croydon. A bucking bronco, bouncy castle, zumba class, Irish Dancers and a steel band, 1st June 2014..Andrea Wallace (white vest top) during the zumba lesson..Photography by Fergus Burnett..Acredditation required wit",
+    "page": "https://www.flickr.com/photos/37414462@N07/14377200349",
+    "author": "The Big Lunch",
+    "license": "CC BY-SA 2.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/2.0/"
+  },
+  "calisthenics-park": {
+    "title": "Nueva instalación para la práctica del Street Workout",
+    "page": "https://www.flickr.com/photos/93327322@N03/28294047784",
+    "author": "AytoRoquetasdeMar",
+    "license": "Public domain",
+    "license_url": "https://creativecommons.org/publicdomain/mark/1.0/"
+  },
+  "badminton": {
+    "title": "Glasgow 2014 - Badminton (3)",
+    "page": "https://www.flickr.com/photos/57511216@N04/14756650651",
+    "author": "daniel0685",
+    "license": "CC BY 2.0",
+    "license_url": "https://creativecommons.org/licenses/by/2.0/"
+  },
+  "frisbee": {
+    "title": "Ultimate frisbee woman's team practicing in banff",
+    "page": "https://www.flickr.com/photos/8950560@N08/2045393329",
+    "author": "jon_a_ross",
+    "license": "CC BY 2.0",
+    "license_url": "https://creativecommons.org/licenses/by/2.0/"
+  },
+  "bouldering": {
+    "title": "Trento Climbing Gym",
+    "page": "https://www.flickr.com/photos/84292292@N00/10208589645",
+    "author": "Aleksandr Zykov",
+    "license": "CC BY-SA 2.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/2.0/"
+  },
+  "wikipedia-random": {
+    "title": "austinapt3",
+    "page": "https://www.flickr.com/photos/22201094@N08/2507655672",
+    "author": "ecooper99",
+    "license": "CC BY 2.0",
+    "license_url": "https://creativecommons.org/licenses/by/2.0/"
+  },
+  "card-trick": {
+    "title": "Untitled",
+    "page": "https://www.flickr.com/photos/27237408@N03/4530227761",
+    "author": "JiahuiH",
+    "license": "CC BY-SA 2.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/2.0/"
+  },
+  "make-a-beat": {
+    "title": "iRig Keys vs Line 6 Mobile Keys 49",
+    "page": "https://www.flickr.com/photos/30329962@N08/9484085181",
+    "author": "Mark Turnauckas",
+    "license": "CC BY 2.0",
+    "license_url": "https://creativecommons.org/licenses/by/2.0/"
+  },
+  "pixel-art": {
+    "title": "Me?",
+    "page": "https://www.flickr.com/photos/70857039@N00/101064822",
+    "author": "Sklathill",
+    "license": "CC BY-SA 2.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/2.0/"
+  },
+  "micro-story": {
+    "title": "The First Draft",
+    "page": "https://www.flickr.com/photos/24364103@N04/2692469539",
+    "author": "mpclemens",
+    "license": "CC BY 2.0",
+    "license_url": "https://creativecommons.org/licenses/by/2.0/"
+  },
+  "call-friend": {
+    "title": "Vintage Classic Car Boot Sale 2013 - 24",
+    "page": "https://www.flickr.com/photos/8176740@N05/10980454116",
+    "author": "garryknight",
+    "license": "CC BY 2.0",
+    "license_url": "https://creativecommons.org/licenses/by/2.0/"
+  },
+  "picnic": {
+    "title": "Picnic Blanket Lounging",
+    "page": "https://www.flickr.com/photos/42395711@N06/9492661712",
+    "author": "Ashley MacKinnon",
+    "license": "CC BY 2.0",
+    "license_url": "https://creativecommons.org/licenses/by/2.0/"
+  },
+  "volunteer": {
+    "title": "Ocracoke Beach Access volunteer cleanup 09-18-2021",
+    "page": "https://www.flickr.com/photos/106602675@N05/51759287778",
+    "author": "CapeHatterasNPS",
+    "license": "Public domain",
+    "license_url": "https://creativecommons.org/publicdomain/mark/1.0/"
+  },
+  "smoothie": {
+    "title": "City Java smoothies",
+    "page": "https://www.flickr.com/photos/49978063@N00/5476581237",
+    "author": "khawkins04",
+    "license": "CC BY 2.0",
+    "license_url": "https://creativecommons.org/licenses/by/2.0/"
+  },
+  "stairs-workout": {
+    "title": "Step up",
+    "page": "https://www.flickr.com/photos/53662163@N06/13605843914",
+    "author": "Georgie Pauwels",
+    "license": "CC BY 2.0",
+    "license_url": "https://creativecommons.org/licenses/by/2.0/"
+  },
+  "paddle": {
+    "title": "Kayaking in Copenhagen, Denmark / Kajak i Københavns havn, Danmark",
+    "page": "https://www.flickr.com/photos/126744325@N07/29283551075",
+    "author": "Kristoffer Trolle",
+    "license": "CC BY 2.0",
+    "license_url": "https://creativecommons.org/licenses/by/2.0/"
+  },
+  "video-diary": {
+    "title": "Shooting Scene Points",
+    "page": "https://www.flickr.com/photos/62999165@N00/2282306367",
+    "author": "Seth W.",
+    "license": "CC BY-SA 2.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/2.0/"
+  },
+  "long-bath": {
+    "title": "'Bubble Bath' Pink Punch",
+    "page": "https://www.flickr.com/photos/27346873@N04/7688669856",
+    "author": "Javcon117*",
+    "license": "CC BY-SA 2.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/2.0/"
+  },
+  "detox-hour": {
+    "title": "Woman yawning while reading a book on an armchair.",
+    "page": "https://www.flickr.com/photos/202846129@N03/54597677155",
+    "author": "nenadstojkovicart",
+    "license": "CC BY 2.0",
+    "license_url": "https://creativecommons.org/licenses/by/2.0/"
+  },
+  "market-together": {
+    "title": "LA Farmers Market",
+    "page": "https://www.flickr.com/photos/34128007@N04/4137354522",
+    "author": "Prayitno / Thank you for (12 millions +) view",
+    "license": "CC BY 2.0",
+    "license_url": "https://creativecommons.org/licenses/by/2.0/"
+  },
+  "kind-messages": {
+    "title": "Messaging on smartphone",
+    "page": "https://www.flickr.com/photos/135371437@N04/22389367255",
+    "author": "StockyPics",
+    "license": "CC0",
+    "license_url": "https://creativecommons.org/publicdomain/zero/1.0/"
+  },
+  "themed-movie-night": {
+    "title": "movie night",
+    "page": "https://www.flickr.com/photos/78011127@N00/4300623468",
+    "author": "ginnerobot",
+    "license": "CC BY-SA 2.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/2.0/"
+  },
+  "daily-puzzle": {
+    "title": "22 Jan",
+    "page": "https://www.flickr.com/photos/16034871@N05/5377729545",
+    "author": "gkdavie",
+    "license": "CC BY 2.0",
+    "license_url": "https://creativecommons.org/licenses/by/2.0/"
   }
 }
