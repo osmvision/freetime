@@ -7,6 +7,7 @@ import * as historyView from './history.js';
 import * as messagesView from './messages.js';
 import { avatar } from './avatars.js';
 import { runWelcome } from './welcome.js';
+import { startI18n } from './i18n.js';
 import * as settingsView from './settings.js';
 
 const views = {
@@ -159,6 +160,7 @@ window.addEventListener('error', (e) => toast(`Something broke: ${e.message}`, '
 window.addEventListener('unhandledrejection', (e) => toast(errText(e.reason), 'error', 6000));
 
 async function start() {
+  startI18n();
   hydrateIcons();
   if (!inTauri) {
     views.discover.append(

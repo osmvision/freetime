@@ -5,6 +5,7 @@ import { api } from './api.js';
 import { cityPicker, openMeteoCredit } from './city.js';
 import { emptyState, errText, h, icon, pageHead, toast } from './dom.js';
 import { photoCredits } from './photos.js';
+import { preferredLang, setLang } from './i18n.js';
 
 const INTEREST_IDEAS = [
   'speedrunning',
@@ -85,6 +86,7 @@ function draw(root, ctx, s) {
         interestsSection(form),
         steamSection(s, form, ctx, root),
         youtubeSection(s, form),
+        languageSection(),
         dataSection(s),
         creditsSection(),
       ),
@@ -299,6 +301,29 @@ function youtubeSection(s, form) {
       'Channels you follow (no key needed)',
       tagInput(form.channels, 'Channel ID (starts with UC…), press Enter'),
       'On a channel page: About → Share channel → Copy channel ID.',
+    ),
+  );
+}
+
+/** Automatic (follows Windows), English or French. Changing it reloads the window. */
+function languageSection() {
+  const current = preferredLang();
+  const choices = [
+    ['auto', 'Automatic'],
+    ['en', 'English'],
+    ['fr', 'Français'],
+  ];
+  return section(
+    'graduation-cap',
+    'Language',
+    'The app’s language. “Automatic” follows Windows.',
+    null,
+    h(
+      'div',
+      { class: 'row', role: 'group', 'aria-label': 'Language' },
+      choices.map(([id, label]) =>
+        h('button', { type: 'button', class: 'btn small', 'aria-pressed': String(current === id), onclick: () => { if (id !== current) setLang(id); } }, label),
+      ),
     ),
   );
 }
