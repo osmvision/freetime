@@ -162,6 +162,7 @@ h1 { font-size: clamp(56px, 10vw, 128px); font-weight: 800; display: grid; }
 .lead { max-width: 640px; font-size: clamp(18px, 2.2vw, 21px); color: var(--text-2); }
 .cta-row { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; margin-top: 6px; }
 .meta { font: 400 14px/1.4 var(--figures); color: var(--text-3); letter-spacing: 0.04em; }
+.meta a, details p a { color: inherit; text-underline-offset: 3px; }
 
 .shot-wrap { position: relative; margin-top: 56px; }
 .window {
@@ -352,6 +353,8 @@ details p { padding: 0 0 24px; color: var(--text-2); max-width: 62ch; }
 .doc table { width: 100%; border-collapse: collapse; margin: 18px 0; font-size: 16px; display: block; overflow-x: auto; }
 .doc th, .doc td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
 .doc th { font: 700 15px/1.2 var(--display); letter-spacing: 0.06em; text-transform: uppercase; color: var(--text); }
+.doc blockquote { margin: 22px 0; padding: 14px 18px; background: var(--lavender); border-left: 4px solid var(--purple); border-radius: 0 8px 8px 0; }
+.doc blockquote p { color: var(--text); }
 .doc .back { display: inline-block; margin-bottom: 28px; font: 700 14px/1 var(--figures); letter-spacing: 0.12em; text-transform: uppercase; color: var(--red); text-decoration: none; }
 .credit-list { list-style: none; padding: 0 !important; columns: 2 320px; column-gap: 40px; }
 .credit-list li { break-inside: avoid; padding: 8px 0; border-bottom: 1px solid var(--line); font-size: 15px; }

@@ -81,6 +81,12 @@ def privacy_html() -> str:
     return page("Privacy policy · freetime", body, "How freetime handles your data: what stays on your PC, what the optional online profile stores, and your rights.")
 
 
+def code_signing_html() -> str:
+    md = (ROOT / "docs" / "code-signing.md").read_text(encoding="utf-8")
+    body = markdown.markdown(md, extensions=["tables"])
+    return page("Code signing policy · freetime", body, "How freetime's Windows installers are built, signed and approved, who can release them, and the privacy policy.")
+
+
 def credits_html() -> str:
     credits = json.loads((UI / "img" / "ideas" / "credits.json").read_text(encoding="utf-8"))
     items = []
@@ -113,6 +119,7 @@ def main() -> None:
     (OUT / "index.html").write_text(index, encoding="utf-8")
     (OUT / "privacy.html").write_text(privacy_html(), encoding="utf-8")
     (OUT / "credits.html").write_text(credits_html(), encoding="utf-8")
+    (OUT / "code-signing.html").write_text(code_signing_html(), encoding="utf-8")
     (OUT / ".nojekyll").write_text("")
     print(f"built {OUT}")
 

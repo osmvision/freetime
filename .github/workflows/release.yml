@@ -49,5 +49,8 @@ jobs:
           projectPath: desktop
           tagName: ${{ github.ref_name }}
           releaseName: freetime ${{ github.ref_name }}
-          releaseBody: See the changes below. The app offers this update by itself once the release is published.
+          releaseBody: |
+            Write what changed here before publishing. The app offers this update by itself once the release is published.
+
+            Code signing policy: https://osmvision.github.io/freetime/code-signing.html
           releaseDraft: true # latest.json is uploaded too (uploadUpdaterJson defaults to true)

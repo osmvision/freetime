@@ -9,6 +9,7 @@ on:
     paths:
       - 'site/**'
       - 'docs/privacy.md'
+      - 'docs/code-signing.md'
       - 'core/data/activities.toml'
       - 'desktop/ui/img/ideas/**'
       - 'desktop/ui/js/i18n-fr.js'
