@@ -43,10 +43,14 @@ function draw(root, ctx, s) {
   };
   const save = h('button', { class: 'btn primary', type: 'submit' }, 'Save changes');
 
+  let cityBox = null;
+
   async function submit() {
     save.disabled = true;
     save.textContent = 'Saving…';
     try {
+      // A city typed but not picked from the list: take the best match first, one write at a time.
+      await cityBox?.resolve();
       const report = await api.saveSettings(form);
       for (const m of report.messages) toast(m.text, m.ok ? 'ok' : 'error', 4500);
       ctx.settingsSaved?.();
@@ -72,7 +76,7 @@ function draw(root, ctx, s) {
       h(
         'div',
         { class: 'settings' },
-        locationSection(s, ctx, root),
+        locationSection(s, ctx, root, (box) => (cityBox = box)),
         interestsSection(form),
         steamSection(s, form, ctx, root),
         youtubeSection(s, form),
@@ -86,7 +90,7 @@ function draw(root, ctx, s) {
 
 // ---------------------------------------------------------------- sections
 
-function locationSection(s, ctx, root) {
+function locationSection(s, ctx, root, keep) {
   const apply = async (place) => {
     try {
       const settings = await api.setCity(place);
@@ -105,11 +109,16 @@ function locationSection(s, ctx, root) {
     'Location',
     'Your city is only used to check the weather, so outdoor ideas rank high when it’s nice out.',
     pill(Boolean(s.city), s.city ?? 'Not set'),
-    labeled(s.city ? 'Change city' : 'City', cityPicker({ onPick: apply, placeholder: 'e.g. Lyon, Montréal, Tokyo' })),
+    labeled(s.city ? 'Change city' : 'City', keepBox(cityPicker({ onPick: apply, placeholder: 'e.g. Lyon, Montréal, Tokyo' }), keep)),
     s.city ? h('div', {}, h('button', { type: 'button', class: 'btn small', onclick: () => apply(null) }, 'Remove city')) : null,
     h('span', { class: 'hint' }, region),
     openMeteoCredit(),
   );
+}
+
+function keepBox(box, keep) {
+  keep(box);
+  return box;
 }
 
 function interestsSection(form) {

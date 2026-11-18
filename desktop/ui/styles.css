@@ -1234,6 +1234,25 @@ button.tag:hover {
   background: var(--lavender);
 }
 
+.city-field {
+  position: relative;
+}
+
+.city-status {
+  margin-top: 6px;
+  color: var(--text-3);
+  font-size: 13px;
+}
+
+.city-status:empty {
+  display: none;
+}
+
+.city-status.warn {
+  color: var(--navy);
+  font-weight: 600;
+}
+
 .attribution {
   color: var(--text-3);
   font-size: 13px;

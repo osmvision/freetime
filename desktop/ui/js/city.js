@@ -1,9 +1,13 @@
 // City search with autocomplete (Open-Meteo geocoding). Searches only while the user types.
 
 import { api } from './api.js';
-import { h } from './dom.js';
+import { errText, h } from './dom.js';
 
-/** An input with a suggestion list. `onPick(place)` runs when a city is chosen. */
+/**
+ * An input with a suggestion list. `onPick(place)` runs when a city is chosen: by clicking a
+ * suggestion, by Enter (best match), or through `box.resolve()` when the surrounding form is
+ * saved with a typed but unpicked city.
+ */
 export function cityPicker({ onPick, placeholder = 'Search your city', label = 'City' }) {
   const input = h('input', {
     class: 'input',
@@ -17,20 +21,28 @@ export function cityPicker({ onPick, placeholder = 'Search your city', label = '
     'aria-autocomplete': 'list',
   });
   const list = h('div', { class: 'city-results', role: 'listbox', hidden: true });
+  const status = h('div', { class: 'city-status', 'aria-live': 'polite' });
   let timer = null;
   let seq = 0;
   let results = [];
   let active = -1;
+  let picked = false;
 
+  const say = (text, kind = '') => {
+    status.textContent = text;
+    status.className = kind ? `city-status ${kind}` : 'city-status';
+  };
   const close = () => {
     list.hidden = true;
     input.setAttribute('aria-expanded', 'false');
     active = -1;
   };
   const choose = (place) => {
+    picked = true;
     input.value = place.name;
     close();
-    onPick(place);
+    say('');
+    return onPick(place);
   };
   const render = () => {
     list.replaceChildren(
@@ -57,33 +69,43 @@ export function cityPicker({ onPick, placeholder = 'Search your city', label = '
     input.setAttribute('aria-expanded', String(!list.hidden));
   };
 
+  async function search(query) {
+    const mine = ++seq;
+    say('Searching…');
+    try {
+      const found = await api.searchCities(query);
+      if (mine !== seq) return null;
+      results = Array.isArray(found) ? found : [];
+      say(results.length ? 'Pick your city in the list, or press Enter for the first one.' : `No city called “${query}”. Check the spelling?`, results.length ? '' : 'warn');
+    } catch (e) {
+      if (mine !== seq) return null;
+      results = [];
+      say(`Couldn’t reach the city search: ${errText(e)}`, 'warn');
+    }
+    active = -1;
+    render();
+    return results;
+  }
+
   input.addEventListener('input', () => {
+    picked = false;
     clearTimeout(timer);
     const query = input.value.trim();
     if (query.length < 2) {
+      seq++;
       results = [];
       render();
+      say(query ? 'Keep typing…' : '');
       return;
     }
-    timer = setTimeout(async () => {
-      const mine = ++seq;
-      try {
-        const found = await api.searchCities(query);
-        if (mine !== seq) return;
-        results = found;
-      } catch {
-        if (mine !== seq) return;
-        results = [];
-      }
-      active = -1;
-      render();
-    }, 250);
+    timer = setTimeout(() => search(query), 250);
   });
   input.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') {
       // Never submit the surrounding form from here.
       e.preventDefault();
       if (results.length) choose(results[Math.max(active, 0)]);
+      else resolve();
     } else if (list.hidden) {
       return;
     } else if (e.key === 'ArrowDown') {
@@ -100,9 +122,24 @@ export function cityPicker({ onPick, placeholder = 'Search your city', label = '
     }
   });
   input.addEventListener('blur', () => setTimeout(close, 120));
+  input.addEventListener('focus', () => {
+    if (!picked && results.length) render();
+  });
 
-  const box = h('div', { class: 'city-picker' }, input, list);
+  /** A city was typed but not picked: take the best match. Resolves to the place, or null. */
+  async function resolve() {
+    const query = input.value.trim();
+    if (picked || query.length < 2) return null;
+    clearTimeout(timer);
+    const found = await search(query);
+    if (!found?.length) return null;
+    await choose(found[0]);
+    return found[0];
+  }
+
+  const box = h('div', { class: 'city-picker' }, h('div', { class: 'city-field' }, input, list), status);
   box.focusInput = () => input.focus();
+  box.resolve = resolve;
   return box;
 }
 
