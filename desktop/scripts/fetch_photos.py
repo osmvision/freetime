@@ -1,5 +1,5 @@
-"""Fetches one free-license photo per built-in idea from Wikimedia Commons ("Quality images"),
-resizes it for the app, and records its credit.
+"""Fetches one free-license photo per built-in idea (Openverse: CC BY, CC BY-SA, CC0 or public
+domain photos from Flickr; Wikimedia Commons for pinned files), resizes it for the app, records its credit.
 
     python scripts/fetch_photos.py            # fetch missing photos
     python scripts/fetch_photos.py --sheet    # also build a contact sheet to review them
@@ -34,36 +34,36 @@ FREE = ("cc0", "cc by", "cc-by", "public domain", "pd")
 QUERIES = {
     "run-5k": "jogging park runner",
     "bike-explore": "cycling country road bicycle",
-    "hiit-home": "push-up exercise",
+    "hiit-home": "burpees workout",
     "yoga-flow": "yoga pose",
-    "mobility": "stretching exercise",
+    "mobility": "stretching woman",
     "pushup-ladder": "push-up",
     "core": "plank exercise",
     "shadowboxing": "boxing gloves",
-    "dance-workout": "dancing people",
+    "dance-workout": "zumba class",
     "jump-rope": "skipping rope",
-    "calisthenics-park": "outdoor gym pull-up",
+    "calisthenics-park": "street workout",
     "pickup-football": "amateur football match",
     "basketball": "basketball hoop",
-    "badminton": "badminton",
-    "frisbee": "frisbee",
+    "badminton": "badminton player racket",
+    "frisbee": "ultimate frisbee",
     "table-tennis": "table tennis",
     "swim": "swimming pool lanes",
-    "bouldering": "bouldering",
+    "bouldering": "climbing gym",
     "skate": "skateboarding",
     "hike": "hiking trail mountains",
     "rustlings": "laptop programming",
     "advent-of-code": "computer code screen",
     "language-sprint": "dictionary",
     "touch-typing": "computer keyboard",
-    "wikipedia-random": "library bookshelves",
+    "wikipedia-random": "library books shelves",
     "free-lecture": "lecture hall",
     "juggling": "juggling",
-    "card-trick": "playing cards",
+    "card-trick": "playing cards hand",
     "sketch-window": "sketchbook drawing",
-    "make-a-beat": "synthesizer",
-    "pixel-art": "pixel art",
-    "micro-story": "typewriter",
+    "make-a-beat": "synthesizer keyboard",
+    "pixel-art": "pixel art sprite",
+    "micro-story": "typewriter writing",
     "photo-walk": "street photographer camera",
     "tiny-game": "video game controller",
     "origami": "origami crane",
@@ -74,15 +74,15 @@ QUERIES = {
     "full-album": "vinyl record turntable",
     "reset-room": "living room interior",
     "stargazing": "milky way night sky",
-    "call-friend": "smartphone",
-    "picnic": "picnic",
+    "call-friend": "phone call smiling",
+    "picnic": "picnic blanket park",
     "karaoke": "karaoke",
-    "volunteer": "volunteers",
+    "volunteer": "volunteers cleanup",
     "invite-over": "friends dinner table",
     "new-recipe": "cooking kitchen",
     "aglio-olio": "spaghetti",
     "bake": "cookies baking",
-    "smoothie": "smoothie",
+    "smoothie": "fruit smoothie glass",
     "cook-off": "cooking together",
     "new-restaurant": "street food",
     "chess-puzzles": "chess board",
@@ -90,10 +90,10 @@ QUERIES = {
     "map-quiz": "world map",
     "board-games": "board game",
     "browser-party": "friends laughing",
-    "stairs-workout": "stairs city",
+    "stairs-workout": "running stairs",
     "trail-run": "trail running mountains",
     "pilates": "pilates mat",
-    "paddle": "kayak sea",
+    "paddle": "kayaking",
     "sunset-walk": "sunset sea",
     "sign-language": "sign language",
     "documentary-notes": "documentary film",
@@ -103,21 +103,21 @@ QUERIES = {
     "future-letter": "handwritten letter",
     "mini-comic": "comic strip drawing",
     "build-something": "lego bricks",
-    "video-diary": "smartphone video recording",
+    "video-diary": "vlogging camera",
     "watercolor": "watercolor painting",
     "windowsill-herbs": "herbs pot windowsill",
-    "long-bath": "bathtub relaxing",
+    "long-bath": "bubble bath",
     "jigsaw": "jigsaw puzzle",
     "tea-ritual": "tea cup teapot",
     "three-good-things": "notebook journal pen",
-    "detox-hour": "reading book window",
+    "detox-hour": "reading book armchair",
     "viewpoint": "city viewpoint panorama",
     "family-call": "video call laptop",
     "mini-tournament": "table football",
-    "market-together": "outdoor market stalls",
+    "market-together": "farmers market",
     "petanque": "petanque boules",
-    "kind-messages": "smartphone message",
-    "themed-movie-night": "home cinema popcorn",
+    "kind-messages": "texting smartphone",
+    "themed-movie-night": "popcorn movie night",
     "homemade-pizza": "homemade pizza",
     "three-ingredient-dessert": "chocolate mousse",
     "meal-prep": "meal prep containers",
@@ -125,11 +125,29 @@ QUERIES = {
     "pancake-dinner": "pancakes stack",
     "speedrun-level": "game controller",
     "new-free-game": "pc gaming setup",
-    "daily-puzzle": "crossword puzzle",
+    "daily-puzzle": "crossword newspaper",
     "finish-abandoned-game": "video game screen",
 }
 
-PINNED: dict[str, str] = {}
+PINNED: dict[str, str] = {}  # idea -> "File:Name.jpg" on Wikimedia Commons
+OVERRIDE_INDEX: dict[str, int] = {  # idea -> which search result to take when the first one is off
+    "mobility": 3,
+    "frisbee": 2,
+    "card-trick": 4,
+    "make-a-beat": 7,
+    "video-diary": 1,
+    "detox-hour": 5,
+    "daily-puzzle": 4,
+    "wikipedia-random": 3,
+    "micro-story": 6,
+    "stairs-workout": 1,
+    "paddle": 1,
+    "kind-messages": 5,
+    "market-together": 7,
+    "long-bath": 6,
+    "bouldering": 4,
+    "calisthenics-park": 6,
+}
 
 
 def get(url: str) -> bytes:
@@ -164,6 +182,34 @@ def search(query: str, quality: bool) -> list[dict]:
     return pages
 
 
+OPENVERSE = "https://api.openverse.org/v1/images/"
+LICENSE_NAMES = {"by": "CC BY", "by-sa": "CC BY-SA", "cc0": "CC0", "pdm": "Public domain"}
+
+
+def openverse(query: str) -> list[dict]:
+    """Openverse (openly licensed images, here from Flickr): free, no key, 200 searches a day.
+    Returns choices in the same shape as usable(); NC and ND licenses are never requested."""
+    params = {"q": query, "license": "by,by-sa,cc0,pdm", "aspect_ratio": "wide", "source": "flickr",
+              "mature": "false", "page_size": "8"}
+    data = json.loads(get(OPENVERSE + "?" + urllib.parse.urlencode(params)))
+    out = []
+    for r in data.get("results", []):
+        url = r.get("url") or ""
+        if not url.startswith("https://") or (r.get("width") or 0) < 800:
+            continue
+        version = r.get("license_version") or ""
+        name = LICENSE_NAMES.get(r.get("license"), (r.get("license") or "").upper())
+        out.append({
+            "title": r.get("title") or "Untitled",
+            "thumb": url,
+            "page": r.get("foreign_landing_url") or "",
+            "author": (r.get("creator") or "Unknown").strip(),
+            "license": f"{name} {version}".strip() if r.get("license") not in ("cc0", "pdm") else name,
+            "license_url": r.get("license_url") or "",
+        })
+    return out
+
+
 def pinned(title: str) -> list[dict]:
     params = {"action": "query", "format": "json", "titles": title, "prop": "imageinfo",
               "iiprop": "url|size|extmetadata", "iiurlwidth": str(WIDTH)}
@@ -179,13 +225,14 @@ def usable(page: dict) -> dict | None:
     w, h = info.get("width", 0), info.get("height", 0)
     if not w or not h or w < h * 1.15:  # landscape only
         return None
-    if not info.get("url") or info.get("size", 0) > 15_000_000:
+    # Commons' own 960px thumbnail: small and fast. The original (resized here) only as a
+    # fallback, and only when it isn't huge.
+    thumb = info.get("thumburl") or (info.get("url") if info.get("size", 0) <= 15_000_000 else None)
+    if not thumb:
         return None
     return {
         "title": page["title"],
-        # The original file: a static download. Asking Commons to render thumbnails gets
-        # rate-limited quickly, so the resize happens here instead.
-        "thumb": info["url"],
+        "thumb": thumb,
         "page": info.get("descriptionurl"),
         "author": strip_html(meta.get("Artist", {}).get("value", "")) or "Unknown",
         "license": license_name,
@@ -194,6 +241,7 @@ def usable(page: dict) -> dict | None:
 
 
 def main() -> None:
+    sys.stdout.reconfigure(encoding="utf-8")  # photo titles in any language, even on a Windows console
     OUT.mkdir(parents=True, exist_ok=True)
     credits_path = OUT / "credits.json"
     credits = json.loads(credits_path.read_text(encoding="utf-8")) if credits_path.exists() else {}
@@ -203,37 +251,65 @@ def main() -> None:
             continue
         try:
             fetch_one(idea, query, target, credits, credits_path)
-        except urllib.error.HTTPError as e:
-            print(f"!! {idea}: skipped ({e.code}), run again later", flush=True)
-        time.sleep(20)
+        except (urllib.error.URLError, OSError) as e:
+            print(f"!! {idea}: skipped ({e}), run again later", flush=True)
+        time.sleep(4)  # Openverse allows 20 searches a minute
 
+    if "--restamp" in sys.argv:
+        restamp(credits)
     if "--sheet" in sys.argv:
         contact_sheet()
 
 
+def origin_note(c: dict) -> str:
+    """The provenance note embedded in each JPEG (a COM segment)."""
+    return (f"Sourced stock photo, not generated. Origin: {c['title']} ({c['page']}), by {c['author']}, "
+            f"license {c['license']}. Resized to {WIDTH}px by desktop/scripts/fetch_photos.py.")
+
+
 def fetch_one(idea: str, query: str, target: Path, credits: dict, credits_path: Path) -> None:
-    choice = None
-    sources = [lambda: pinned(PINNED[idea])] if idea in PINNED else [lambda: search(query, True), lambda: search(query, False)]
-    for source in sources:
-        for page in source():
-            choice = usable(page)
-            if choice:
-                break
-        if choice:
+    if idea in PINNED:
+        choices = [c for c in map(usable, pinned(PINNED[idea])) if c]
+    else:
+        choices = openverse(query)
+        if not choices and "--commons" in sys.argv:
+            choices = [c for c in map(usable, search(query, True) + search(query, False)) if c]
+    img = None
+    for choice in choices[OVERRIDE_INDEX.get(idea, 0):]:
+        try:
+            img = Image.open(io.BytesIO(get(choice["thumb"])))
             break
-    if not choice:
+        except (urllib.error.HTTPError, OSError) as e:  # a photo taken down since: try the next one
+            print(f"   {idea}: {choice['thumb']} failed ({e}), trying the next result", flush=True)
+    if img is None:
         print(f"!! {idea}: nothing usable for '{query}'", flush=True)
         return
-    img = Image.open(io.BytesIO(get(choice["thumb"])))
     img.draft("RGB", (WIDTH * 2, WIDTH * 2))  # fast JPEG downscale on decode
     img = img.convert("RGB")
     img.thumbnail((WIDTH, WIDTH), Image.LANCZOS)
-    origin = (f"Sourced stock photo, not generated. Origin: Wikimedia Commons, {choice['title']} ({choice['page']}), "
-              f"by {choice['author']}, license {choice['license']}. Resized to {WIDTH}px by desktop/scripts/fetch_photos.py.")
-    img.save(target, "JPEG", quality=78, optimize=True, progressive=True, comment=origin.encode("utf-8"))
+    img.save(target, "JPEG", quality=78, optimize=True, progressive=True, comment=origin_note(choice).encode("utf-8"))
     credits[idea] = {k: choice[k] for k in ("title", "page", "author", "license", "license_url")}
     print(f"ok {idea}: {choice['title']} ({choice['license']})", flush=True)
     credits_path.write_text(json.dumps(credits, indent=2, ensure_ascii=False), encoding="utf-8")
+
+
+def restamp(credits: dict) -> None:
+    """Rewrites the provenance note of every photo from credits.json, without re-encoding it."""
+    for idea, c in credits.items():
+        path = OUT / f"{idea}.jpg"
+        if not path.exists():
+            continue
+        data = path.read_bytes()
+        note = origin_note(c).encode("utf-8")
+        com = b"\xff\xfe" + (len(note) + 2).to_bytes(2, "big") + note
+        i, out = 2, bytearray(data[:2])  # FFD8
+        while i < len(data) and data[i] == 0xFF and data[i + 1] not in (0xDA, 0xD9):
+            size = int.from_bytes(data[i + 2:i + 4], "big")
+            if data[i + 1] != 0xFE:  # drop old comments, keep everything else
+                out += data[i:i + 2 + size]
+            i += 2 + size
+        out += com + data[i:]
+        path.write_bytes(bytes(out))
 
 
 def contact_sheet() -> None:
