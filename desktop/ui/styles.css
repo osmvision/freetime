@@ -35,6 +35,18 @@
   --on-navy: #f4f1ea;
   --on-navy-2: #b9c1d6;
   --good: #1f6b4a;
+  /* ink: text, borders and the things drawn with them; --navy is the shell (bars, ticket heads) */
+  --ink: #0d1b3d;
+  --on-ink: #ffffff;
+  --on-purple: #ffffff;
+  --on-red: #ffffff;
+  --line: rgba(13, 27, 61, 0.32);
+  --line-soft: rgba(13, 27, 61, 0.22);
+  --wash: rgba(13, 27, 61, 0.07);
+  --hover: #e8e8e4;
+  --ghost: #e6e6e2;
+  --lavender-hover: #ddd4ec;
+  --scroll-thumb: #c9ccd4;
   /* type */
   --display: "Barlow Condensed", "Arial Narrow", sans-serif;
   --body: "Barlow", "Segoe UI", sans-serif;
@@ -45,6 +57,144 @@
   --shadow: 0 1px 1px rgba(13, 27, 61, 0.06), 0 8px 24px -10px rgba(13, 27, 61, 0.28);
   --ease: cubic-bezier(0.16, 1, 0.3, 1);
 }
+
+/* ---------------------------------------------------------------- night mode */
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --navy: #1a2850;
+  --navy-2: #243663;
+  --navy-3: #2e4276;
+  --red: #d7262d;
+  --red-press: #b51d23;
+  --purple: #c3b1f2;
+  --lavender: #2a2450;
+  --lavender-line: #4b4185;
+  --stock: #0a0f1d;
+  --coupon: #141b30;
+  --rule: rgba(226, 231, 244, 0.7);
+  --rule-soft: rgba(226, 231, 244, 0.16);
+  --text: #e8ecf6;
+  --text-2: #bcc4d9;
+  --text-3: #959fba;
+  --on-navy: #f4f1ea;
+  --on-navy-2: #b9c1d6;
+  --good: #5cc98f;
+  --ink: #e8ecf6;
+  --on-ink: #0a0f1d;
+  --on-purple: #160f33;
+  --on-red: #ffffff;
+  --line: rgba(226, 231, 244, 0.3);
+  --line-soft: rgba(226, 231, 244, 0.18);
+  --wash: rgba(226, 231, 244, 0.08);
+  --hover: #1d2640;
+  --ghost: #1a2238;
+  --lavender-hover: #373066;
+  --scroll-thumb: #313a55;
+  --shadow: 0 0 0 1px rgba(226, 231, 244, 0.07), 0 10px 28px -12px rgba(0, 0, 0, 0.7);
+}
+
+/* ---------------------------------------------------------------- high contrast (day and night) */
+
+:root[data-contrast="high"] {
+  --navy: #000000;
+  --navy-2: #1f1f1f;
+  --navy-3: #333333;
+  --red: #b0000f;
+  --red-press: #8a000b;
+  --purple: #36167d;
+  --lavender: #ece5ff;
+  --lavender-line: #36167d;
+  --stock: #ffffff;
+  --coupon: #ffffff;
+  --rule: #000000;
+  --rule-soft: rgba(0, 0, 0, 0.6);
+  --text: #000000;
+  --text-2: #000000;
+  --text-3: #1f1f1f;
+  --on-navy: #ffffff;
+  --on-navy-2: #ffffff;
+  --good: #0a5a2c;
+  --ink: #000000;
+  --on-ink: #ffffff;
+  --on-purple: #ffffff;
+  --on-red: #ffffff;
+  --line: #000000;
+  --line-soft: rgba(0, 0, 0, 0.7);
+  --wash: rgba(0, 0, 0, 0.1);
+  --hover: #e6e6e6;
+  --ghost: #e6e6e6;
+  --lavender-hover: #dcd0ff;
+  --scroll-thumb: #000000;
+  --shadow: 0 0 0 2px #000000;
+}
+
+:root[data-theme="dark"][data-contrast="high"] {
+  --navy: #000000;
+  --navy-2: #1f1f1f;
+  --navy-3: #333333;
+  --red: #ff6b70;
+  --red-press: #ff8a8e;
+  --purple: #dccfff;
+  --lavender: #261a52;
+  --lavender-line: #dccfff;
+  --stock: #000000;
+  --coupon: #000000;
+  --rule: #ffffff;
+  --rule-soft: rgba(255, 255, 255, 0.65);
+  --text: #ffffff;
+  --text-2: #ffffff;
+  --text-3: #e6e6e6;
+  --on-navy: #ffffff;
+  --on-navy-2: #ffffff;
+  --good: #6ee7a2;
+  --ink: #ffffff;
+  --on-ink: #000000;
+  --on-purple: #000000;
+  --on-red: #000000;
+  --line: #ffffff;
+  --line-soft: rgba(255, 255, 255, 0.7);
+  --wash: rgba(255, 255, 255, 0.14);
+  --hover: #1f1f1f;
+  --ghost: #1a1a1a;
+  --lavender-hover: #3a2a75;
+  --scroll-thumb: #ffffff;
+  --shadow: 0 0 0 2px #ffffff;
+}
+
+/* the baggage tags would melt into the night bar: a lighter navy */
+:root[data-theme="dark"]:not([data-contrast="high"]) .tag {
+  background: var(--navy-3);
+}
+
+:root[data-theme="dark"]:not([data-contrast="high"]) button.tag:hover,
+:root[data-theme="dark"]:not([data-contrast="high"]) .tag-action:hover {
+  background: #3a5090;
+}
+
+:root[data-theme="dark"]:not([data-contrast="high"]) .tag::before {
+  background: var(--stock);
+}
+
+/* black bars on a black page need an edge; focus rings get thicker */
+:root[data-contrast="high"] .topbar {
+  box-shadow: inset 0 -2px 0 var(--on-navy);
+}
+
+@media (max-width: 1100px) {
+  :root[data-contrast="high"] .nav {
+    box-shadow: inset 0 2px 0 var(--on-navy);
+  }
+}
+
+:root[data-contrast="high"] :focus-visible {
+  outline-width: 3px;
+}
+
+:root[data-theme="dark"][data-contrast="high"] :focus-visible {
+  outline-color: #ffd60a;
+}
+
 
 *,
 *::before,
@@ -82,7 +232,7 @@ button {
 
 ::selection {
   background: var(--lavender-line);
-  color: var(--navy);
+  color: var(--ink);
 }
 
 :focus-visible {
@@ -95,7 +245,7 @@ button {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #c9ccd4;
+  background: var(--scroll-thumb);
   border: 3px solid var(--stock);
   border-radius: 6px;
 }
@@ -155,8 +305,9 @@ button {
   width: 32px;
   height: 32px;
   border-radius: 6px;
-  background: var(--lavender);
-  color: var(--navy);
+  /* the brand mark keeps its colours in every theme */
+  background: #e6dff1;
+  color: #0d1b3d;
 }
 
 .wordmark-mark .icon {
@@ -240,7 +391,7 @@ button {
   border: 0;
   border-radius: 8px;
   background: var(--lavender);
-  color: var(--navy);
+  color: var(--ink);
   white-space: nowrap;
 }
 
@@ -284,7 +435,7 @@ button {
   border: 0;
   border-radius: 6px;
   background: none;
-  color: var(--navy);
+  color: var(--ink);
 }
 
 .tag-action:hover {
@@ -297,7 +448,7 @@ button {
 }
 
 button.tag:hover {
-  background: #ddd4ec;
+  background: var(--lavender-hover);
 }
 
 .spin {
@@ -351,10 +502,10 @@ button.tag:hover {
   gap: 8px;
   height: 46px;
   padding: 0 20px;
-  border: 1.5px solid var(--navy);
+  border: 1.5px solid var(--ink);
   border-radius: var(--r-control);
   background: var(--coupon);
-  color: var(--navy);
+  color: var(--ink);
   font: 700 17px/1 var(--display);
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -367,8 +518,8 @@ button.tag:hover {
 }
 
 .btn:hover {
-  background: var(--navy);
-  color: #fff;
+  background: var(--ink);
+  color: var(--on-ink);
 }
 
 .btn:active {
@@ -378,7 +529,7 @@ button.tag:hover {
 .btn.primary {
   border-color: var(--red);
   background: var(--red);
-  color: #fff;
+  color: var(--on-red);
 }
 
 .btn.primary:hover {
@@ -392,8 +543,8 @@ button.tag:hover {
 }
 
 .btn.quiet:hover {
-  background: rgba(13, 27, 61, 0.07);
-  color: var(--navy);
+  background: var(--wash);
+  color: var(--ink);
 }
 
 .btn.small {
@@ -416,7 +567,7 @@ button.tag:hover {
   padding: 0;
   border: 0;
   background: none;
-  color: var(--navy);
+  color: var(--ink);
   font-weight: 600;
   text-decoration: underline;
   text-decoration-thickness: 1px;
@@ -456,7 +607,7 @@ button.tag:hover {
 
 .select-button:hover,
 .select-button[aria-expanded="true"] {
-  border-color: var(--navy);
+  border-color: var(--ink);
 }
 
 .select-button .icon-slot .icon {
@@ -492,7 +643,7 @@ button.tag:hover {
   overflow-y: auto;
   overscroll-behavior: contain;
   padding: 6px;
-  border: 1.5px solid var(--navy);
+  border: 1.5px solid var(--ink);
   border-radius: 8px;
   background: var(--coupon);
   box-shadow: var(--shadow);
@@ -707,7 +858,7 @@ button.tag:hover {
   bottom: 0;
   width: 3px;
   margin-left: -1.5px;
-  background: var(--navy);
+  background: var(--ink);
 }
 
 .timebar-legend {
@@ -752,7 +903,7 @@ button.tag:hover {
   position: relative;
   display: flex;
   flex-direction: column;
-  border-left: 2px dashed rgba(13, 27, 61, 0.35);
+  border-left: 2px dashed var(--line);
   border-radius: 0 var(--r-ticket) var(--r-ticket) 0;
   background: var(--lavender);
   overflow: hidden;
@@ -799,12 +950,13 @@ button.tag:hover {
 .stub-foot .source {
   font: 700 22px/1.1 var(--display);
   text-transform: uppercase;
-  color: var(--navy);
+  color: var(--ink);
 }
 
 .credit {
   font-size: 12px;
-  color: var(--text-3);
+  /* small text on the lavender stub: the darker grey keeps it readable */
+  color: var(--text-2);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -928,7 +1080,7 @@ button.tag:hover {
 .leaf-perf {
   position: relative;
   height: 0;
-  border-top: 2px dashed rgba(13, 27, 61, 0.3);
+  border-top: 2px dashed var(--line);
 }
 
 .leaf-perf::before,
@@ -1085,7 +1237,7 @@ button.tag:hover {
 
 .ghost {
   border-radius: var(--r-ticket);
-  background: #e6e6e2;
+  background: var(--ghost);
   animation: breathe 1.2s ease-in-out infinite alternate;
 }
 
@@ -1102,7 +1254,7 @@ button.tag:hover {
   justify-items: center;
   gap: 10px;
   padding: 56px 24px;
-  border: 2px dashed rgba(13, 27, 61, 0.25);
+  border: 2px dashed var(--line-soft);
   border-radius: var(--r-ticket);
   text-align: center;
 }
@@ -1196,7 +1348,7 @@ button.tag:hover {
 }
 
 .input:focus {
-  border-color: var(--navy);
+  border-color: var(--ink);
   outline: none;
 }
 
@@ -1209,7 +1361,7 @@ button.tag:hover {
   display: flex;
   flex-direction: column;
   padding: 4px;
-  border: 1.5px solid var(--navy);
+  border: 1.5px solid var(--ink);
   border-radius: 8px;
   background: var(--coupon);
   box-shadow: var(--shadow);
@@ -1252,7 +1404,7 @@ button.tag:hover {
 }
 
 .city-status.warn {
-  color: var(--navy);
+  color: var(--ink);
   font-weight: 600;
 }
 
@@ -1274,7 +1426,7 @@ button.tag:hover {
 
 .stat {
   padding: 16px 20px;
-  border-right: 1px dashed rgba(13, 27, 61, 0.3);
+  border-right: 1px dashed var(--line);
 }
 
 .stat:last-child {
@@ -1398,7 +1550,7 @@ button.tag:hover {
   align-items: center;
   gap: 14px;
   padding: 8px 0;
-  border-bottom: 1px dashed rgba(13, 27, 61, 0.2);
+  border-bottom: 1px dashed var(--line-soft);
 }
 
 .entry-thumb {
@@ -1462,7 +1614,7 @@ button.tag:hover {
 
 .toggle:hover {
   border-color: var(--rule-soft);
-  color: var(--navy);
+  color: var(--ink);
 }
 
 .toggle[aria-pressed="true"] {
@@ -1587,7 +1739,7 @@ button.tag:hover {
 }
 
 .tags:focus-within {
-  border-color: var(--navy);
+  border-color: var(--ink);
 }
 
 .chip-tag {
@@ -1636,7 +1788,7 @@ button.tag:hover {
 .suggest button {
   height: 32px;
   padding: 0 10px;
-  border: 1px dashed rgba(13, 27, 61, 0.35);
+  border: 1px dashed var(--line);
   border-radius: 4px;
   background: none;
   color: var(--text-2);
@@ -1645,7 +1797,7 @@ button.tag:hover {
 
 .suggest button:hover {
   border-style: solid;
-  color: var(--navy);
+  color: var(--ink);
 }
 
 .paths code {
@@ -1757,7 +1909,7 @@ button.tag:hover {
   justify-content: space-between;
   gap: 12px;
   padding: 14px 24px 18px;
-  border-top: 2px dashed rgba(13, 27, 61, 0.25);
+  border-top: 2px dashed var(--line-soft);
 }
 
 .welcome-dots {
@@ -1899,7 +2051,7 @@ button.tag:hover {
   border: 1.5px solid var(--rule-soft);
   border-radius: var(--r-control);
   background: none;
-  color: var(--navy);
+  color: var(--ink);
   font-weight: 600;
   font-size: 14px;
 }
@@ -1926,6 +2078,73 @@ button.tag:hover {
   color: var(--text-3);
   font-size: 12px;
   font-weight: 500;
+}
+
+.size-choice[aria-pressed="true"] .size-pct {
+  color: inherit;
+}
+
+.mode-choices {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 8px;
+}
+
+.mode-choice {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 48px;
+  padding: 8px 12px;
+  border: 1.5px solid var(--rule-soft);
+  border-radius: var(--r-control);
+  background: none;
+  color: var(--ink);
+  font-weight: 600;
+  font-size: 15px;
+}
+
+.mode-choice:hover {
+  border-color: var(--lavender-line);
+}
+
+.mode-choice[aria-pressed="true"],
+.mode-choice[aria-checked="true"] {
+  border-color: var(--purple);
+  background: var(--lavender);
+  color: var(--purple);
+}
+
+.mode-choice .icon {
+  width: 20px;
+  height: 20px;
+}
+
+/* the high contrast switch: label on the left, On/Off pill on the right */
+.mode-choice.switch {
+  justify-content: flex-start;
+  margin-top: 4px;
+}
+
+.switch-label {
+  flex: 1;
+  text-align: left;
+}
+
+.switch-state {
+  min-width: 44px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: var(--wash);
+  font: 700 13px/1.2 var(--display);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.mode-choice[aria-checked="true"] .switch-state {
+  background: var(--purple);
+  color: var(--on-purple);
 }
 
 /* ---------------------------------------------------------------- profile (settings) */
@@ -1985,7 +2204,7 @@ button.tag:hover {
 .btn.armed {
   border-color: var(--red);
   background: var(--red);
-  color: #fff;
+  color: var(--on-red);
 }
 
 .add-tag .row .input {
@@ -2059,7 +2278,7 @@ button.tag:hover {
   flex-direction: column;
   gap: 2px;
   padding: 16px 10px;
-  border-right: 2px dashed rgba(13, 27, 61, 0.2);
+  border-right: 2px dashed var(--line-soft);
   background: var(--stock);
   overflow-y: auto;
 }
@@ -2084,7 +2303,7 @@ button.tag:hover {
 }
 
 .chat-row:hover {
-  background: #e8e8e4;
+  background: var(--hover);
 }
 
 .chat-row[aria-current="true"] {
@@ -2117,7 +2336,7 @@ button.tag:hover {
   padding: 0 6px;
   border-radius: 11px;
   background: var(--purple);
-  color: #fff;
+  color: var(--on-purple);
   font: 700 12px/22px var(--figures);
   text-align: center;
 }
@@ -2230,7 +2449,7 @@ button.tag:hover {
 }
 
 .chat-input:focus {
-  border-color: var(--navy);
+  border-color: var(--ink);
   outline: none;
 }
 
@@ -2265,7 +2484,7 @@ button.tag:hover {
 }
 
 .code:focus {
-  border-color: var(--navy);
+  border-color: var(--ink);
   outline: none;
 }
 
@@ -2304,7 +2523,7 @@ button.tag:hover {
   align-items: center;
   gap: 14px;
   padding: 10px 0;
-  border-bottom: 1px dashed rgba(13, 27, 61, 0.2);
+  border-bottom: 1px dashed var(--line-soft);
 }
 
 .friend:last-child {
@@ -2376,7 +2595,7 @@ button.tag:hover {
 
 .look-icon:hover {
   border-color: var(--rule-soft);
-  color: var(--navy);
+  color: var(--ink);
 }
 
 .look-icon[aria-pressed="true"] {
@@ -2403,7 +2622,7 @@ button.tag:hover {
 }
 
 .look-color[aria-pressed="true"] {
-  outline: 2px solid var(--navy);
+  outline: 2px solid var(--ink);
   outline-offset: 2px;
 }
 
@@ -2616,7 +2835,7 @@ button.tag:hover {
   .chat-list {
     max-height: 120px;
     border-right: 0;
-    border-bottom: 2px dashed rgba(13, 27, 61, 0.2);
+    border-bottom: 2px dashed var(--line-soft);
   }
 
   .chat-pane {
@@ -2668,7 +2887,7 @@ button.tag:hover {
   .coupon-stub {
     order: -1;
     border-left: 0;
-    border-bottom: 2px dashed rgba(13, 27, 61, 0.35);
+    border-bottom: 2px dashed var(--line);
     border-radius: var(--r-ticket) var(--r-ticket) 0 0;
   }
 

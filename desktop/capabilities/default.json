@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "What the main window is allowed to do: invoke freetime's commands, listen to its events and zoom for low vision mode.",
+  "description": "What the main window is allowed to do: invoke freetime's commands, listen to its events zoom for low vision mode and theme its title bar for night mode.",
   "windows": ["main"],
-  "permissions": ["core:default", "core:webview:allow-set-webview-zoom"]
+  "permissions": ["core:default", "core:webview:allow-set-webview-zoom", "core:window:allow-set-theme"]
 }
