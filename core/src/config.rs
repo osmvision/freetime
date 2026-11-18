@@ -17,6 +17,8 @@ pub struct Config {
     pub interests: Vec<String>,
     pub steam: SteamConfig,
     pub youtube: YoutubeConfig,
+    /// Nickname put in your friend code (see `party`). Never sent anywhere by itself.
+    pub display_name: Option<String>,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -47,6 +49,7 @@ impl Default for Config {
                 .to_vec(),
             steam: SteamConfig::default(),
             youtube: YoutubeConfig::default(),
+            display_name: None,
         }
     }
 }

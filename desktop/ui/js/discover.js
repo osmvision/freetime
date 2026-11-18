@@ -58,6 +58,8 @@ const state = {
   loading: false,
   stale: false, // settings changed: refresh picks once the new data is in
   timer: null,
+  friends: [], // saved friends (from friend codes)
+  party: [], // names of the friends you're with right now
 };
 
 export function init(root, boot, context) {
@@ -66,7 +68,11 @@ export function init(root, boot, context) {
   state.online = boot.online;
   state.setup = boot.setup;
   state.pending = boot.pending;
-  state.req = { ...boot.defaults, ...loadMood(boot.categories) };
+  const mood = loadMood(boot.categories);
+  state.party = mood.party ?? [];
+  delete mood.party;
+  state.req = { ...boot.defaults, ...mood };
+  loadFriends();
 
   els.head = h('div');
   els.context = h('div', { class: 'context', role: 'toolbar', 'aria-label': 'Your free time' });
@@ -91,6 +97,23 @@ export function onOnline(online) {
   } else if (wasPartial) {
     runSuggest({ keepShuffle: true, quiet: true, announce: 'Picks refreshed with Steam, YouTube and the weather' });
   }
+}
+
+/** Friends were added or removed on the Friends screen. */
+export async function friendsChanged() {
+  await loadFriends();
+  if (state.req.with_friends) runSuggest({ keepShuffle: true, quiet: true });
+}
+
+async function loadFriends() {
+  try {
+    state.friends = await api.friends();
+  } catch {
+    state.friends = [];
+  }
+  const known = new Set(state.friends.map((f) => f.name.toLowerCase()));
+  state.party = state.party.filter((n) => known.has(n.toLowerCase()));
+  if (els.context) renderContext();
 }
 
 export async function settingsChanged() {
@@ -120,6 +143,7 @@ function loadMood(categories) {
     if (BUDGET.some((b) => b.id === saved.budget)) mood.budget = saved.budget;
     const cats = Array.isArray(saved.categories) ? saved.categories.filter((c) => known.has(c)) : [];
     if (cats.length) mood.categories = cats;
+    if (Array.isArray(saved.party)) mood.party = saved.party.filter((n) => typeof n === 'string').slice(0, 50);
     return mood;
   } catch {
     return {};
@@ -129,7 +153,7 @@ function loadMood(categories) {
 function saveMood() {
   try {
     const { minutes, energy, with_friends, can_go_out, budget, categories } = state.req;
-    localStorage.setItem(MOOD_KEY, JSON.stringify({ minutes, energy, with_friends, can_go_out, budget, categories }));
+    localStorage.setItem(MOOD_KEY, JSON.stringify({ minutes, energy, with_friends, can_go_out, budget, categories, party: state.party }));
   } catch {
     // Storage unavailable: the context just won't be remembered.
   }
@@ -188,6 +212,8 @@ function renderContext() {
       pick: (o) => {
         r[key] = o.id;
         changed();
+        // "With friends" shows the "Playing with" select (after this menu has closed).
+        if (key === 'with_friends') setTimeout(renderContext);
         return true;
       },
     });
@@ -213,6 +239,7 @@ function renderContext() {
     }),
     one('Energy', 'zap', ENERGY, 'energy'),
     one('Who', 'user', COMPANY, 'with_friends'),
+    r.with_friends ? partySelect() : null,
     one('Outside', 'tree-pine', OUTSIDE, 'can_go_out'),
     one('Budget', 'wallet', BUDGET, 'budget'),
     select({
@@ -240,6 +267,32 @@ function renderContext() {
       },
     }),
   );
+}
+
+/** Which saved friends you're with; without any saved, a shortcut to add one. */
+function partySelect() {
+  if (!state.friends.length) {
+    return btn({ label: 'Add a friend’s code', icon: 'user-plus', kind: 'quiet', small: true, onclick: () => ctx.goto('friends') });
+  }
+  const isOn = (o) => state.party.some((n) => n.toLowerCase() === o.id.toLowerCase());
+  return select({
+    name: 'With',
+    icon: () => 'users',
+    title: 'Playing with',
+    multi: true,
+    value: () => {
+      if (!state.party.length) return 'Choose friends';
+      if (state.party.length <= 2) return state.party.join(', ');
+      return `${state.party.length} friends`;
+    },
+    options: () => state.friends.map((f) => ({ id: f.name, label: f.common ? `${f.name} · ${f.common} games in common` : f.name, icon: 'user' })),
+    isOn,
+    pick: (o) => {
+      state.party = isOn(o) ? state.party.filter((n) => n.toLowerCase() !== o.id.toLowerCase()) : [...state.party, o.id];
+      changed();
+      return true;
+    },
+  });
 }
 
 let openMenu = null;
@@ -420,7 +473,7 @@ async function runSuggest({ keepShuffle = false, quiet = false, announce = null 
   if (!quiet || !state.results) renderLoading();
   let refreshAfter = false;
   try {
-    const res = await api.suggest(state.req, [...state.hidden, ...state.shuffled]);
+    const res = await api.suggest(state.req, [...state.hidden, ...state.shuffled], state.req.with_friends ? state.party : []);
     state.results = res;
     renderResults(res);
     renderHead();

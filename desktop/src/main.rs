@@ -29,6 +29,10 @@ fn main() {
             commands::steam_forget,
             commands::set_city,
             commands::open_data_dir,
+            commands::my_friend_code,
+            commands::get_friends,
+            commands::add_friend,
+            commands::remove_friend,
         ])
         .run(tauri::generate_context!())
         .expect("error while running freetime");

@@ -2,11 +2,13 @@ import { api, inTauri, listen } from './api.js';
 import { emptyState, errText, h, hydrateIcons, icon, toast, weatherIcon } from './dom.js';
 import { loadPhotos } from './photos.js';
 import * as discover from './discover.js';
+import * as friendsView from './friends.js';
 import * as historyView from './history.js';
 import * as settingsView from './settings.js';
 
 const views = {
   discover: document.getElementById('view-discover'),
+  friends: document.getElementById('view-friends'),
   history: document.getElementById('view-history'),
   settings: document.getElementById('view-settings'),
 };
@@ -18,6 +20,7 @@ let city = null;
 
 const ctx = {
   goto,
+  friendsChanged: () => discover.friendsChanged(),
   settingsSaved: () => {
     discover.settingsChanged();
     api.bootstrap().then((b) => {
@@ -35,6 +38,7 @@ function goto(view) {
     else button.removeAttribute('aria-current');
   }
   main.scrollTop = 0;
+  if (view === 'friends') friendsView.render(views.friends, ctx);
   if (view === 'history') historyView.render(views.history, ctx);
   if (view === 'settings') settingsView.render(views.settings, ctx);
 }
@@ -43,10 +47,10 @@ for (const button of document.querySelectorAll('.nav-item')) {
   button.addEventListener('click', () => goto(button.dataset.view));
 }
 
-// Alt+1/2/3 switch screens.
+// Alt+1 to Alt+4 switch screens.
 document.addEventListener('keydown', (e) => {
   if (!e.altKey || e.ctrlKey || e.metaKey) return;
-  const view = { 1: 'discover', 2: 'history', 3: 'settings' }[e.key];
+  const view = { 1: 'discover', 2: 'friends', 3: 'history', 4: 'settings' }[e.key];
   if (view) {
     e.preventDefault();
     goto(view);

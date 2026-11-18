@@ -10,6 +10,7 @@ use freetime_core::{
     net::HttpNet,
     model::*,
     open,
+    party::{self, Friend},
     providers::{
         self,
         steam::{self, SteamStatus},
@@ -184,10 +185,20 @@ fn remember<'a>(state: &AppState, cards: impl Iterator<Item = &'a Card>) {
     }
 }
 
-fn rank(cfg: &Config, req: &Request, online: &Online, exclude: &[String]) -> Vec<Ranked> {
+/// `party`: names of saved friends you're with (from their friend codes). Only used when the
+/// request is "with friends"; otherwise this is the solo ranking.
+fn rank(cfg: &Config, req: &Request, online: &Online, exclude: &[String], party: &[String]) -> Vec<Ranked> {
     let prefs = History::load().prefs(history::now());
     let exclude: HashSet<String> = exclude.iter().cloned().collect();
-    freetime_core::rank(cfg, req, online, &prefs, &exclude)
+    if !req.with_friends || party.is_empty() {
+        return freetime_core::rank(cfg, req, online, &prefs, &exclude);
+    }
+    let chosen: Vec<Friend> = party::load_friends()
+        .into_iter()
+        .filter(|f| party.iter().any(|n| n.eq_ignore_ascii_case(&f.name)))
+        .collect();
+    let party = party::Party::new(chosen, steam_import::load_library().as_ref());
+    freetime_core::rank_together(cfg, req, online, &prefs, &exclude, Some(&party))
 }
 
 #[derive(Serialize)]
@@ -299,10 +310,11 @@ pub fn suggest(
     req: Request,
     exclude: Vec<String>,
     per_category: Option<usize>,
+    party: Option<Vec<String>>,
 ) -> Res<Results> {
     let cfg = Config::load().map_err(err)?;
     let (online, partial) = current_online(&state, ONLINE_WAIT);
-    let ranked = rank(&cfg, &req, &online, &exclude);
+    let ranked = rank(&cfg, &req, &online, &exclude, &party.unwrap_or_default());
     let per = per_category.unwrap_or(4).clamp(1, 12);
 
     let best = ranked.first().map(card);
@@ -330,7 +342,7 @@ pub struct SurpriseView {
 pub fn surprise(state: State<'_, AppState>, exclude: Vec<String>) -> Res<SurpriseView> {
     let cfg = Config::load().map_err(err)?;
     let (online, _) = current_online(&state, ONLINE_WAIT);
-    let ranked = rank(&cfg, &Request::for_now(), &online, &exclude);
+    let ranked = rank(&cfg, &Request::for_now(), &online, &exclude, &[]);
     let Some(i) = scoring::weighted_pick(&ranked, 6) else {
         return Ok(SurpriseView { pick: None, alternatives: Vec::new() });
     };
@@ -666,6 +678,76 @@ pub fn set_city(app: AppHandle, place: Option<Place>) -> Res<SettingsView> {
     cfg.save().map_err(err)?;
     refresh_in_background(&app);
     Ok(settings_view(&cfg))
+}
+
+// ---------------------------------------------------------------- friends (friend codes, no server)
+
+#[derive(Serialize)]
+pub struct FriendView {
+    name: String,
+    games: usize,
+    /// Steam games you both own (0 until your own games are imported).
+    common: usize,
+    added: i64,
+}
+
+fn friend_views(friends: &[Friend]) -> Vec<FriendView> {
+    let lib = steam_import::load_library();
+    friends
+        .iter()
+        .map(|f| FriendView {
+            name: f.name.clone(),
+            games: f.games.len(),
+            common: lib.as_ref().map_or(0, |l| l.games.iter().filter(|g| f.owns(g.appid)).count()),
+            added: f.added,
+        })
+        .collect()
+}
+
+#[derive(Serialize)]
+pub struct MyCode {
+    name: String,
+    code: String,
+    /// How many Steam game ids the code carries (0 = not imported yet).
+    games: usize,
+}
+
+/// Your friend code. `name` (optional) updates the nickname put in it. Nothing is sent: the
+/// user copies the code and shares it themselves.
+#[tauri::command(async)]
+pub fn my_friend_code(name: Option<String>) -> Res<MyCode> {
+    let mut cfg = Config::load().map_err(err)?;
+    if let Some(n) = name {
+        cfg.display_name = Some(party::clean_name(&n));
+        cfg.save().map_err(err)?;
+    }
+    let name = cfg.display_name.clone().unwrap_or_else(|| "Friend".to_string());
+    let me = Friend::mine(&name, steam_import::load_library().as_ref(), &History::load().taste());
+    Ok(MyCode { name: me.name.clone(), code: me.encode(), games: me.games.len() })
+}
+
+#[tauri::command(async)]
+pub fn get_friends() -> Res<Vec<FriendView>> {
+    Ok(friend_views(&party::load_friends()))
+}
+
+/// Adds (or refreshes) a friend from the code they sent. The code is parsed as untrusted input.
+#[tauri::command(async)]
+pub fn add_friend(code: String) -> Res<FriendView> {
+    let mut friend = Friend::decode(&code).map_err(err)?;
+    friend.added = history::now();
+    let mut friends = party::load_friends();
+    party::upsert(&mut friends, friend.clone()).map_err(err)?;
+    party::save_friends(&friends).map_err(err)?;
+    friend_views(&[friend]).pop().ok_or_else(|| "could not add the friend".to_string())
+}
+
+#[tauri::command(async)]
+pub fn remove_friend(name: String) -> Res<Vec<FriendView>> {
+    let mut friends = party::load_friends();
+    friends.retain(|f| !f.name.eq_ignore_ascii_case(&name));
+    party::save_friends(&friends).map_err(err)?;
+    Ok(friend_views(&friends))
 }
 
 #[tauri::command(async)]

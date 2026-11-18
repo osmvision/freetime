@@ -115,6 +115,13 @@ fn game(appid: u32, name: &str, detail: String, quality: f64, tag: &str) -> Sugg
     }
 }
 
+/// A game you and your friends all own (see `party`): something to play together.
+pub fn together_pick(appid: u32, name: &str, detail: String) -> Suggestion {
+    let mut s = game(appid, name, detail, 0.7, "together");
+    s.social = Social::Either;
+    s
+}
+
 /// Installed games: no download, ready the moment you sit down.
 fn installed_picks(games: &[LibraryGame], skip: &HashSet<u32>, count: usize) -> Vec<Suggestion> {
     let mut pool: Vec<&LibraryGame> = games.iter().filter(|g| g.installed && !skip.contains(&g.appid)).collect();

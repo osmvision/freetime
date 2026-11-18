@@ -9,6 +9,7 @@ pub mod location;
 pub mod net;
 pub mod model;
 pub mod open;
+pub mod party;
 pub mod providers;
 pub mod region;
 pub mod scoring;
@@ -35,8 +36,29 @@ pub fn candidates(cfg: &Config, minutes: u32, online: &Online) -> Vec<Suggestion
 
 /// Ranks every candidate for this request, best first.
 pub fn rank(cfg: &Config, req: &Request, online: &Online, prefs: &Prefs, exclude: &HashSet<String>) -> Vec<Ranked> {
-    let items = candidates(cfg, req.minutes, online);
-    scoring::rank(&items, req, online.weather.as_ref(), prefs, exclude, &mut rand::thread_rng())
+    rank_together(cfg, req, online, prefs, exclude, None)
+}
+
+/// Same, with friends from their friend codes when the request is "with friends". Without a
+/// party (or alone), this is exactly the solo ranking.
+pub fn rank_together(
+    cfg: &Config,
+    req: &Request,
+    online: &Online,
+    prefs: &Prefs,
+    exclude: &HashSet<String>,
+    party: Option<&party::Party>,
+) -> Vec<Ranked> {
+    let party = party.filter(|p| req.with_friends && !p.is_empty());
+    let mut items = candidates(cfg, req.minutes, online);
+    if let Some(p) = party {
+        p.prepare(&mut items);
+    }
+    let mut ranked = scoring::rank(&items, req, online.weather.as_ref(), prefs, exclude, &mut rand::thread_rng());
+    if let Some(p) = party {
+        p.adjust(&mut ranked);
+    }
+    ranked
 }
 
 #[cfg(test)]

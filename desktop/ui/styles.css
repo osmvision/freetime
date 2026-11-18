@@ -1674,6 +1674,88 @@ button.tag:hover {
   padding: 2px 0;
 }
 
+/* ---------------------------------------------------------------- friends */
+
+.friends-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+  gap: 18px;
+  align-items: start;
+  margin-bottom: 18px;
+}
+
+/* a friend code: carbon numerals on ruled paper */
+.code {
+  width: 100%;
+  min-height: 96px;
+  padding: 10px 12px;
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  background: var(--stock);
+  color: var(--purple);
+  font: 700 13px/1.5 var(--figures);
+  word-break: break-all;
+  resize: vertical;
+}
+
+.code:focus {
+  border-color: var(--navy);
+  outline: none;
+}
+
+.code[readonly] {
+  cursor: text;
+}
+
+.inside {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: var(--text-2);
+  font-size: 15px;
+}
+
+.inside li {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.inside .icon {
+  margin-top: 2px;
+  color: var(--purple);
+}
+
+.friends-list h2 {
+  margin-bottom: 8px;
+}
+
+.friend {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 0;
+  border-bottom: 1px dashed rgba(13, 27, 61, 0.2);
+}
+
+.friend:last-child {
+  border-bottom: 0;
+}
+
+.avatar {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--navy);
+  color: var(--on-navy);
+  font: 800 20px/1 var(--display);
+}
+
 /* ---------------------------------------------------------------- motion */
 
 @keyframes issue {
