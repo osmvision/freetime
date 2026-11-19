@@ -1,4 +1,4 @@
-//! Meet (people who chose to be visible) and quiz duels with friends. Everything is checked on the
+//! Meet (people who chose to be visible), quiz duels and turn-based games with friends. Everything is checked on the
 //! server (supabase/migrations/*_meet_and_quiz_duels.sql); this side shows the duel's questions
 //! from the bank shipped with the app (core/src/duel.rs).
 
@@ -67,4 +67,25 @@ pub fn play_duel(state: State<'_, AppState>, id: String, questions: Vec<String>,
 pub fn drop_duel(state: State<'_, AppState>, id: String) -> Res<()> {
     let s = live_session(&state)?;
     Client::new().map_err(err)?.drop_duel(&s, &id).map_err(err)
+}
+
+// ---------------------------------------------------------------- turn-based games
+
+/// Starts a game or plays a move (checked on the server by the games Edge Function).
+#[tauri::command(async)]
+pub fn game_action(state: State<'_, AppState>, request: serde_json::Value) -> Res<serde_json::Value> {
+    let s = live_session(&state)?;
+    Client::new().map_err(err)?.game_action(&s, &request).map_err(err)
+}
+
+#[tauri::command(async)]
+pub fn my_matches(state: State<'_, AppState>) -> Res<serde_json::Value> {
+    let s = live_session(&state)?;
+    Client::new().map_err(err)?.my_matches(&s).map_err(err)
+}
+
+#[tauri::command(async)]
+pub fn leave_match(state: State<'_, AppState>, id: String) -> Res<String> {
+    let s = live_session(&state)?;
+    Client::new().map_err(err)?.leave_match(&s, &id).map_err(err)
 }

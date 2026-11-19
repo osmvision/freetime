@@ -6035,50 +6035,6 @@ body[data-view="messages"] .assistant-panel {
   overflow-y: auto;
 }
 
-/* what comes next */
-.soon {
-  padding: 18px 22px;
-  border: 2px dashed var(--lavender-line);
-  border-radius: var(--r-ticket);
-}
-
-.soon h2 {
-  margin: 0 0 4px;
-  font: 800 22px/1 var(--display);
-  text-transform: uppercase;
-}
-
-.soon .hint {
-  margin: 0 0 12px;
-}
-
-.soon-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.soon-list li {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 7px 12px;
-  border-radius: 999px;
-  background: var(--lavender);
-  color: var(--purple);
-  font: 700 14px/1.2 var(--display);
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-}
-
-.soon-list .icon {
-  width: 16px;
-  height: 16px;
-}
-
 /* ---------------------------------------------------------------- meet (js/meet.js) */
 
 .meet-hidden {
@@ -6354,4 +6310,535 @@ body[data-view="messages"] .assistant-panel {
   overflow: hidden;
   clip-path: inset(50%);
   white-space: nowrap;
+}
+
+/* ---------------------------------------------------------------- two-player games (js/play/*.js) */
+
+.play-games,
+.matches {
+  margin-bottom: 22px;
+}
+
+.game-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 14px;
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.game-tile {
+  display: grid;
+  grid-template-rows: auto auto 1fr auto;
+  gap: 6px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--coupon);
+}
+
+.game-tile-icon {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  margin-bottom: 4px;
+  border-radius: 12px;
+  background: var(--lavender);
+  color: var(--purple);
+}
+
+.game-tile-icon .icon {
+  width: 24px;
+  height: 24px;
+}
+
+.game-tile strong {
+  font: 800 21px/1.1 var(--display);
+  text-transform: uppercase;
+}
+
+.game-tile-rule {
+  margin: 0;
+  color: var(--text-2);
+  font-size: 14px;
+}
+
+.game-tile-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.match-game {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 2px;
+  color: var(--text-3);
+  font-size: 13px;
+}
+
+.match-game .icon {
+  width: 14px;
+  height: 14px;
+}
+
+/* the game window */
+.game-window {
+  width: min(760px, calc(100vw - 32px));
+}
+
+.game-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.game-title .icon {
+  width: 18px;
+  height: 18px;
+}
+
+.game-vs {
+  opacity: 0.75;
+}
+
+.game-body {
+  display: grid;
+  justify-items: center;
+  gap: 14px;
+}
+
+.game-status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 8px 18px;
+  min-height: 30px;
+  font: 700 18px/1.2 var(--display);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.game-status strong {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.game-status .piece {
+  width: 16px;
+  height: 16px;
+}
+
+.game-your-turn {
+  color: var(--purple);
+}
+
+.game-result.won {
+  color: var(--purple);
+}
+
+.game-result.lost {
+  color: var(--red);
+}
+
+.game-score {
+  color: var(--text-2);
+  font-size: 16px;
+}
+
+.game-area {
+  display: grid;
+  justify-items: center;
+  width: 100%;
+}
+
+.game-rule {
+  max-width: 560px;
+  margin: 0;
+  color: var(--text-3);
+  font-size: 13px;
+  text-align: center;
+}
+
+.game-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+/* pieces: player 0 red, player 1 purple */
+.piece {
+  display: inline-grid;
+  place-items: center;
+  border-radius: 50%;
+  box-shadow: inset 0 -3px 0 rgba(0, 0, 0, 0.22);
+}
+
+.piece.p0 {
+  background: var(--red);
+  color: #fff;
+}
+
+.piece.p1 {
+  background: var(--purple);
+  color: var(--on-purple);
+}
+
+.board button {
+  padding: 0;
+  border: 0;
+  font: inherit;
+}
+
+/* four in a row */
+.four-board {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 6px;
+  width: min(100%, 470px);
+  padding: 10px;
+  border-radius: 16px;
+  background: var(--navy);
+}
+
+.four-col {
+  display: grid;
+  gap: 6px;
+  border-radius: 10px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.four-col:not(:disabled):hover {
+  background: var(--navy-2);
+}
+
+.four-col:disabled {
+  cursor: default;
+}
+
+.four-cell {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: var(--paper, #f2f2f0);
+}
+
+.four-cell .piece {
+  width: 100%;
+  height: 100%;
+}
+
+.four-cell.win .piece,
+.go-cell.win .mark {
+  outline: 3px solid #f7c948;
+  outline-offset: -3px;
+}
+
+.four-cell.last .piece {
+  animation: drop 0.3s var(--ease);
+}
+
+@keyframes drop {
+  from {
+    transform: translateY(-60%);
+    opacity: 0.4;
+  }
+}
+
+/* giant tic-tac-toe */
+.gomoku-board {
+  display: grid;
+  grid-template-columns: repeat(var(--n), minmax(0, 1fr));
+  width: min(100%, 500px);
+  border: 2px solid var(--navy);
+  border-radius: 8px;
+  background: var(--coupon);
+}
+
+.go-cell {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 1;
+  border-right: 1px solid var(--line-soft) !important;
+  border-bottom: 1px solid var(--line-soft) !important;
+  background: transparent;
+  cursor: pointer;
+}
+
+.go-cell:not(:disabled):hover {
+  background: var(--lavender);
+}
+
+.go-cell:disabled {
+  cursor: default;
+}
+
+.go-cell.last {
+  background: var(--wash);
+}
+
+.mark {
+  font: 800 clamp(14px, 3.4vw, 26px)/1 var(--display);
+}
+
+.mark.p0 {
+  color: var(--red);
+}
+
+.mark.p1 {
+  color: var(--purple);
+}
+
+/* draughts */
+.draughts-board {
+  display: grid;
+  grid-template-columns: repeat(10, minmax(0, 1fr));
+  width: min(100%, 520px);
+  overflow: hidden;
+  border: 3px solid var(--navy);
+  border-radius: 6px;
+}
+
+.dr-cell {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 1;
+  background: #efe6d2;
+}
+
+.dr-cell.dark {
+  background: #8b6a4c;
+}
+
+.dr-cell.last {
+  box-shadow: inset 0 0 0 3px rgba(247, 201, 72, 0.6);
+}
+
+.dr-cell.movable {
+  cursor: pointer;
+}
+
+.dr-cell.movable .piece {
+  box-shadow: inset 0 -3px 0 rgba(0, 0, 0, 0.22), 0 0 0 3px #f7c948;
+}
+
+.dr-cell.chosen {
+  background: #5f7f4e;
+}
+
+.dr-cell.target {
+  background: #6f9b5a;
+  cursor: pointer;
+}
+
+.dr-cell.target::after {
+  content: "";
+  width: 30%;
+  height: 30%;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.7);
+}
+
+.dr-cell .piece {
+  width: 78%;
+  height: 78%;
+}
+
+.dr-cell .piece .icon {
+  width: 60%;
+  height: 60%;
+}
+
+/* dots and boxes */
+.dots-board {
+  display: grid;
+  grid-template-columns: repeat(var(--n), 12px minmax(0, 1fr)) 12px;
+  grid-template-rows: repeat(var(--n), 12px minmax(0, 1fr)) 12px;
+  width: min(100%, 420px);
+  aspect-ratio: 1;
+}
+
+.dot {
+  border-radius: 50%;
+  background: var(--navy);
+}
+
+.dot-line {
+  border-radius: 6px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.dot-line.h {
+  margin: 3px 0;
+}
+
+.dot-line.v {
+  margin: 0 3px;
+}
+
+.dot-line:not(:disabled):hover {
+  background: var(--lavender-line);
+}
+
+.dot-line:disabled {
+  cursor: default;
+}
+
+.dot-line.drawn.p0 {
+  background: var(--red);
+}
+
+.dot-line.drawn.p1 {
+  background: var(--purple);
+}
+
+.dot-line.last {
+  box-shadow: 0 0 0 2px #f7c948;
+}
+
+.dot-box {
+  display: grid;
+  place-items: center;
+  margin: 3px;
+  border-radius: 4px;
+  font: 800 22px/1 var(--display);
+}
+
+.dot-box.p0 {
+  background: var(--red-wash);
+  color: var(--red);
+}
+
+.dot-box.p1 {
+  background: var(--lavender);
+  color: var(--purple);
+}
+
+/* torpedoes */
+.torp-boards {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+  width: 100%;
+}
+
+.torp-side h3 {
+  margin: 0 0 6px;
+  color: var(--text-2);
+  font: 700 13px/1.2 var(--figures);
+  letter-spacing: 0.12em;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.torp-grid {
+  display: grid;
+  grid-template-columns: repeat(var(--n), minmax(0, 1fr));
+  gap: 3px;
+  width: 100%;
+  padding: 6px;
+  border-radius: 10px;
+  background: #16406b;
+}
+
+.torp-grid.mine {
+  background: #24507d;
+}
+
+.torp-cell {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 1;
+  border-radius: 4px;
+  background: #3a73a8;
+  color: #fff;
+  font: 800 16px/1 var(--display);
+}
+
+.torp-cell.sea:not(:disabled) {
+  cursor: pointer;
+}
+
+.torp-cell.sea:not(:disabled):hover {
+  background: #5a95c8;
+}
+
+.torp-cell.ship {
+  background: #c9ced8;
+  color: var(--navy);
+}
+
+.torp-cell.miss {
+  background: #2c5f90;
+  color: #cfe3f5;
+}
+
+.torp-cell.hit {
+  background: var(--red);
+}
+
+.torp-cell.sunk {
+  background: #7a1018;
+}
+
+.torp-cell.last {
+  box-shadow: 0 0 0 2px #f7c948;
+}
+
+.fleet-editor {
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+  width: min(100%, 360px);
+}
+
+.fleet-help {
+  margin: 0;
+  color: var(--text-2);
+}
+
+.fleet-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+}
+
+.fleet-editor .torp-cell:not(:disabled) {
+  cursor: pointer;
+}
+
+.fleet-editor .torp-cell:not(:disabled):hover {
+  background: #5a95c8;
+}
+
+@container app-viewport (max-width: 600px) {
+  .torp-boards {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .game-tiles {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .game-window .quiz-body {
+    padding: 14px 12px 18px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .four-cell.last .piece {
+    animation: none;
+  }
 }

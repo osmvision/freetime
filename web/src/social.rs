@@ -138,6 +138,9 @@ pub fn invoke(
             client.drop_duel(&session, &text("id")?)?;
             Value::Null
         }
+        "game_action" => client.game_action(&session, &arg::<Value>(args, "request")?)?,
+        "my_matches" => client.my_matches(&session)?,
+        "leave_match" => json!(client.leave_match(&session, &text("id")?)?),
         _ => bail!("Unknown web command"),
     };
     Ok(value)

@@ -51,6 +51,9 @@ To work, the app contacts these services, and only for what you see on screen:
 - Quiz duels you play with friends: who played, the questions, your answers and the scores.
   Duels older than 30 days no longer show in the app; they are part of your data export, and
   deleted with your account.
+- Games you play with friends (Four in a row, Draughts, Torpedoes...): the board, whose turn it
+  is and the result, and for Torpedoes where you placed your ships. Games against the computer
+  stay on your PC.
 
 **The free assistant**
 
@@ -81,6 +84,8 @@ Closed reports are deleted after one year; deleting your account unlinks your re
   can message you. Turning it off removes you from both right away.
 - In a quiz duel, you and your friend see each other's score. Your answers are never shown to the
   other player.
+- In a game with a friend, you both see the board. In Torpedoes, the other player never sees your
+  ships, only where their own shots landed.
 - Only the two people in a conversation can read it. Messages are encrypted in transit and stored
   encrypted on disk by our hosting provider, but they are **not end-to-end encrypted**: the people
   who run freetime could technically access them. We only do so to handle a report you or the other

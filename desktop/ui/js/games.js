@@ -1,32 +1,156 @@
-// Games: the daily quiz, and quiz duels with friends (signed in). A duel is 5 questions for both
-// players, each plays when they like; the server picks the questions and keeps the score
-// (supabase/migrations/*_meet_and_quiz_duels.sql), so nobody can fake one.
+// Games: the daily quiz, quiz duels with friends, and two-player games (Four in a row, Giant
+// tic-tac-toe, Draughts, Dots and boxes, Torpedoes) against the computer or a friend. A duel is 5
+// questions for both players; the server picks them and keeps the score. Online games are checked
+// move by move on the server with the same rules as the app (js/play/rules.js).
 
 import { api } from './api.js';
 import { avatar } from './avatars.js';
 import { btn, emptyState, errText, fill, h, icon, pageHead, toast } from './dom.js';
 import { openQuiz, quizBanner, quizCard, setDuelDot } from './quiz.js';
+import { GAME_INFO, challenge, playComputer, playOnline } from './play/screen.js';
 
 const DAY = 86400000;
+
+let duelTurns = 0;
+let matchTurns = 0;
 
 /** Refreshes the menu dot from your duels (quietly: signed out or offline means no dot). */
 export async function refreshDuelDot() {
   try {
     const list = await api.myDuels();
-    setDuelDot(list.filter((d) => d.state === 'your_turn').length);
+    duelTurns = list.filter((d) => d.state === 'your_turn').length;
     return list;
   } catch {
-    setDuelDot(0);
+    duelTurns = 0;
     return null;
+  } finally {
+    setDuelDot(duelTurns + matchTurns);
+  }
+}
+
+/** The same for your games with friends. */
+export async function refreshMatchDot() {
+  try {
+    const list = await api.myMatches();
+    matchTurns = list.filter((m) => m.phase === 'your_turn').length;
+    return list;
+  } catch {
+    matchTurns = 0;
+    return null;
+  } finally {
+    setDuelDot(duelTurns + matchTurns);
   }
 }
 
 export async function render(root, ctx) {
   const quizBox = h('div', { class: 'games-quiz' });
   const duelsBox = h('section', { class: 'panel duels' });
-  fill(root, pageHead('Games', 'The quiz of the day, and quiz duels with your friends.'), quizBox, duelsBox, comingSoon());
+  const matchesBox = h('section', { class: 'panel duels matches', hidden: true });
+  const gamesBox = h('section', { class: 'panel play-games' });
+  fill(root, pageHead('Games', 'The quiz of the day, quiz duels, and games to play with a friend or the computer.'), quizBox, matchesBox, gamesBox, duelsBox);
+  const reloadMatches = () => renderMatches(matchesBox, ctx);
   renderQuiz(quizBox, ctx);
+  renderMatches(matchesBox, ctx);
+  renderGames(gamesBox, ctx, reloadMatches);
   renderDuels(duelsBox, ctx);
+}
+
+// ---------------------------------------------------------------- two-player games
+
+function renderGames(box, ctx, reloadMatches) {
+  const withFriend = async (id) => {
+    const status = await api.accountStatus().catch(() => ({ signed_in: false }));
+    if (!status.signed_in) {
+      toast('Sign in to play with friends (Settings → Profile)', 'error', 5000);
+      return;
+    }
+    pickFriend(ctx, GAME_INFO[id].name, (f) => challenge(id, f, reloadMatches));
+  };
+  fill(
+    box,
+    h('div', { class: 'duels-head' }, h('div', {}, h('h2', {}, 'Two-player games'), h('p', { class: 'hint' }, 'Play the computer right away, or a friend turn by turn: each plays when they like.'))),
+    h(
+      'ul',
+      { class: 'game-tiles' },
+      Object.entries(GAME_INFO).map(([id, g]) =>
+        h(
+          'li',
+          { class: `game-tile game-tile-${id}` },
+          h('span', { class: 'game-tile-icon' }, icon(g.icon)),
+          h('strong', {}, g.name),
+          h('p', { class: 'game-tile-rule' }, g.rule),
+          h(
+            'div',
+            { class: 'game-tile-actions' },
+            btn({ label: 'Computer', icon: 'monitor', small: true, onclick: () => playComputer(id) }),
+            btn({ label: 'A friend', icon: 'users', small: true, kind: 'primary', onclick: () => withFriend(id) }),
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
+/** Your games with friends: your turn first. Hidden while there are none (or signed out). */
+async function renderMatches(box, ctx) {
+  const status = await api.accountStatus().catch(() => ({ signed_in: false }));
+  if (!status.signed_in) {
+    box.hidden = true;
+    return;
+  }
+  const list = await refreshMatchDot();
+  if (!list?.length) {
+    box.hidden = true;
+    return;
+  }
+  const reload = () => renderMatches(box, ctx);
+  const groups = [
+    ['Your turn', list.filter((m) => m.phase === 'your_turn')],
+    ['Waiting for them', list.filter((m) => m.phase === 'waiting')],
+    ['Finished', list.filter((m) => m.phase === 'over')],
+  ].filter(([, items]) => items.length);
+  box.hidden = false;
+  fill(
+    box,
+    h('div', { class: 'duels-head' }, h('div', {}, h('h2', {}, 'Your games with friends'), h('p', { class: 'hint' }, 'With your friends, turn by turn. A game nobody plays for 7 days ends.'))),
+    groups.map(([title, items]) => h('div', { class: 'duel-group' }, h('h3', { class: 'duel-group-title' }, title), h('ul', { class: 'duel-list' }, items.map((m) => matchRow(m, reload))))),
+  );
+}
+
+const OUTCOME = { won: ['You won', 'won'], lost: ['You lost', 'lost'], draw: ['Draw', 'draw'], declined: ['Declined', 'off'], cancelled: ['Cancelled', 'off'], expired: ['Expired', 'off'] };
+
+function matchRow(m, reload) {
+  const info = GAME_INFO[m.game];
+  let side = null;
+  let line;
+  if (m.phase === 'your_turn') {
+    line = h('span', {}, m.b_moved || m.me === 0 ? 'Your turn' : 'challenged you');
+    side = h('span', { class: 'duel-when' }, endsIn({ created_at: m.updated_at }));
+  } else if (m.phase === 'waiting') {
+    line = h('span', {}, 'Their turn');
+    side = h('span', { class: 'duel-when' }, endsIn({ created_at: m.updated_at }));
+  } else {
+    const [text, kind] = OUTCOME[m.outcome] ?? ['Finished', 'off'];
+    line = h('span', {}, '');
+    side = h('span', { class: `duel-verdict ${kind}` }, text);
+  }
+  return h(
+    'li',
+    { class: `duel match duel-${m.phase === 'over' ? 'done' : m.phase}` },
+    avatar({ icon: m.other.avatar_icon, color: m.other.avatar_color }),
+    h(
+      'div',
+      { class: 'duel-main' },
+      h('div', { class: 'duel-who' }, h('strong', { translate: 'no' }, m.other.display_name), ' ', line),
+      h('div', { class: 'match-game' }, icon(info.icon), h('span', {}, info.name)),
+    ),
+    side,
+    h(
+      'div',
+      { class: 'person-actions' },
+      btn({ label: m.phase === 'your_turn' ? 'Play' : 'Open', icon: m.phase === 'your_turn' ? 'play' : 'eye', kind: m.phase === 'your_turn' ? 'primary' : '', small: true, onclick: () => playOnline(m, reload) }),
+    ),
+  );
 }
 
 // ---------------------------------------------------------------- the daily quiz
@@ -69,7 +193,7 @@ async function renderDuels(box, ctx) {
     return;
   }
   const reload = () => renderDuels(box, ctx);
-  const challenge = btn({ label: 'Challenge a friend', icon: 'swords', kind: 'primary', onclick: () => pickFriend(ctx, reload) });
+  const challenge = btn({ label: 'Challenge a friend', icon: 'swords', kind: 'primary', onclick: () => pickFriend(ctx, 'Quiz duel', (f) => startDuel(f.user_id, f.display_name, reload)) });
   const groups = [
     ['Your turn', list.filter((d) => d.state === 'your_turn')],
     ['Waiting for them', list.filter((d) => d.state === 'waiting')],
@@ -187,8 +311,8 @@ async function playDuel(d, reload) {
   openQuiz({ questions }, () => {}, { duel: { id: d.id, ids: d.questions, other: d.other.display_name, theirScore: d.their_score, onClose: reload } });
 }
 
-/** The list of friends to challenge. */
-async function pickFriend(ctx, reload) {
+/** The list of friends to challenge; `onPick(friend)` once one is chosen. */
+async function pickFriend(ctx, title, onPick) {
   let data;
   try {
     data = await api.socialOverview();
@@ -214,7 +338,7 @@ async function pickFriend(ctx, reload) {
             { class: 'duel' },
             avatar({ icon: f.avatar_icon, color: f.avatar_color }),
             h('div', { class: 'duel-main' }, h('strong', { translate: 'no' }, f.display_name)),
-            h('div', { class: 'person-actions' }, btn({ label: 'Challenge', icon: 'swords', kind: 'primary', small: true, onclick: () => { close(); startDuel(f.user_id, f.display_name, reload); } })),
+            h('div', { class: 'person-actions' }, btn({ label: 'Challenge', icon: 'swords', kind: 'primary', small: true, onclick: () => { close(); onPick(f); } })),
           ),
         ),
       )
@@ -227,30 +351,11 @@ async function pickFriend(ctx, reload) {
   const card = h(
     'section',
     { class: 'quiz pick-friend', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Challenge a friend' },
-    h('div', { class: 'coupon-head' }, h('span', {}, 'Challenge a friend'), h('button', { type: 'button', class: 'quiz-close', 'aria-label': 'Close', onclick: close }, icon('x'))),
+    h('div', { class: 'coupon-head' }, h('span', {}, h('span', {}, 'Challenge a friend'), ' · ', h('span', {}, title)), h('button', { type: 'button', class: 'quiz-close', 'aria-label': 'Close', onclick: close }, icon('x'))),
     h('div', { class: 'quiz-body' }, body),
   );
   const backdrop = h('div', { class: 'quiz-backdrop', onclick: (e) => e.target === backdrop && close() }, card);
   document.body.append(backdrop);
   document.addEventListener('keydown', onKey);
   card.querySelector('button.btn, .quiz-close')?.focus();
-}
-
-// ---------------------------------------------------------------- what comes next
-
-function comingSoon() {
-  const games = [
-    ['Four in a row', 'grid-2x2'],
-    ['Giant tic-tac-toe', 'hash'],
-    ['Draughts', 'circle-dot'],
-    ['Dots and boxes', 'square-dashed'],
-    ['Torpedoes', 'anchor'],
-  ];
-  return h(
-    'section',
-    { class: 'soon' },
-    h('h2', {}, 'Coming soon'),
-    h('p', { class: 'hint' }, 'More games to play with friends, turn by turn, made by freetime.'),
-    h('ul', { class: 'soon-list' }, games.map(([name, ic]) => h('li', {}, icon(ic), h('span', {}, name)))),
-  );
 }

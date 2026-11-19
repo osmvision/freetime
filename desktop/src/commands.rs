@@ -1174,6 +1174,26 @@ fn on_live_event(app: &AppHandle, event: realtime::Event) {
             }
             let _ = app.emit("duels-changed", ());
         }
+        realtime::Event::Match { game, player_a, player_b, turn, status, inserted, .. } => {
+            // A friend started a game with you, or played: your turn.
+            let mine = if player_a == me { Some(0) } else if player_b == me { Some(1) } else { None };
+            if let Some(me_idx) = mine {
+                let other = if me_idx == 0 { &player_b } else { &player_a };
+                let name = match game.as_str() {
+                    "four" => "Four in a row",
+                    "gomoku" => "Giant tic-tac-toe",
+                    "draughts" => "Draughts",
+                    "dots" => "Dots and boxes",
+                    "torpedoes" => "Torpedoes",
+                    _ => "A game",
+                };
+                if status == "active" && turn == Some(me_idx) && notify_invites() {
+                    let title = if inserted { format!("{} challenges you", friend_name(&state, other)) } else { format!("Your turn against {}", friend_name(&state, other)) };
+                    let _ = app.notification().builder().title(title).body(name).show();
+                }
+            }
+            let _ = app.emit("matches-changed", ());
+        }
     }
 }
 
