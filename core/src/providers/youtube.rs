@@ -604,6 +604,41 @@ mod tests {
         assert_eq!(parse_iso_duration("nope"), None);
     }
 
+    /// A one-entry feed around `title` (already escaped as the feed would have it).
+    fn feed_with_title(title: &str) -> String {
+        format!(
+            r#"<feed xmlns:yt="http://www.youtube.com/xml/schemas/2015" xmlns="http://www.w3.org/2005/Atom">
+              <author><name>Chan</name></author>
+              <entry>
+                <yt:videoId>vid00000001</yt:videoId>
+                <title>{title}</title>
+                <published>2026-11-15T16:00:00+00:00</published>
+              </entry>
+            </feed>"#
+        )
+    }
+
+    #[test]
+    fn feed_titles_keep_their_entities_and_spaces() {
+        let title = |t: &str| parse_feed(&feed_with_title(t)).unwrap()[0].title.clone();
+        assert_eq!(title("Tom &amp; Jerry"), "Tom & Jerry", "spaces around an entity stay");
+        assert_eq!(title("It&#39;s &quot;fun&quot; &lt;3"), "It's \"fun\" <3");
+        assert_eq!(title("Caf&#233; &#x1F600;"), "Café 😀", "decimal and hex character references");
+        assert_eq!(title("  padded   title  "), "padded   title", "only the ends are trimmed");
+        assert_eq!(title("Odd &nbsp; one"), "Odd  one", "an unknown entity is dropped, the feed is still read");
+    }
+
+    #[test]
+    fn feeds_with_hostile_markup_do_not_hang_or_panic() {
+        // Thousands of duplicated attributes on one tag (the shape behind RUSTSEC-2026-0194).
+        let attrs = "a=\"1\" ".repeat(20_000);
+        let xml = format!("<feed><entry><yt:videoId>v1</yt:videoId><title>T</title><link rel=\"alternate\" {attrs}/></entry></feed>");
+        let started = std::time::Instant::now();
+        let _ = parse_feed(&xml); // an error is fine; a hang or a crash is not
+        assert!(started.elapsed() < std::time::Duration::from_secs(5), "took {:?}", started.elapsed());
+        assert!(parse_feed("not xml at all").is_ok(), "plain text is just no videos");
+    }
+
     #[test]
     fn parses_a_channel_feed() {
         let videos = parse_feed(FEED).unwrap();

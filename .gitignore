@@ -15,3 +15,7 @@
 # Website build output (python site/build.py)
 /_site/
 __pycache__/
+
+# Other tools' working folders and generated graphs: never part of the repo
+/.worktrees/
+/graphify-out/

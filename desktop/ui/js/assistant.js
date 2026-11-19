@@ -108,19 +108,11 @@ function inline(text, ideas) {
     else if (t.startsWith('`')) out.push(h('code', {}, t.slice(1, -1)));
     else if (t.startsWith('[[')) out.push(ideaChip(t.slice(2, -2), ideas) ?? '');
     else if (t.startsWith('[')) {
+      // The model's own links are never clickable: a label can say anything, and the text it
+      // reads from the web (video titles…) could talk it into pointing at a fake site. Ideas are
+      // opened through their cards instead. The site's name stays visible, as plain text.
       const [, label, url] = t.match(/^\[([^\]]+)\]\((.+)\)$/);
-      // The model writes these links: show where they really go (the site's domain, and the
-      // full address on hover), so a misleading label can't hide the destination.
-      let host = '';
-      try {
-        host = new URL(url).hostname.replace(/^www\./, '');
-      } catch {
-        host = '';
-      }
-      out.push(
-        h('button', { type: 'button', class: 'link', title: url, onclick: () => api.open(url).catch((e) => toast(errText(e), 'error')) }, label),
-        host ? h('span', { class: 'link-host', translate: 'no' }, ` (${host})`) : null,
-      );
+      out.push(`${label} (${linkHost(url)})`);
     } else out.push(h('em', {}, t.slice(1, -1)));
     last = m.index + t.length;
   }
@@ -146,6 +138,15 @@ function splitMarkers(text, ideas) {
   }
   rest += text.slice(last);
   return { text: rest.replace(/\s+/g, ' ').replace(/\s+([,.;:!?])/g, '$1').trim(), ids };
+}
+
+/** The site a link points to (for display only), or "link" when it can't be read. */
+function linkHost(url) {
+  try {
+    return new URL(url).hostname.replace(/^www\./, '');
+  } catch {
+    return 'link';
+  }
 }
 
 export function renderRich(text, ideas = []) {
