@@ -16,6 +16,11 @@
 /_site/
 __pycache__/
 
-# Other tools' working folders and generated graphs: never part of the repo
+# Other tools' working folders: never part of the repo
 /.worktrees/
-/graphify-out/
+
+# The knowledge graph (graphify-out/) is committed; only what is specific to one PC is not:
+# its interpreter and scan-root paths, and the extraction cache.
+/graphify-out/.graphify_python
+/graphify-out/.graphify_root
+/graphify-out/cache/
