@@ -4,10 +4,53 @@ import { api } from './api.js';
 import { btn, categoryIcon, emptyState, errText, h, icon, pageHead, toast } from './dom.js';
 import { photo } from './photos.js';
 import { recapPanel } from './recap.js';
+import { renderBook } from './book.js';
 
-const head = () => pageHead('Your trips', 'What you picked and how it went. Your ratings teach freetime what you like.');
+let tab = 'trips';
 
-export async function render(root, ctx, { quiet = false } = {}) {
+/** "Your trips" or "Ticket book". */
+function tabs(root, ctx) {
+  const choices = [
+    ['trips', 'Your trips', 'history'],
+    ['book', 'Ticket book', 'book-open'],
+  ];
+  return h(
+    'div',
+    { class: 'seg', role: 'tablist', 'aria-label': 'History' },
+    choices.map(([id, label, name]) =>
+      h(
+        'button',
+        {
+          type: 'button',
+          role: 'tab',
+          class: 'seg-btn',
+          'aria-selected': String(tab === id),
+          onclick: () => {
+            if (tab === id) return;
+            tab = id;
+            render(root, ctx);
+          },
+        },
+        icon(name),
+        label,
+      ),
+    ),
+  );
+}
+
+const headFor = (root, ctx) =>
+  tab === 'book'
+    ? pageHead('Ticket book', 'Every idea you do gets stamped. Collect them all, earn badges, take on the weekly challenge.', tabs(root, ctx))
+    : pageHead('Your trips', 'What you picked and how it went. Your ratings teach freetime what you like.', tabs(root, ctx));
+
+export async function render(root, ctx, { quiet = false, tab: wanted } = {}) {
+  if (wanted) tab = wanted;
+  const head = () => headFor(root, ctx);
+  if (tab === 'book') {
+    const box = h('div');
+    root.replaceChildren(head(), box);
+    return renderBook(box, ctx);
+  }
   if (!quiet) root.replaceChildren(head(), h('div', { class: 'ghost', style: 'height:96px;margin-bottom:26px' }), h('div', { class: 'ghost', style: 'height:360px' }));
   let data;
   try {

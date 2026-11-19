@@ -3985,3 +3985,468 @@ body[data-view="messages"] .assistant-panel {
 .assistant-intro-actions .btn {
   margin-top: 8px;
 }
+
+/* ---------------------------------------------------------------- ticket book (js/book.js) */
+
+.seg {
+  display: inline-flex;
+  padding: 4px;
+  gap: 4px;
+  border-radius: 10px;
+  background: var(--wash);
+}
+
+.seg-btn {
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 16px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text-2);
+  font: 700 15px/1 var(--display);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.seg-btn .icon {
+  width: 17px;
+  height: 17px;
+}
+
+.seg-btn:hover {
+  color: var(--text);
+}
+
+.seg-btn[aria-selected="true"] {
+  background: var(--coupon);
+  color: var(--text);
+  box-shadow: var(--shadow);
+}
+
+.meter {
+  height: 8px;
+  margin: 8px 0 6px;
+  border-radius: 999px;
+  background: var(--wash);
+  overflow: hidden;
+}
+
+.meter-fill {
+  width: var(--w);
+  height: 100%;
+  border-radius: inherit;
+  background: var(--purple);
+  transition: width 0.6s var(--ease);
+}
+
+/* Discover strip: ticket of the day, challenge, book */
+.today {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr) auto;
+  gap: 14px;
+  margin-bottom: 22px;
+  animation: issue 0.35s var(--ease) backwards;
+}
+
+.mini-ticket {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+  padding: 12px 16px;
+  border-radius: var(--r-ticket);
+  background: var(--coupon);
+  box-shadow: var(--shadow);
+}
+
+.mini-ticket.done {
+  background: var(--lavender);
+}
+
+.mini-photo {
+  flex: 0 0 auto;
+  width: 64px;
+  height: 64px;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.mini-photo img,
+.mini-photo .fallback {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.mini-photo .poster-label,
+.book-photo .poster-label {
+  display: none;
+}
+
+.mini-icon {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--lavender);
+  color: var(--purple);
+}
+
+.mini-ticket.done .mini-icon {
+  background: var(--purple);
+  color: var(--on-purple);
+}
+
+.mini-icon .icon {
+  width: 22px;
+  height: 22px;
+}
+
+.mini-text {
+  display: grid;
+  flex: 1 1 auto;
+  min-width: 0;
+  gap: 2px;
+}
+
+.mini-k {
+  font: 700 12px/1.2 var(--figures);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--purple);
+}
+
+.mini-text strong {
+  overflow: hidden;
+  font: 700 19px/1.15 var(--display);
+  text-transform: uppercase;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mini-sub {
+  color: var(--text-2);
+  font-size: 14px;
+}
+
+.mini-done {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px 4px;
+  border: 3px solid var(--purple);
+  border-radius: 6px;
+  color: var(--purple);
+  font: 800 16px/1 var(--display);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  transform: rotate(-6deg);
+}
+
+.mini-done .icon {
+  width: 16px;
+  height: 16px;
+}
+
+.today-book {
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 6px;
+  min-width: 128px;
+  padding: 12px 16px;
+  border: 2px dashed var(--lavender-line);
+  border-radius: var(--r-ticket);
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.today-book:hover {
+  border-style: solid;
+  background: var(--lavender);
+}
+
+.today-book .icon {
+  width: 24px;
+  height: 24px;
+  color: var(--purple);
+}
+
+.today-book .figures {
+  font-size: 18px;
+  font-weight: 700;
+}
+
+/* the book page */
+.book-cover {
+  margin-bottom: 22px;
+  border-radius: var(--r-ticket);
+  background: var(--coupon);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+.book-cover .coupon-head {
+  border-radius: 0;
+}
+
+.book-cover-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
+  gap: 24px;
+  padding: 22px 24px;
+}
+
+.book-count {
+  display: grid;
+  align-content: center;
+}
+
+.book-big {
+  font: 800 88px/0.9 var(--display);
+  color: var(--purple);
+}
+
+.book-of {
+  font: 700 18px/1.2 var(--display);
+  text-transform: uppercase;
+}
+
+.book-side {
+  display: grid;
+  gap: 12px;
+  align-content: center;
+}
+
+.book-side .mini-ticket {
+  box-shadow: none;
+  border: 1px solid var(--line-soft);
+}
+
+.badges-panel {
+  margin-bottom: 26px;
+}
+
+.shelf-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.shelf-head > .icon {
+  width: 22px;
+  height: 22px;
+  color: var(--purple);
+}
+
+.shelf-head h3 {
+  margin: 0;
+  font: 800 24px/1 var(--display);
+  text-transform: uppercase;
+}
+
+.shelf-head .figures {
+  color: var(--text-2);
+  font-weight: 700;
+}
+
+.shelf-full {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--purple);
+  color: var(--on-purple);
+  font: 700 13px/1 var(--display);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.shelf-full .icon {
+  width: 14px;
+  height: 14px;
+}
+
+.badges {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.badge {
+  display: grid;
+  justify-items: center;
+  align-content: start;
+  gap: 4px;
+  padding: 14px 10px 12px;
+  border: 1px dashed var(--line);
+  border-radius: 10px;
+  text-align: center;
+  color: var(--text-3);
+}
+
+.badge.earned {
+  border-style: solid;
+  border-color: var(--lavender-line);
+  background: var(--lavender);
+  color: var(--text);
+}
+
+.badge-medal {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  margin-bottom: 4px;
+  border: 2px dashed var(--line);
+  border-radius: 50%;
+}
+
+.badge.earned .badge-medal {
+  border: 0;
+  background: var(--purple);
+  color: var(--on-purple);
+  box-shadow: 0 0 0 4px var(--lavender-line);
+}
+
+.badge-medal .icon {
+  width: 22px;
+  height: 22px;
+}
+
+.badge strong {
+  font: 700 16px/1.1 var(--display);
+  text-transform: uppercase;
+}
+
+.badge-how {
+  font-size: 13px;
+  line-height: 1.3;
+}
+
+.badge-progress {
+  margin-top: 2px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.shelf {
+  margin-bottom: 30px;
+}
+
+.book-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.book-ticket {
+  position: relative;
+  display: grid;
+  grid-template-rows: auto 1fr;
+  border: 2px dashed var(--line);
+  border-radius: 10px;
+  background: transparent;
+  overflow: hidden;
+}
+
+.book-ticket.stamped {
+  border: 0;
+  background: var(--coupon);
+  box-shadow: var(--shadow);
+}
+
+.book-photo {
+  height: 92px;
+  overflow: hidden;
+}
+
+.book-photo img,
+.book-photo .fallback {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.book-ticket:not(.stamped) .book-photo {
+  filter: grayscale(1) blur(1.5px);
+  opacity: 0.45;
+}
+
+.book-title {
+  padding: 8px 10px 10px;
+  font: 700 15px/1.15 var(--display);
+  text-transform: uppercase;
+  color: var(--text);
+}
+
+.book-ticket:not(.stamped) .book-title {
+  color: var(--text-3);
+}
+
+.book-stamp {
+  position: absolute;
+  top: 10px;
+  right: 8px;
+  display: grid;
+  justify-items: center;
+  padding: 4px 8px 3px;
+  border: 3px solid var(--purple);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--coupon) 82%, transparent);
+  color: var(--purple);
+  transform: rotate(-9deg);
+}
+
+.book-stamp-word {
+  font: 800 15px/1 var(--display);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.book-stamp .figures {
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.shelf.full .book-ticket.stamped {
+  box-shadow: var(--shadow), 0 0 0 2px var(--lavender-line);
+}
+
+@media (max-width: 1100px) {
+  .today {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+  .today-book {
+    grid-column: 1 / -1;
+    grid-auto-flow: column;
+    min-width: 0;
+  }
+  .book-cover-body {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .meter-fill {
+    transition: none;
+  }
+}

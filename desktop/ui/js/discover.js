@@ -22,6 +22,7 @@ import {
 import { creditLine, photo, photoFor } from './photos.js';
 import { freeStrip, invitable, invitePanel } from './together.js';
 import { streakChip, weekStrip } from './recap.js';
+import { todayStrip } from './book.js';
 
 const TIMES = [15, 30, 45, 60, 90, 120, 180, 240];
 const ENERGY = [
@@ -84,8 +85,10 @@ export function init(root, boot, context) {
   els.results = h('div', { 'aria-live': 'polite' });
   els.free = h('div');
   els.week = h('div');
-  root.replaceChildren(els.head, els.context, els.free, els.week, els.cityPrompt, els.rate, els.results);
+  els.today = h('div');
+  root.replaceChildren(els.head, els.context, els.free, els.week, els.today, els.cityPrompt, els.rate, els.results);
   weekStrip(els.week);
+  renderToday();
   // Who's free and "I'm free" (signed in only). Refreshed every minute while Discover is on screen.
   // When the friend list first arrives (or changes size), redraw so the ticket gets its Invite button.
   state.together = freeStrip(els.free, () => state.req.minutes, () => {
@@ -818,12 +821,23 @@ async function voidCoupon(c, el) {
   runSuggest({ keepShuffle: true, quiet: true });
 }
 
+/** Ticket of the day, weekly challenge and the door to the ticket book. */
+function renderToday() {
+  if (els.today) todayStrip(els.today, { onStart: (c) => start(c, null), openBook: () => ctx.goto('history', { tab: 'book' }) });
+}
+
+/** Start an idea picked elsewhere (the ticket book): same as Start on a ticket. */
+export async function startIdea(c) {
+  await start(c, null);
+}
+
 /** "Start": record the pick, stamp VALIDATED, open the link if there is one. */
 async function start(c, el) {
   try {
     await api.pick(c.id);
     // The week is now active: the "last week" strip goes, the streak chip may appear.
     if (els.week) weekStrip(els.week);
+    renderToday();
     renderHead();
     if (el) stamp(el, 'validated');
     toast('Enjoy. Next time freetime will ask how it went.', 'ok', 4200);
