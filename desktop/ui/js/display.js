@@ -21,6 +21,11 @@ export const THEMES = [
 
 const listeners = new Set();
 const darkQuery = window.matchMedia('(prefers-color-scheme: dark)');
+const phoneQuery = window.matchMedia('(max-width: 600px), (max-height: 600px) and (pointer: coarse)');
+
+export function availableTextSizes() {
+  return phoneQuery.matches ? TEXT_SIZES.slice(0, 2) : TEXT_SIZES;
+}
 
 function read(key) {
   try {
@@ -37,7 +42,8 @@ function write(key, value) {
 }
 
 export function currentTextSize() {
-  return TEXT_SIZES.find((s) => s.id === read(KEYS.size)) ?? TEXT_SIZES[0];
+  const saved = TEXT_SIZES.find((s) => s.id === read(KEYS.size)) ?? TEXT_SIZES[0];
+  return phoneQuery.matches && saved.zoom > 1.25 ? TEXT_SIZES[1] : saved;
 }
 
 export function currentTheme() {
@@ -83,10 +89,11 @@ async function zoomTo(zoom) {
 }
 
 export async function setTextSize(id) {
-  const size = TEXT_SIZES.find((s) => s.id === id) ?? TEXT_SIZES[0];
+  const size = availableTextSizes().find((s) => s.id === id) ?? currentTextSize();
   write(KEYS.size, size.id);
   document.documentElement.dataset.textSize = size.id;
   await zoomTo(size.zoom);
+  document.documentElement.style.setProperty('--ui-zoom', document.documentElement.style.zoom || '1');
   emit();
   return size;
 }
@@ -121,7 +128,16 @@ export function setHighContrast(on) {
 /** Applies the saved settings and wires Ctrl+Plus / Ctrl+Minus / Ctrl+0 and the Windows theme. */
 export function initDisplay() {
   paint();
-  setTextSize(currentTextSize().id);
+  // Keep a tablet/desktop preference when temporarily entering the phone layout.
+  const applySize = async () => {
+    const size = currentTextSize();
+    document.documentElement.dataset.textSize = size.id;
+    await zoomTo(size.zoom);
+    document.documentElement.style.setProperty('--ui-zoom', document.documentElement.style.zoom || '1');
+    emit();
+  };
+  applySize();
+  phoneQuery.addEventListener('change', applySize);
   darkQuery.addEventListener('change', () => {
     if (currentTheme().id !== 'system') return;
     paint();
@@ -129,13 +145,14 @@ export function initDisplay() {
   });
   document.addEventListener('keydown', (e) => {
     if (!e.ctrlKey || e.altKey || e.metaKey) return;
-    const i = TEXT_SIZES.indexOf(currentTextSize());
+    const sizes = availableTextSizes();
+    const i = sizes.indexOf(currentTextSize());
     let next = null;
-    if (e.key === '+' || e.key === '=') next = TEXT_SIZES[Math.min(i + 1, TEXT_SIZES.length - 1)];
-    else if (e.key === '-' || e.key === '_') next = TEXT_SIZES[Math.max(i - 1, 0)];
-    else if (e.key === '0') next = TEXT_SIZES[0];
+    if (e.key === '+' || e.key === '=') next = sizes[Math.min(i + 1, sizes.length - 1)];
+    else if (e.key === '-' || e.key === '_') next = sizes[Math.max(i - 1, 0)];
+    else if (e.key === '0') next = sizes[0];
     if (!next) return;
     e.preventDefault();
-    if (next !== TEXT_SIZES[i]) setTextSize(next.id);
+    if (next !== sizes[i]) setTextSize(next.id);
   });
 }

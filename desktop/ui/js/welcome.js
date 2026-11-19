@@ -97,7 +97,8 @@ export function runWelcome(boot) {
               ),
         ),
       );
-      layer.querySelector('input, .btn.primary')?.focus();
+      layer.scrollTop = 0;
+      layer.querySelector('input, .btn.primary')?.focus({ preventScroll: true });
     }
 
     draw();

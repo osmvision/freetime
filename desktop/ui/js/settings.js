@@ -8,7 +8,7 @@ import { photoCredits } from './photos.js';
 import { preferredLang, setLang } from './i18n.js';
 import { updatesBody } from './updates.js';
 import { supportBody } from './support.js';
-import { TEXT_SIZES, THEMES, displayState, onDisplayChange, setHighContrast, setTextSize, setTheme } from './display.js';
+import { TEXT_SIZES, THEMES, availableTextSizes, displayState, onDisplayChange, setHighContrast, setTextSize, setTheme } from './display.js';
 
 const INTEREST_IDEAS = [
   'speedrunning',
@@ -138,7 +138,10 @@ function displaySection() {
     status.className = notes.length ? 'status on' : 'status off';
     // One text node per note, so the translation layer can translate each one.
     status.replaceChildren(...(notes.length ? notes.flatMap((n, i) => (i ? [' · ', n] : [n])) : ['Default']));
-    for (const b of sizes) b.setAttribute('aria-pressed', String(b.dataset.size === size.id));
+    for (const b of sizes) {
+      b.hidden = !availableTextSizes().some((s) => s.id === b.dataset.size);
+      b.setAttribute('aria-pressed', String(b.dataset.size === size.id));
+    }
     for (const b of themes) b.setAttribute('aria-pressed', String(b.dataset.themeId === theme.id));
     contrastBtn.setAttribute('aria-checked', String(contrast));
     contrastBtn.querySelector('.switch-state').textContent = contrast ? 'On' : 'Off';

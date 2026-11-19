@@ -365,7 +365,7 @@ function closeMenu(focusButton = false) {
   if (focusButton) button.focus();
 }
 
-document.addEventListener('mousedown', (e) => {
+document.addEventListener('pointerdown', (e) => {
   if (openMenu && !openMenu.wrap.contains(e.target)) closeMenu();
 });
 document.addEventListener('keydown', (e) => {
@@ -375,11 +375,16 @@ document.addEventListener('keydown', (e) => {
 document.addEventListener(
   'scroll',
   (e) => {
-    if (openMenu && !openMenu.menu.contains(e.target)) closeMenu();
+    if (!openMenu || openMenu.menu.contains(e.target)) return;
+    const rect = openMenu.button.getBoundingClientRect();
+    // A touch/browser focus can queue a scroll event before the menu opens.
+    // Only a movement of the anchor invalidates the fixed placement.
+    if (Math.abs(rect.top - openMenu.anchor.top) > 1 || Math.abs(rect.left - openMenu.anchor.left) > 1) closeMenu();
   },
   true,
 );
 window.addEventListener('resize', () => closeMenu());
+window.visualViewport?.addEventListener('resize', () => closeMenu());
 
 /** Puts the menu under its button, inside the window and above the bottom tab bar
     (the context row scrolls sideways on narrow windows and would clip it). */
@@ -387,20 +392,25 @@ function placeMenu(menu, button) {
   const gap = 6;
   const margin = 8;
   const r = button.getBoundingClientRect();
+  const zoom = Number(document.documentElement.style.zoom) || 1;
+  const viewport = window.visualViewport;
+  const viewportRight = (viewport?.offsetLeft ?? 0) + (viewport?.width ?? window.innerWidth);
+  const viewportBottom = (viewport?.offsetTop ?? 0) + (viewport?.height ?? window.innerHeight);
   const nav = document.querySelector('.nav');
-  const floor = nav && getComputedStyle(nav).position === 'fixed' ? nav.getBoundingClientRect().top : window.innerHeight;
+  const floor = nav && getComputedStyle(nav).position === 'fixed' ? Math.min(nav.getBoundingClientRect().top, viewportBottom) : viewportBottom;
   const roof = document.querySelector('.topbar')?.getBoundingClientRect().bottom ?? 0;
   menu.style.position = 'fixed';
-  menu.style.left = `${Math.max(margin, Math.min(r.left, window.innerWidth - menu.offsetWidth - margin))}px`;
+  menu.style.maxWidth = `${(viewportRight - margin * 2) / zoom}px`;
+  menu.style.minWidth = `${Math.min(230, (viewportRight - margin * 2) / zoom)}px`;
+  menu.style.left = `${Math.max(margin, Math.min(r.left, viewportRight - menu.getBoundingClientRect().width - margin)) / zoom}px`;
   const below = floor - r.bottom - gap - margin;
   const above = r.top - roof - gap - margin;
   if (below >= Math.min(menu.scrollHeight, 220) || below >= above) {
-    menu.style.top = `${r.bottom + gap}px`;
-    menu.style.maxHeight = `${below}px`;
+    menu.style.top = `${(r.bottom + gap) / zoom}px`;
+    menu.style.maxHeight = `${Math.max(44, below / zoom)}px`;
   } else {
-    menu.style.top = 'auto';
-    menu.style.bottom = `${window.innerHeight - r.top + gap}px`;
-    menu.style.maxHeight = `${above}px`;
+    menu.style.top = `${(roof + gap) / zoom}px`;
+    menu.style.maxHeight = `${Math.max(44, above / zoom)}px`;
   }
 }
 
@@ -484,7 +494,7 @@ function select({ name, icon: iconOf, value, options, isOn, pick, multi = false,
     placeMenu(menu, button);
     button.setAttribute('aria-expanded', 'true');
     // After closing, the label shows what onClose may have changed.
-    openMenu = { menu, button, wrap, onClose: () => { onClose?.(); paint(); } };
+    openMenu = { menu, button, wrap, anchor: button.getBoundingClientRect(), onClose: () => { onClose?.(); paint(); } };
     (menu.querySelector('.option[aria-pressed="true"]') ?? menu.querySelector('.option'))?.focus({ preventScroll: true });
   }
 

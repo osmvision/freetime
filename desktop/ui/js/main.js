@@ -11,10 +11,12 @@ import { runWelcome } from './welcome.js';
 import { startI18n } from './i18n.js';
 import * as settingsView from './settings.js';
 import { initDisplay } from './display.js';
+import { initViewport } from './viewport.js';
 import { assistantAccountChanged, assistantSettingsChanged, mountAssistant } from './assistant.js';
 import { watchUpdates } from './updates.js';
 
 initDisplay();
+initViewport();
 
 const views = {
   discover: document.getElementById('view-discover'),
