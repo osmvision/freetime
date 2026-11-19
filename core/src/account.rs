@@ -490,6 +490,52 @@ impl Client {
         Ok(())
     }
 
+    // ---------------------------------------------------------------- meet people
+
+    /// People who chose to be visible and aren't your friends yet, newest accounts first.
+    pub fn meet_people(&self, s: &Session) -> Result<Vec<MeetRow>> {
+        let v = self.call("POST", "/rest/v1/rpc/meet_people", Some(&s.access_token), Some(&json!({})), None)?;
+        serde_json::from_value(v).context("unexpected list of people")
+    }
+
+    /// A friend request to someone from Meet. Returns "pending" or "accepted" (they had asked you).
+    pub fn request_friend(&self, s: &Session, user_id: &str) -> Result<String> {
+        ensure_uuid(user_id)?;
+        let v = self.call("POST", "/rest/v1/rpc/request_friend", Some(&s.access_token), Some(&json!({ "p_user": user_id })), None)?;
+        v.as_str().map(str::to_string).ok_or_else(|| anyhow!("unexpected response"))
+    }
+
+    // ---------------------------------------------------------------- quiz duels
+
+    /// Challenges a friend; returns the new duel's id.
+    pub fn create_duel(&self, s: &Session, friend: &str) -> Result<String> {
+        ensure_uuid(friend)?;
+        let v = self.call("POST", "/rest/v1/rpc/create_duel", Some(&s.access_token), Some(&json!({ "p_opponent": friend })), None)?;
+        let id = v.as_str().ok_or_else(|| anyhow!("unexpected response"))?;
+        ensure_uuid(id)?;
+        Ok(id.to_string())
+    }
+
+    /// Your duels: your turn first, then waiting, then finished (last 30 days).
+    pub fn my_duels(&self, s: &Session) -> Result<Vec<Duel>> {
+        let v = self.call("POST", "/rest/v1/rpc/my_duels", Some(&s.access_token), Some(&json!({})), None)?;
+        serde_json::from_value(v).context("unexpected list of duels")
+    }
+
+    /// Plays your side; `answers` are in the bank's choice order (see duel::bank_answers).
+    pub fn play_duel(&self, s: &Session, duel: &str, answers: &[usize]) -> Result<DuelResult> {
+        ensure_uuid(duel)?;
+        let v = self.call("POST", "/rest/v1/rpc/play_duel", Some(&s.access_token), Some(&json!({ "p_duel": duel, "p_answers": answers })), None)?;
+        serde_json::from_value(v).context("unexpected duel result")
+    }
+
+    /// Declines a duel (you were challenged) or takes it back (you challenged), before it's played.
+    pub fn drop_duel(&self, s: &Session, duel: &str) -> Result<()> {
+        ensure_uuid(duel)?;
+        self.call("POST", "/rest/v1/rpc/drop_duel", Some(&s.access_token), Some(&json!({ "p_duel": duel })), None)?;
+        Ok(())
+    }
+
     /// Deletes your shared list from the server.
     pub fn stop_sharing_library(&self, s: &Session) -> Result<()> {
         self.call("POST", "/rest/v1/rpc/stop_sharing_library", Some(&s.access_token), Some(&json!({})), None)?;
@@ -833,6 +879,56 @@ pub struct BoardRow {
     pub avatar_color: i16,
     pub points: i64,
     pub me: bool,
+}
+
+/// One person in Meet.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MeetRow {
+    pub user_id: String,
+    pub display_name: String,
+    pub avatar_icon: i16,
+    pub avatar_color: i16,
+    /// Joined in the last 14 days.
+    pub new: bool,
+    /// This season.
+    pub points: i64,
+    pub badges: i32,
+    /// "none", "sent" or "received".
+    pub request: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DuelPlayer {
+    pub id: String,
+    pub display_name: String,
+    pub avatar_icon: i16,
+    pub avatar_color: i16,
+}
+
+/// A quiz duel as you see it.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Duel {
+    pub id: String,
+    /// You started it.
+    pub challenger: bool,
+    pub other: DuelPlayer,
+    /// "your_turn", "waiting", "done", "declined", "cancelled" or "expired".
+    pub state: String,
+    /// Question ids, only while it's your turn.
+    pub questions: Option<Vec<String>>,
+    pub my_score: Option<u8>,
+    pub their_score: Option<u8>,
+    pub created_at: String,
+    pub finished_at: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DuelResult {
+    pub score: u8,
+    /// The right answers, in the bank's choice order.
+    pub key: Vec<usize>,
+    pub other_score: Option<u8>,
+    pub status: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

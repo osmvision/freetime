@@ -40,6 +40,8 @@ const ICONS = [
   // avatars (see ui/js/avatars.js)
   'rocket', 'ghost', 'cat', 'dog', 'crown', 'star', 'flame', 'mountain', 'bike', 'coffee', 'pizza',
   'music', 'trophy', 'sword', 'dice-5', 'skull',
+  // games and duels (see ui/js/games.js)
+  'swords', 'grid-2x2', 'hash', 'circle-dot', 'square-dashed', 'anchor', 'link',
 ];
 
 mkdirSync(join(root, 'ui', 'fonts'), { recursive: true });

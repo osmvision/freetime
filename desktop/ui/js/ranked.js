@@ -109,7 +109,7 @@ function globalSwitch(v, reload) {
     h(
       'div',
       { class: 'strip-text' },
-      h('label', { class: 'check' }, box, h('strong', {}, 'Show me on the global ranking')),
+      h('label', { class: 'check' }, box, h('strong', {}, 'Show me on the global ranking and in Meet')),
       h('span', {}, 'Others then see your name, avatar, tier, points and badges, and can send you a friend request. Never your email, bio or status.'),
     ),
   );

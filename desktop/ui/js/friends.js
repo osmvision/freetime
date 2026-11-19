@@ -7,6 +7,8 @@ import { AVATAR_COLORS, AVATAR_ICONS, avatar } from './avatars.js';
 import { btn, emptyState, errText, fill, h, icon, pageHead, toast } from './dom.js';
 import { openCard, renderRanked } from './ranked.js';
 import { renderFeed } from './feed.js';
+import { renderMeet } from './meet.js';
+import { startDuel } from './games.js';
 
 let tab = 'feed';
 
@@ -18,6 +20,7 @@ function tabs(root, ctx) {
     [
       ['feed', 'Feed', 'sparkles'],
       ['friends', 'Friends', 'users'],
+      ['meet', 'Meet', 'user-plus'],
       ['ranked', 'Ranking', 'trophy'],
     ].map(([id, label, name]) =>
       h('button', { type: 'button', role: 'tab', class: 'seg-btn', 'aria-selected': String(tab === id), onclick: () => { if (tab !== id) { tab = id; render(root, ctx); } } }, icon(name), label),
@@ -28,23 +31,27 @@ function tabs(root, ctx) {
 export async function render(root, ctx, { tab: wanted } = {}) {
   if (wanted) tab = wanted;
   const head = () =>
-    tab === 'ranked'
+    tab === 'meet'
+      ? pageHead('Meet', 'People on freetime who chose to be found. Add them in one tap.', tabs(root, ctx))
+      : tab === 'ranked'
       ? pageHead('Ranking', 'Earn points by doing things, climb a tier each month, and see who’s on top.', tabs(root, ctx))
       : tab === 'feed'
         ? pageHead('Feed', 'What you and your friends did lately. React with a tap.', tabs(root, ctx))
         : pageHead('Friends', 'Add friends by their tag, answer requests, and message them.', tabs(root, ctx));
-  if (tab === 'ranked' || tab === 'feed') {
+  if (tab === 'ranked' || tab === 'feed' || tab === 'meet') {
     const box = h('div');
     root.replaceChildren(head(), box);
     const status = await api.accountStatus().catch(() => ({ signed_in: false }));
-    if (status.signed_in) return tab === 'feed' ? renderFeed(box, ctx) : renderRanked(box, ctx);
+    if (status.signed_in) return tab === 'feed' ? renderFeed(box, ctx) : tab === 'meet' ? renderMeet(box, ctx) : renderRanked(box, ctx);
     return fill(
       box,
       h(
         'div',
         { class: 'strip' },
         icon('trophy'),
-        tab === 'feed'
+        tab === 'meet'
+          ? h('div', { class: 'strip-text' }, h('strong', {}, 'Sign in to meet people on freetime'), h('span', {}, 'Optional: your profile lives in Settings.'))
+          : tab === 'feed'
           ? h('div', { class: 'strip-text' }, h('strong', {}, 'Sign in to see what your friends are up to'), h('span', {}, 'Optional: your profile lives in Settings.'))
           : h('div', { class: 'strip-text' }, h('strong', {}, 'Sign in to join the ranking'), h('span', {}, 'Your points stay on this PC until you sign in.')),
         btn({ label: 'Go to profile', icon: 'log-in', small: true, onclick: () => ctx.goto('settings', { focus: 'profile' }) }),
@@ -143,11 +150,17 @@ async function onlineSection(box, ctx) {
             person(f, f.status_text || f.bio || '', streakChip(streaks[f.user_id]), [
               btn({ label: `${f.display_name}’s card`, icon: 'trophy', small: true, square: true, onclick: () => openCard(f.user_id, ctx) }),
               btn({ label: 'Message', icon: 'message-circle', small: true, onclick: () => ctx.openChat(f.user_id) }),
+              btn({ label: `Challenge ${f.display_name} to a quiz duel`, icon: 'swords', small: true, square: true, onclick: () => { ctx.goto('games'); startDuel(f.user_id, f.display_name, () => ctx.goto('games')); } }),
               confirmBtn(`Remove ${f.display_name}`, 'user-x', () => act(api.unfriend(f.user_id), `${f.display_name} removed`, reload)),
               confirmBtn(`Block ${f.display_name}`, 'ban', () => act(api.blockUser(f.user_id), `${f.display_name} blocked`, reload)),
             ]),
           )
-        : h('p', { class: 'hint' }, 'No friends yet. Send your tag (Settings → Profile) to a friend, or add theirs above.'),
+        : h(
+            'div',
+            { class: 'no-friends' },
+            h('p', { class: 'hint' }, 'No friends yet. Find people who use freetime in Meet, or send your tag (Settings → Profile) to a friend.'),
+            btn({ label: 'Meet people', icon: 'user-plus', small: true, onclick: () => ctx.goto('friends', { tab: 'meet' }) }),
+          ),
     ),
   );
 }

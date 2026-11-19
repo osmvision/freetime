@@ -34,6 +34,8 @@ pub enum Event {
     Invite { id: i64, from_user: String, to_user: String, status: String, title: String, starts_at: String, inserted: bool },
     /// A profile you may see changed (yours or a friend's): who, and their "free until" (None = not free).
     Profile { id: String, display_name: String, free_until: Option<String> },
+    /// A quiz duel you're in was created or changed (someone played, declined or cancelled).
+    Duel { id: String, challenger: String, opponent: String, status: String, inserted: bool },
 }
 
 pub fn websocket_url() -> String {
@@ -52,7 +54,8 @@ pub fn join_frame(token: &str, r#ref: u64) -> String {
                 "postgres_changes": [
                     { "event": "INSERT", "schema": "public", "table": "messages" },
                     { "event": "*", "schema": "public", "table": "invites" },
-                    { "event": "UPDATE", "schema": "public", "table": "profiles" }
+                    { "event": "UPDATE", "schema": "public", "table": "profiles" },
+                    { "event": "*", "schema": "public", "table": "duels" }
                 ],
                 "private": false
             },
@@ -72,7 +75,7 @@ pub fn token_frame(token: &str, r#ref: u64) -> String {
     json!({ "topic": TOPIC, "event": "access_token", "payload": { "access_token": token }, "ref": r#ref.to_string() }).to_string()
 }
 
-/// Reads one frame from the server. Only well-formed changes of the two tables come out.
+/// Reads one frame from the server. Only well-formed changes of the subscribed tables come out.
 pub fn parse(text: &str) -> Option<Event> {
     let v: Value = serde_json::from_str(text).ok()?;
     let event = v.get("event")?.as_str()?;
@@ -110,6 +113,13 @@ pub fn parse(text: &str) -> Option<Event> {
             id: text_of("id")?,
             display_name: text_of("display_name").unwrap_or_default(),
             free_until: text_of("free_until"),
+        }),
+        ("duels", kind @ ("INSERT" | "UPDATE")) => Some(Event::Duel {
+            id: text_of("id")?,
+            challenger: text_of("challenger")?,
+            opponent: text_of("opponent")?,
+            status: text_of("status")?,
+            inserted: kind == "INSERT",
         }),
         _ => None,
     }
@@ -208,7 +218,7 @@ mod tests {
         let join: Value = serde_json::from_str(&join_frame("TOKEN", 1)).unwrap();
         assert_eq!(join["event"], "phx_join");
         assert_eq!(join["payload"]["access_token"], "TOKEN");
-        assert_eq!(join["payload"]["config"]["postgres_changes"].as_array().unwrap().len(), 3);
+        assert_eq!(join["payload"]["config"]["postgres_changes"].as_array().unwrap().len(), 4);
     }
 
     #[test]
@@ -235,6 +245,14 @@ mod tests {
         assert_eq!(parse(joined), Some(Event::Live));
         let refused = r#"{"topic":"realtime:freetime","event":"phx_reply","payload":{"status":"error","response":{"reason":"bad token"}},"ref":"1"}"#;
         assert_eq!(parse(refused), None);
+    }
+
+    #[test]
+    fn reads_duels() {
+        let frame = r#"{"topic":"realtime:freetime","event":"postgres_changes","payload":{"data":{"table":"duels","type":"INSERT","record":{"id":"d1","challenger":"a","opponent":"b","questions":["q001"],"challenger_score":null,"opponent_score":null,"status":"open"}}}}"#;
+        assert_eq!(parse(frame), Some(Event::Duel { id: "d1".into(), challenger: "a".into(), opponent: "b".into(), status: "open".into(), inserted: true }));
+        let done = frame.replace("INSERT", "UPDATE").replace("\"open\"", "\"done\"");
+        assert_eq!(parse(&done), Some(Event::Duel { id: "d1".into(), challenger: "a".into(), opponent: "b".into(), status: "done".into(), inserted: false }));
     }
 
     #[test]

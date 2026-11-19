@@ -1,6 +1,6 @@
 # freetime privacy policy
 
-Last updated: 18 November 2026. In plain words: what freetime stores, where, and how you stay in
+Last updated: 19 November 2026. In plain words: what freetime stores, where, and how you stay in
 control.
 
 ## The short version
@@ -48,6 +48,9 @@ To work, the app contacts these services, and only for what you see on screen:
 - What you choose to share in the friends' feed (an idea you did, your quiz score), and your
   reactions to friends' posts. Posts are deleted automatically after 30 days, and you can delete
   them yourself at any time. By default the app asks before each share.
+- Quiz duels you play with friends: who played, the questions, your answers and the scores.
+  Duels older than 30 days no longer show in the app; they are part of your data export, and
+  deleted with your account.
 
 **The free assistant**
 
@@ -63,9 +66,13 @@ on your PC.
   many reactions your posts got.
 - Your friends see your ranking card: points this season, tier, tickets stamped, badges and best
   streak.
-- **Only if you turn on "Show me on the global ranking"**, which is off by default: anyone signed in sees
-  your name, avatar, tier, points and badges, and can send you a friend request. Never your
-  email, bio or status. Turning it off removes you from the board right away.
+- **Only if you turn on "Let others find me"** (the same switch as "Show me on the global
+  ranking"), which is off by default: anyone signed in sees your name, avatar, tier, points and
+  badges on the global ranking and in Meet, sees that you joined recently (the last 14 days, never
+  the date), and can send you a friend request. Never your email, bio or status, and only friends
+  can message you. Turning it off removes you from both right away.
+- In a quiz duel, you and your friend see each other's score. Your answers are never shown to the
+  other player.
 - Only the two people in a conversation can read it. Messages are encrypted in transit and stored
   encrypted on disk by our hosting provider, but they are **not end-to-end encrypted**: the people
   who run freetime could technically access them. We only do so to handle a report you or the other
