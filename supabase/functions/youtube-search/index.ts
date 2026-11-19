@@ -11,8 +11,11 @@
 
 import { createClient } from 'npm:@supabase/supabase-js@2.45.4';
 
-/** Results stay fresh this long: one real search per topic every 6 hours at most. */
-const FRESH_SECS = 6 * 3600;
+/**
+ * Results stay fresh this long: one real search per topic a day at most. Results are ranked by
+ * relevance over the past year, so they hardly change within a day; the quota is what is scarce.
+ */
+const FRESH_SECS = 24 * 3600;
 /** 90 × 101 = 9,090 of the 10,000 free daily units. */
 const DEFAULT_DAILY_SEARCHES = 90;
 const MAX_QUERY = 60;
