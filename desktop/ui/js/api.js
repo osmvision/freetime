@@ -53,6 +53,13 @@ export const api = {
   playerCard: (userId) => invoke('player_card', { userId }),
   setGlobalRanking: (enabled) => invoke('set_global_ranking', { enabled }),
   syncPoints: () => invoke('sync_points'),
+  // Friends' feed and social settings.
+  friendFeed: () => invoke('friend_feed'),
+  sharePost: (post) => invoke('share_post', { post }),
+  deletePost: (id) => invoke('delete_post', { id }),
+  toggleReaction: (post, emoji) => invoke('toggle_reaction', { post, emoji }),
+  socialPrefs: () => invoke('get_social_prefs'),
+  setSocialPrefs: (prefs) => invoke('set_social_prefs', { prefs }),
   getShareLibrary: () => invoke('get_share_library'),
   setShareLibrary: (enabled) => invoke('set_share_library', { enabled }),
   setFree: (minutes) => invoke('set_free', { minutes }),

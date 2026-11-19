@@ -5140,3 +5140,178 @@ body[data-view="messages"] .assistant-panel {
   display: flex;
   margin-bottom: 4px;
 }
+
+/* ---------------------------------------------------------------- friends' feed (js/feed.js) */
+
+.feed {
+  display: grid;
+  gap: 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.feed-post {
+  padding: 16px 18px 14px;
+  border-radius: var(--r-ticket);
+  background: var(--coupon);
+  box-shadow: var(--shadow);
+  animation: issue 0.3s var(--ease) backwards;
+}
+
+.feed-post.own {
+  border-left: 4px solid var(--lavender-line);
+}
+
+.feed-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.feed-who {
+  font: 700 18px/1 var(--display);
+  text-transform: uppercase;
+}
+
+.feed-when {
+  margin-right: auto;
+  color: var(--text-3);
+  font-size: 14px;
+}
+
+.feed-body {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.feed-photo {
+  flex: 0 0 auto;
+  width: 96px;
+  height: 72px;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.feed-photo img,
+.feed-photo .fallback {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.feed-photo .poster-label {
+  display: none;
+}
+
+.feed-icon {
+  display: grid;
+  place-items: center;
+  background: var(--lavender);
+  color: var(--purple);
+}
+
+.feed-icon .icon {
+  width: 32px;
+  height: 32px;
+}
+
+.feed-text {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.feed-text .mini-k {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.feed-text .mini-k .icon {
+  width: 14px;
+  height: 14px;
+}
+
+.feed-what {
+  font: 800 24px/1.05 var(--display);
+  text-transform: uppercase;
+}
+
+.feed-detail {
+  color: var(--purple);
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.reactions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--line);
+}
+
+.react {
+  min-width: 44px;
+  padding: 6px 10px;
+  border: 1.5px solid var(--line);
+  border-radius: 999px;
+  background: transparent;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  transition: transform 0.15s var(--ease), background 0.15s, border-color 0.15s;
+}
+
+.react:hover {
+  background: var(--hover);
+}
+
+.react[aria-pressed="true"] {
+  border-color: var(--purple);
+  background: var(--lavender);
+  transform: scale(1.08);
+}
+
+.react-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--lavender);
+  font-size: 16px;
+}
+
+.feed-end {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin: 22px 0 0;
+  color: var(--text-3);
+}
+
+.feed-end .icon {
+  width: 16px;
+  height: 16px;
+  color: var(--purple);
+}
+
+.share-prompt .share-title {
+  font: 700 17px/1.2 var(--display);
+  text-transform: uppercase;
+}
+
+.share-select {
+  max-width: 340px;
+}
+
+.share-prompt .update-text .row {
+  flex-wrap: wrap;
+}

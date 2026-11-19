@@ -45,6 +45,9 @@ To work, the app contacts these services, and only for what you see on screen:
   days are deleted.
 - For the ranking: your points per day (at most 20), how many tickets you stamped, the badges you
   earned and your best weekly streak. Your history itself stays on your PC.
+- What you choose to share in the friends' feed (an idea you did, your quiz score), and your
+  reactions to friends' posts. Posts are deleted automatically after 30 days, and you can delete
+  them yourself at any time. By default the app asks before each share.
 
 **The free assistant**
 
@@ -56,6 +59,8 @@ on your PC.
 **Who sees what**
 
 - Your friends, and people you have a pending request with, see your name, avatar, bio and status.
+- Your friends see what you share in the feed, and which reactions you gave. Only you see how
+  many reactions your posts got.
 - Your friends see your ranking card: points this season, tier, tickets stamped, badges and best
   streak.
 - **Only if you turn on "Show me on the global ranking"**, which is off by default: anyone signed in sees

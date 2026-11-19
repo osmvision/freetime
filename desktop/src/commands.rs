@@ -60,6 +60,67 @@ pub struct AppState {
     live: std::sync::atomic::AtomicBool,
     /// Friends' display names by id, for notifications from the live connection.
     names: Mutex<HashMap<String, String>>,
+    /// Your own "free until" (RFC 3339), as last set or seen live. None = not free / unknown.
+    my_free_until: Mutex<Option<String>>,
+    /// Social notifications sent today: (day, how many, friends already told about).
+    social: Mutex<(Option<chrono::NaiveDate>, u32, HashSet<String>)>,
+}
+
+/// At most this many social notifications ("free together") a day; messages and invites don't count.
+const SOCIAL_NOTIFICATIONS_A_DAY: u32 = 3;
+
+/// Whether a "free until" time is still ahead.
+fn still_free(until: Option<&str>) -> bool {
+    until
+        .and_then(|t| chrono::DateTime::parse_from_rfc3339(t).ok())
+        .is_some_and(|t| t > chrono::Utc::now())
+}
+
+/// A friend just became free: notify if you're free too, within the daily budget, outside quiet
+/// hours, once per friend a day, and only when the window isn't in front of you.
+fn free_together(app: &AppHandle, state: &AppState, me: &str, id: &str, name: &str, until: Option<&str>) {
+    use chrono::Timelike;
+    use tauri_plugin_notification::NotificationExt;
+    if id == me {
+        *lock(&state.my_free_until) = until.map(str::to_string);
+        return;
+    }
+    if !still_free(until) {
+        return;
+    }
+    let cfg = Config::load().unwrap_or_default();
+    let hour = chrono::Local::now().hour();
+    if !cfg.notify_free_together || (cfg.quiet_hours && (hour >= 22 || hour < 9)) {
+        return;
+    }
+    if !still_free(lock(&state.my_free_until).as_deref()) {
+        return;
+    }
+    if app.get_webview_window("main").and_then(|w| w.is_focused().ok()).unwrap_or(false) {
+        return;
+    }
+    {
+        let today = chrono::Local::now().date_naive();
+        let mut budget = lock(&state.social);
+        if budget.0 != Some(today) {
+            *budget = (Some(today), 0, HashSet::new());
+        }
+        if budget.1 >= SOCIAL_NOTIFICATIONS_A_DAY || !budget.2.insert(id.to_string()) {
+            return;
+        }
+        budget.1 += 1;
+    }
+    let at = until
+        .and_then(|t| chrono::DateTime::parse_from_rfc3339(t).ok())
+        .map(|t| t.with_timezone(&chrono::Local).format("%H:%M").to_string())
+        .unwrap_or_default();
+    let who = if name.trim().is_empty() { friend_name(state, id) } else { name.to_string() };
+    let _ = app
+        .notification()
+        .builder()
+        .title(format!("{who} is free too"))
+        .body(format!("Until {at}. Open freetime to find something to do together."))
+        .show();
 }
 
 #[derive(Default)]
@@ -334,6 +395,7 @@ pub struct Pending {
     ts: i64,
     title: String,
     icon: &'static str,
+    category: Category,
     ago: String,
 }
 
@@ -348,6 +410,7 @@ fn pending_list(h: &History) -> Vec<Pending> {
                 ts: e.ts,
                 title: e.title.clone(),
                 icon: e.category.icon(),
+                category: e.category,
                 ago: history::ago(now - e.ts),
             }
         })
@@ -1063,6 +1126,10 @@ fn on_live_event(app: &AppHandle, event: realtime::Event) {
         Config::load().map(|c| c.notify_messages).unwrap_or(false)
             && !app.get_webview_window("main").and_then(|w| w.is_focused().ok()).unwrap_or(false)
     };
+    let notify_invites = || {
+        Config::load().map(|c| c.notify_invites).unwrap_or(false)
+            && !app.get_webview_window("main").and_then(|w| w.is_focused().ok()).unwrap_or(false)
+    };
     match event {
         realtime::Event::Live => {
             state.live.store(true, Ordering::Relaxed);
@@ -1082,13 +1149,18 @@ fn on_live_event(app: &AppHandle, event: realtime::Event) {
             let _ = app.emit("message-new", LiveMessage { message: m, mine });
         }
         realtime::Event::Invite { from_user, to_user, title, starts_at, inserted, status, .. } => {
-            if inserted && to_user == me && status == "pending" && notify() {
+            if inserted && to_user == me && status == "pending" && notify_invites() {
                 let at = chrono::DateTime::parse_from_rfc3339(&starts_at)
                     .map(|t| t.with_timezone(&chrono::Local).format("%H:%M").to_string())
                     .unwrap_or_default();
                 let _ = app.notification().builder().title(format!("{} invites you", friend_name(&state, &from_user))).body(format!("{title} · {at}")).show();
             }
             let _ = app.emit("invites-changed", ());
+        }
+        realtime::Event::Profile { id, display_name, free_until } => {
+            free_together(app, &state, &me, &id, &display_name, free_until.as_deref());
+            // Discover's "free now" strip refreshes right away.
+            let _ = app.emit("friend-free-changed", ());
         }
     }
 }
@@ -1207,7 +1279,9 @@ pub fn get_notify_messages() -> Res<bool> {
 #[tauri::command(async)]
 pub fn set_free(state: State<'_, AppState>, minutes: u32) -> Res<Option<String>> {
     let s = live_session(&state)?;
-    Client::new().map_err(err)?.set_free(&s, minutes).map_err(err)
+    let until = Client::new().map_err(err)?.set_free(&s, minutes).map_err(err)?;
+    *lock(&state.my_free_until) = until.clone();
+    Ok(until)
 }
 
 #[tauri::command(async)]

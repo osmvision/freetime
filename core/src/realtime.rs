@@ -32,6 +32,8 @@ pub enum Event {
     Message(Message),
     /// An invite was created or answered: (id, its from_user, its to_user, status, title, starts_at).
     Invite { id: i64, from_user: String, to_user: String, status: String, title: String, starts_at: String, inserted: bool },
+    /// A profile you may see changed (yours or a friend's): who, and their "free until" (None = not free).
+    Profile { id: String, display_name: String, free_until: Option<String> },
 }
 
 pub fn websocket_url() -> String {
@@ -49,7 +51,8 @@ pub fn join_frame(token: &str, r#ref: u64) -> String {
                 "presence": { "key": "" },
                 "postgres_changes": [
                     { "event": "INSERT", "schema": "public", "table": "messages" },
-                    { "event": "*", "schema": "public", "table": "invites" }
+                    { "event": "*", "schema": "public", "table": "invites" },
+                    { "event": "UPDATE", "schema": "public", "table": "profiles" }
                 ],
                 "private": false
             },
@@ -102,6 +105,11 @@ pub fn parse(text: &str) -> Option<Event> {
             title: text_of("title").unwrap_or_default(),
             starts_at: text_of("starts_at").unwrap_or_default(),
             inserted: kind == "INSERT",
+        }),
+        ("profiles", "UPDATE") => Some(Event::Profile {
+            id: text_of("id")?,
+            display_name: text_of("display_name").unwrap_or_default(),
+            free_until: text_of("free_until"),
         }),
         _ => None,
     }
@@ -200,7 +208,7 @@ mod tests {
         let join: Value = serde_json::from_str(&join_frame("TOKEN", 1)).unwrap();
         assert_eq!(join["event"], "phx_join");
         assert_eq!(join["payload"]["access_token"], "TOKEN");
-        assert_eq!(join["payload"]["config"]["postgres_changes"].as_array().unwrap().len(), 2);
+        assert_eq!(join["payload"]["config"]["postgres_changes"].as_array().unwrap().len(), 3);
     }
 
     #[test]
@@ -219,6 +227,10 @@ mod tests {
     fn reads_invites_and_the_join_reply() {
         let invite = r#"{"topic":"realtime:freetime","event":"postgres_changes","payload":{"data":{"table":"invites","type":"UPDATE","record":{"id":7,"from_user":"a","to_user":"b","status":"accepted","title":"Hades","starts_at":"2026-11-18T21:00:00+00:00"}}}}"#;
         assert!(matches!(parse(invite), Some(Event::Invite { id: 7, inserted: false, .. })));
+        let profile = r#"{"topic":"realtime:freetime","event":"postgres_changes","payload":{"data":{"table":"profiles","type":"UPDATE","record":{"id":"b","display_name":"Julian","free_until":"2026-11-19T21:30:00+00:00"}}}}"#;
+        assert_eq!(parse(profile), Some(Event::Profile { id: "b".into(), display_name: "Julian".into(), free_until: Some("2026-11-19T21:30:00+00:00".into()) }));
+        let not_free = r#"{"topic":"realtime:freetime","event":"postgres_changes","payload":{"data":{"table":"profiles","type":"UPDATE","record":{"id":"b","display_name":"Julian","free_until":null}}}}"#;
+        assert!(matches!(parse(not_free), Some(Event::Profile { free_until: None, .. })));
         let joined = r#"{"topic":"realtime:freetime","event":"phx_reply","payload":{"status":"ok","response":{"postgres_changes":[{"id":1},{"id":2}]}},"ref":"1"}"#;
         assert_eq!(parse(joined), Some(Event::Live));
         let refused = r#"{"topic":"realtime:freetime","event":"phx_reply","payload":{"status":"error","response":{"reason":"bad token"}},"ref":"1"}"#;

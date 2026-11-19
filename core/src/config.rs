@@ -30,6 +30,14 @@ pub struct Config {
     pub assistant: AssistantConfig,
     /// Look for a new version on GitHub a while after start and twice a day (installing asks first).
     pub check_updates: bool,
+    /// Notify when a friend invites you to something.
+    pub notify_invites: bool,
+    /// Notify when a friend becomes free while you are free too.
+    pub notify_free_together: bool,
+    /// No social notifications from 22:00 to 09:00 (messages and invites still come through).
+    pub quiet_hours: bool,
+    /// After a 👍: "ask" to share it with friends, "always" share it, or "never".
+    pub share_activity: String,
 }
 
 /// The chat assistant (needs a MISTRAL_API_KEY, see `keys`).
@@ -75,6 +83,10 @@ impl Default for Config {
             share_library: false,
             assistant: AssistantConfig::default(),
             check_updates: true,
+            notify_invites: true,
+            notify_free_together: true,
+            quiet_hours: true,
+            share_activity: "ask".to_string(),
         }
     }
 }
