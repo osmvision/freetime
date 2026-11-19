@@ -9,11 +9,11 @@
 //! | weekly challenge completed that day    | 10              |
 //! | badge earned that day                  | 5 each          |
 
-use crate::book;
+use crate::{account::{BoardRow, Client, Session}, book, catalog};
 use crate::history::{Entry, History};
 use crate::model::Suggestion;
 use crate::quiz::QuizLog;
-use chrono::{DateTime, Local, NaiveDate, TimeZone};
+use chrono::{DateTime, Datelike, Local, NaiveDate, TimeZone};
 use serde::Serialize;
 use std::collections::HashSet;
 
@@ -107,6 +107,79 @@ pub fn stats(history: &History, catalog: &[Suggestion], now: DateTime<Local>) ->
         badges: b.badges.iter().filter(|x| x.earned).map(|x| x.id).collect(),
         best_streak: history.recap(now).best_streak,
     }
+}
+
+/// Retry yesterday's score in case the device was offline, then submit today's score.
+pub fn sync_points(
+    client: &Client,
+    session: &Session,
+    history: &History,
+    quizzes: &QuizLog,
+    now: DateTime<Local>,
+) -> anyhow::Result<DayPoints> {
+    let catalog = catalog::load();
+    let day = now.date_naive();
+    let stats = stats(history, &catalog, now);
+    if let Some(yesterday) = day.pred_opt() {
+        let points = day_points(history, &catalog, quizzes, yesterday);
+        if points.total > 0 {
+            client.submit_points(session, yesterday, points.total, &stats)?;
+        }
+    }
+    let today = day_points(history, &catalog, quizzes, day);
+    client.submit_points(session, day, today.total, &stats)?;
+    Ok(today)
+}
+
+#[derive(Serialize)]
+pub struct RankedView {
+    season: String,
+    days_left: u32,
+    today: DayPoints,
+    points: i64,
+    tier: Tier,
+    show_in_global: bool,
+    global_rank: Option<i64>,
+    global_players: i64,
+    scope: String,
+    rows: Vec<BoardRow>,
+}
+
+pub fn overview(
+    client: &Client,
+    session: &Session,
+    scope: String,
+    today: DayPoints,
+    day: NaiveDate,
+) -> anyhow::Result<RankedView> {
+    let mine = client.my_ranking(session)?;
+    let rows = client.leaderboard(session, &scope)?;
+    let next_month = day.with_day(1).and_then(|first| first.checked_add_months(chrono::Months::new(1)));
+    Ok(RankedView {
+        season: day.format("%Y-%m").to_string(),
+        days_left: next_month.map_or(0, |next| (next - day).num_days() as u32),
+        today,
+        points: mine.points,
+        tier: tier(mine.points.max(0) as u32),
+        show_in_global: mine.show_in_global,
+        global_rank: mine.global_rank,
+        global_players: mine.global_players,
+        scope,
+        rows,
+    })
+}
+
+#[derive(Serialize)]
+pub struct CardView {
+    card: serde_json::Value,
+    tier: Tier,
+}
+
+pub fn card(client: &Client, session: &Session, user_id: &str) -> anyhow::Result<CardView> {
+    let card = client.player_card(session, user_id)?
+        .ok_or_else(|| anyhow::anyhow!("This player's card isn't visible to you."))?;
+    let points = card.get("points").and_then(serde_json::Value::as_i64).unwrap_or(0);
+    Ok(CardView { card, tier: tier(points.max(0) as u32) })
 }
 
 // ---------------------------------------------------------------- tiers

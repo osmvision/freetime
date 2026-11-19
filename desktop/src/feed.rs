@@ -94,13 +94,5 @@ pub fn together_streaks(state: State<'_, AppState>) -> Res<std::collections::Has
     let s = live_session(&state)?;
     let weeks = Client::new().map_err(err)?.together_weeks(&s).map_err(err)?;
     let today = chrono::Local::now().date_naive();
-    let mut by_friend: std::collections::HashMap<String, Vec<chrono::NaiveDate>> = std::collections::HashMap::new();
-    for (friend, week) in weeks {
-        by_friend.entry(friend).or_default().push(week);
-    }
-    Ok(by_friend
-        .into_iter()
-        .map(|(friend, w)| (friend, freetime_core::streaks::streak(&w, today)))
-        .filter(|(_, s)| s.best > 0)
-        .collect())
+    Ok(freetime_core::streaks::by_friend(weeks, today))
 }

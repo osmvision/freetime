@@ -597,10 +597,12 @@ test('ranked: points are capped at 20 a day, only go up, and only for today', as
     await step(ALICE, async (q) => {
       await fails(q.rows('select * from public.player_stats'), /permission denied/);
     });
-    // Junk badge ids are dropped.
+    // A second device can add a badge without erasing earlier achievements or lowering stats.
     await step(ALICE, (q) => q.one("select public.submit_points(current_date, 1, 3, array['ok', 'Bad Id', '<script>'], 1)"));
     const card = await step(ALICE, (q) => q.one('select public.player_card($1) as c', [ALICE]));
-    assert.deepEqual(card.c.badges, ['ok']);
+    assert.deepEqual(card.c.badges, ['chef', 'first', 'ok'], 'junk badge ids are dropped');
+    assert.equal(card.c.stamped, 12);
+    assert.equal(card.c.best_streak, 3);
   });
 });
 

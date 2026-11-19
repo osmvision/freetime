@@ -690,7 +690,7 @@ pub fn invoke(call: Call, token: Option<&str>) -> Result<Value> {
             patch["shown"] = json!(state.shown);
             reply
         },
-        _ => super::social::invoke(&cmd, &args, token)?,
+        _ => super::social::invoke(&cmd, &args, token, &state.history, &state.quiz, now)?,
     };
     Ok(json!({
         "value": value,
