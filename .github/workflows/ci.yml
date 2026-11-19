@@ -30,3 +30,16 @@ jobs:
           node-version: 22
       - run: npm ci
       - run: npm test
+
+  audit:
+    name: Dependency audit (known vulnerabilities)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-audit
+      # Fails on known vulnerabilities; "unmaintained" warnings are reported but don't block.
+      - run: cargo audit
+      - working-directory: desktop
+        run: npm audit --omit=optional --audit-level=high

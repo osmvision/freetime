@@ -116,44 +116,62 @@ pub struct FeedVideo {
 
 /// Parses a channel's Atom feed (`youtube.com/feeds/videos.xml?channel_id=…`).
 pub fn parse_feed(xml: &str) -> Result<Vec<FeedVideo>> {
+    // Text arrives in pieces (entities like &amp; are separate events): it's gathered per element
+    // and trimmed once the element ends, so "Chess &amp; win" keeps its spaces.
     let mut reader = Reader::from_str(xml);
-    reader.config_mut().trim_text(true);
     let mut out = Vec::new();
     let mut current: Option<FeedVideo> = None;
-    let mut path: Vec<Vec<u8>> = Vec::new();
+    let mut path: Vec<String> = Vec::new();
+    let mut text = String::new();
     loop {
         match reader.read_event()? {
             Event::Start(e) => {
-                if e.name().as_ref() == b"entry" {
+                let qname = e.name();
+                let name: &str = qname.as_ref();
+                if name == "entry" {
                     current = Some(FeedVideo::default());
                 }
                 if let Some(video) = current.as_mut() {
                     read_attributes(&e, video);
                 }
-                path.push(e.name().as_ref().to_vec());
+                path.push(name.to_string());
+                text.clear();
             }
             Event::Empty(e) => {
                 if let Some(video) = current.as_mut() {
                     read_attributes(&e, video);
                 }
             }
-            Event::Text(t) => {
-                let (Some(video), Some(element)) = (current.as_mut(), path.last()) else { continue };
-                let parent = path.len().checked_sub(2).map(|i| path[i].as_slice());
-                let text = t.unescape()?.into_owned();
-                match element.as_slice() {
-                    b"yt:videoId" => video.id = text,
-                    // entry/title, not media:group/media:title
-                    b"title" if parent == Some(b"entry") => video.title = text,
-                    b"name" if parent == Some(b"author") => video.channel = text,
-                    b"published" if parent == Some(b"entry") => {
-                        video.published = DateTime::parse_from_rfc3339(&text).map(|d| d.timestamp()).unwrap_or(0)
+            Event::Text(t) => text.push_str(&t.xml10_content()),
+            Event::CData(t) => text.push_str(&t.xml10_content()),
+            Event::GeneralRef(r) => {
+                if r.is_char_ref() {
+                    if let Ok(Some(c)) = r.resolve_char_ref() {
+                        text.push(c);
                     }
-                    _ => {}
+                } else if let Some(s) = quick_xml::escape::resolve_predefined_entity(&r.xml10_content()) {
+                    text.push_str(s);
                 }
             }
             Event::End(e) => {
-                if e.name().as_ref() == b"entry" {
+                let qname = e.name();
+                let name: &str = qname.as_ref();
+                if let Some(video) = current.as_mut() {
+                    let parent = path.len().checked_sub(2).map(|i| path[i].as_str());
+                    let value = text.trim().to_string();
+                    match name {
+                        "yt:videoId" => video.id = value,
+                        // entry/title, not media:group/media:title
+                        "title" if parent == Some("entry") => video.title = value,
+                        "name" if parent == Some("author") => video.channel = value,
+                        "published" if parent == Some("entry") => {
+                            video.published = DateTime::parse_from_rfc3339(&value).map(|d| d.timestamp()).unwrap_or(0)
+                        }
+                        _ => {}
+                    }
+                }
+                text.clear();
+                if name == "entry" {
                     if let Some(video) = current.take().filter(|v| !v.id.is_empty() && !v.title.is_empty()) {
                         out.push(video);
                     }
@@ -168,17 +186,19 @@ pub fn parse_feed(xml: &str) -> Result<Vec<FeedVideo>> {
 }
 
 fn read_attributes(e: &BytesStart, video: &mut FeedVideo) {
-    let attr = |key: &[u8]| {
+    let attr = |key: &str| {
         e.attributes()
             .flatten()
-            .find(|a| a.key.as_ref() == key)
-            .and_then(|a| a.unescape_value().ok().map(|v| v.into_owned()))
+            .find(|a| AsRef::<str>::as_ref(&a.key) == key)
+            .and_then(|a| a.normalized_value(quick_xml::XmlVersion::Explicit1_0).ok().map(|v| v.into_owned()))
     };
-    match e.name().as_ref() {
-        b"link" if attr(b"rel").as_deref() == Some("alternate") => {
-            video.short |= attr(b"href").is_some_and(|h| h.contains("/shorts/"));
+    let qname = e.name();
+    let name: &str = qname.as_ref();
+    match name {
+        "link" if attr("rel").as_deref() == Some("alternate") => {
+            video.short |= attr("href").is_some_and(|h| h.contains("/shorts/"));
         }
-        b"media:statistics" => video.views = attr(b"views").and_then(|v| v.parse().ok()).unwrap_or(0),
+        "media:statistics" => video.views = attr("views").and_then(|v| v.parse().ok()).unwrap_or(0),
         _ => {}
     }
 }
@@ -602,6 +622,9 @@ mod tests {
         assert!(videos[1].short, "the /shorts/ link marks a Short");
         assert_eq!(videos[3].title, "It's fine");
         assert!(parse_feed("<feed><entry><title>x</broken></feed>").is_err());
+        // Entities arrive as separate pieces: spaces around them stay, numeric ones decode.
+        let tricky = r#"<feed><entry><yt:videoId>abc</yt:videoId><title> Chess &amp; caf&#233; </title></entry></feed>"#;
+        assert_eq!(parse_feed(tricky).unwrap()[0].title, "Chess & café");
     }
 
     #[test]
