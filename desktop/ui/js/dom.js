@@ -36,7 +36,10 @@ export function icon(name, cls = '') {
   const el = document.createElement('span');
   el.className = cls ? `icon ${cls}` : 'icon';
   el.setAttribute('aria-hidden', 'true');
-  el.innerHTML = `<svg viewBox="0 0 24 24">${ICONS[name] ?? ICONS.info}</svg>`;
+  // The only innerHTML in the app: static SVG from icons.js, looked up by own key only (a name
+  // like "constructor" must not reach anything but the fallback).
+  const svg = typeof name === 'string' && Object.hasOwn(ICONS, name) ? ICONS[name] : ICONS.info;
+  el.innerHTML = `<svg viewBox="0 0 24 24">${svg}</svg>`;
   return el;
 }
 

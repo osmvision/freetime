@@ -109,7 +109,18 @@ function inline(text, ideas) {
     else if (t.startsWith('[[')) out.push(ideaChip(t.slice(2, -2), ideas) ?? '');
     else if (t.startsWith('[')) {
       const [, label, url] = t.match(/^\[([^\]]+)\]\((.+)\)$/);
-      out.push(h('button', { type: 'button', class: 'link', onclick: () => api.open(url).catch((e) => toast(errText(e), 'error')) }, label));
+      // The model writes these links: show where they really go (the site's domain, and the
+      // full address on hover), so a misleading label can't hide the destination.
+      let host = '';
+      try {
+        host = new URL(url).hostname.replace(/^www\./, '');
+      } catch {
+        host = '';
+      }
+      out.push(
+        h('button', { type: 'button', class: 'link', title: url, onclick: () => api.open(url).catch((e) => toast(errText(e), 'error')) }, label),
+        host ? h('span', { class: 'link-host', translate: 'no' }, ` (${host})`) : null,
+      );
     } else out.push(h('em', {}, t.slice(1, -1)));
     last = m.index + t.length;
   }

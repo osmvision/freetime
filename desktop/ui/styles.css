@@ -5315,3 +5315,9 @@ body[data-view="messages"] .assistant-panel {
 .share-prompt .update-text .row {
   flex-wrap: wrap;
 }
+
+/* the domain after a link the assistant wrote (js/assistant.js) */
+.link-host {
+  color: var(--text-3);
+  font-size: 0.9em;
+}
