@@ -86,3 +86,21 @@ pub fn set_social_prefs(prefs: SocialPrefs) -> Res<SocialPrefs> {
     c.save().map_err(err)?;
     get_social_prefs()
 }
+
+/// Streaks together with each friend (weeks in a row with an accepted invite, one wildcard a
+/// month). Keyed by friend id; friends with nothing together yet are left out.
+#[tauri::command(async)]
+pub fn together_streaks(state: State<'_, AppState>) -> Res<std::collections::HashMap<String, freetime_core::streaks::Streak>> {
+    let s = live_session(&state)?;
+    let weeks = Client::new().map_err(err)?.together_weeks(&s).map_err(err)?;
+    let today = chrono::Local::now().date_naive();
+    let mut by_friend: std::collections::HashMap<String, Vec<chrono::NaiveDate>> = std::collections::HashMap::new();
+    for (friend, week) in weeks {
+        by_friend.entry(friend).or_default().push(week);
+    }
+    Ok(by_friend
+        .into_iter()
+        .map(|(friend, w)| (friend, freetime_core::streaks::streak(&w, today)))
+        .filter(|(_, s)| s.best > 0)
+        .collect())
+}

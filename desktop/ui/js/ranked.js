@@ -185,6 +185,31 @@ export async function renderRanked(box, ctx) {
 
 // ---------------------------------------------------------------- player card
 
+/** Your streak together with a friend: weeks in a row with an accepted invite, one wildcard a month. */
+function streakBlock(s, name) {
+  const weeks = s?.weeks ?? 0;
+  const lines = [];
+  if (s?.best > weeks) lines.push(`Best: ${s.best} weeks`);
+  lines.push(s?.wildcard_left ?? true ? 'Wildcard: available this month' : 'Wildcard: used this month');
+  return h(
+    'div',
+    { class: 'card-streak' },
+    h('span', { class: 'card-streak-flame' }, icon('flame')),
+    h(
+      'div',
+      { class: 'card-streak-text' },
+      h('span', { class: 'stat-label' }, 'Streak together'),
+      h('strong', {}, weeks === 1 ? '1 week' : `${weeks} weeks`),
+      lines.map((l) => h('span', { class: 'mini-sub' }, l)),
+      weeks > 0 && !s.this_week
+        ? h('span', { class: 'mini-sub' }, 'Do something together this week to keep it going: invite them from any pick.')
+        : weeks === 0
+          ? h('span', { class: 'mini-sub' }, 'Invite them to a pick and do it together: each week counts.')
+          : null,
+    ),
+  );
+}
+
 const REASONS = [
   ['harassment', 'Harassment'],
   ['spam', 'Spam'],
@@ -234,6 +259,7 @@ export async function openCard(userId, ctx) {
     return;
   }
   const c = data.card;
+  const streak = c.friend ? (await api.togetherStreaks().catch(() => ({})))[c.id] ?? null : null;
   const previousFocus = document.activeElement;
   const close = () => {
     backdrop.remove();
@@ -312,6 +338,7 @@ export async function openCard(userId, ctx) {
         h('div', {}, h('span', { class: 'stat-label' }, 'Tickets stamped'), h('span', { class: 'stat-value figures' }, String(c.stamped))),
         h('div', {}, h('span', { class: 'stat-label' }, 'Best streak'), h('span', { class: 'stat-value figures' }, c.best_streak === 1 ? '1 week' : `${c.best_streak} weeks`)),
       ),
+      c.friend ? streakBlock(streak, c.display_name) : null,
       badges.length
         ? h('ul', { class: 'card-badges' }, badges.map((id) => h('li', { title: BADGES[id][1] }, h('span', { class: 'badge-medal' }, icon(BADGES[id][0])), h('span', {}, BADGES[id][1]))))
         : h('p', { class: 'hint' }, 'No badges yet.'),
