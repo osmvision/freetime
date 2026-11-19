@@ -5321,3 +5321,43 @@ body[data-view="messages"] .assistant-panel {
   color: var(--text-3);
   font-size: 0.9em;
 }
+
+/* ---------------------------------------------------------------- streak together (phase C) */
+
+.friend-streak {
+  margin-top: 6px;
+}
+
+.friend-streak .icon,
+.card-streak-flame .icon {
+  color: var(--red);
+}
+
+.card-streak {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin: 0 0 14px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: var(--red-wash);
+}
+
+.card-streak-flame .icon {
+  width: 30px;
+  height: 30px;
+}
+
+.card-streak-text {
+  display: grid;
+  gap: 3px;
+}
+
+.card-streak-text strong {
+  font: 800 26px/1 var(--display);
+  text-transform: uppercase;
+}
+
+.card-streak-text .mini-sub {
+  white-space: normal;
+}

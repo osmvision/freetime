@@ -60,6 +60,7 @@ export const api = {
   toggleReaction: (post, emoji) => invoke('toggle_reaction', { post, emoji }),
   socialPrefs: () => invoke('get_social_prefs'),
   setSocialPrefs: (prefs) => invoke('set_social_prefs', { prefs }),
+  togetherStreaks: () => invoke('together_streaks'),
   getShareLibrary: () => invoke('get_share_library'),
   setShareLibrary: (enabled) => invoke('set_share_library', { enabled }),
   setFree: (minutes) => invoke('set_free', { minutes }),

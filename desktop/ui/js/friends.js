@@ -90,11 +90,20 @@ export async function render(root, ctx, { tab: wanted } = {}) {
 
 // ---------------------------------------------------------------- online friends
 
+/** "🔥 4 weeks together", for a friend you have a streak with. */
+function streakChip(s) {
+  if (!s?.weeks) return null;
+  return h('span', { class: 'streak-chip friend-streak', title: s.this_week ? 'Done together this week' : 'Nothing together yet this week' }, icon('flame'), s.weeks === 1 ? '1 week together' : `${s.weeks} weeks together`);
+}
+
+let streaks = {};
+
 async function onlineSection(box, ctx) {
   fill(box, h('div', { class: 'ghost', style: 'height:200px;margin-bottom:18px' }));
   let data;
   try {
     data = await api.socialOverview();
+    streaks = await api.togetherStreaks().catch(() => ({}));
   } catch (e) {
     fill(box, h('div', { class: 'strip' }, icon('triangle-alert'), h('div', { class: 'strip-text' }, h('strong', {}, 'Could not load your friends'), h('span', {}, errText(e))), btn({ label: 'Try again', small: true, onclick: () => onlineSection(box, ctx) })));
     return;
@@ -131,7 +140,7 @@ async function onlineSection(box, ctx) {
       h('h2', {}, `Your friends${friends.length ? ` · ${friends.length}` : ''}`),
       friends.length
         ? friends.map((f) =>
-            person(f, f.status_text || f.bio || '', [
+            person(f, f.status_text || f.bio || '', streakChip(streaks[f.user_id]), [
               btn({ label: `${f.display_name}’s card`, icon: 'trophy', small: true, square: true, onclick: () => openCard(f.user_id, ctx) }),
               btn({ label: 'Message', icon: 'message-circle', small: true, onclick: () => ctx.openChat(f.user_id) }),
               confirmBtn(`Remove ${f.display_name}`, 'user-x', () => act(api.unfriend(f.user_id), `${f.display_name} removed`, reload)),
@@ -166,12 +175,13 @@ function addByTag(reload) {
   return h('section', { class: 'panel section add-tag' }, h('div', { class: 'section-top' }, icon('user-plus'), h('h2', {}, 'Add a friend')), h('div', { class: 'row' }, input, send.button), status);
 }
 
-function person(f, sub, actions) {
+function person(f, sub, extra, actions) {
+  if (actions === undefined) [extra, actions] = [null, extra];
   return h(
     'div',
     { class: 'friend' },
     avatar({ icon: f.avatar_icon, color: f.avatar_color }),
-    h('div', { class: 'entry-main' }, h('div', { class: 'entry-title' }, f.display_name), sub ? h('div', { class: 'entry-sub' }, sub) : null),
+    h('div', { class: 'entry-main' }, h('div', { class: 'entry-title' }, f.display_name), sub ? h('div', { class: 'entry-sub' }, sub) : null, extra),
     h('div', { class: 'person-actions' }, actions),
   );
 }

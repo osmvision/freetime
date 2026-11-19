@@ -71,6 +71,7 @@ fn main() {
             feed::toggle_reaction,
             feed::get_social_prefs,
             feed::set_social_prefs,
+            feed::together_streaks,
             commands::get_share_library,
             commands::set_share_library,
             commands::set_free,

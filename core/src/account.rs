@@ -458,6 +458,20 @@ impl Client {
         self.call("POST", "/rest/v1/rpc/friend_feed", Some(&s.access_token), Some(&json!({})), None)
     }
 
+    /// The weeks you did something together with each friend (accepted invites whose time came).
+    pub fn together_weeks(&self, s: &Session) -> Result<Vec<(String, chrono::NaiveDate)>> {
+        let v = self.call("POST", "/rest/v1/rpc/together_weeks", Some(&s.access_token), Some(&json!({})), None)?;
+        Ok(v.as_array()
+            .into_iter()
+            .flatten()
+            .filter_map(|r| {
+                let friend = r.get("friend")?.as_str()?.to_string();
+                let week = chrono::NaiveDate::parse_from_str(r.get("week")?.as_str()?, "%Y-%m-%d").ok()?;
+                Some((friend, week))
+            })
+            .collect())
+    }
+
     /// Show or hide yourself on the global board.
     pub fn set_show_in_global(&self, s: &Session, enabled: bool) -> Result<()> {
         ensure_uuid(&s.user_id)?;
