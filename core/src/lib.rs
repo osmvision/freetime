@@ -20,6 +20,7 @@ pub mod realtime;
 pub mod region;
 pub mod scoring;
 pub mod streaks;
+pub mod wrapped;
 pub mod vdf;
 pub mod weather;
 
