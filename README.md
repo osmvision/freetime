@@ -47,7 +47,8 @@ deals, and new uploads from a set of YouTube channels.
 | City | Outdoor ideas follow the live weather ([Open-Meteo](https://open-meteo.com/), no key) | Asked once on first launch (skippable), editable in Settings |
 | Steam games | Backlog, old favorites and comfort picks from games you own | Only when you click **Import my games from Steam on this PC**, then from freetime's own cache |
 | YouTube channels | New uploads, per idea category (`youtube_channels.toml`, editable) | At startup, public RSS feeds, cached 2 h |
-| `YOUTUBE_API_KEY` | Videos matching your interests and your free time | At startup, if set |
+| YouTube search | Videos matching your interests and your free time | At startup, through freetime's search proxy (no key), cached 6 h |
+| `YOUTUBE_API_KEY` | The same search, straight to YouTube on your own quota | At startup, if set |
 | `STEAM_API_KEY` | Every game on your account, with playtime | Only during an import |
 
 **Network at startup:** the Open-Meteo forecast (if a city is set), the Steam store lists and prices
