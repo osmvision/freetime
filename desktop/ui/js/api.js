@@ -48,6 +48,11 @@ export const api = {
   finishQuiz: (answers) => invoke('finish_quiz', { answers }),
   // Bonus round from Open Trivia DB (network, only when asked).
   bonusQuiz: () => invoke('bonus_quiz'),
+  // Ranked (signed in): seasons, boards, player cards.
+  rankedOverview: (scope) => invoke('ranked_overview', { scope }),
+  playerCard: (userId) => invoke('player_card', { userId }),
+  setGlobalRanking: (enabled) => invoke('set_global_ranking', { enabled }),
+  syncPoints: () => invoke('sync_points'),
   getShareLibrary: () => invoke('get_share_library'),
   setShareLibrary: (enabled) => invoke('set_share_library', { enabled }),
   setFree: (minutes) => invoke('set_free', { minutes }),

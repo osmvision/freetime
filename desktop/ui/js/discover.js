@@ -835,6 +835,7 @@ export async function startIdea(c) {
 async function start(c, el) {
   try {
     await api.pick(c.id);
+    api.syncPoints().catch(() => {}); // ranked points (signed in only; quiet otherwise)
     // The week is now active: the "last week" strip goes, the streak chip may appear.
     if (els.week) weekStrip(els.week);
     renderToday();

@@ -5,6 +5,7 @@ mod assistant;
 mod book;
 mod commands;
 mod quiz;
+mod ranked;
 mod updates;
 
 fn main() {
@@ -59,6 +60,10 @@ fn main() {
             quiz::get_quiz,
             quiz::finish_quiz,
             quiz::bonus_quiz,
+            ranked::sync_points,
+            ranked::ranked_overview,
+            ranked::player_card,
+            ranked::set_global_ranking,
             commands::get_share_library,
             commands::set_share_library,
             commands::set_free,

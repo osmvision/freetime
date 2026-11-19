@@ -372,6 +372,56 @@ impl Client {
         Ok(())
     }
 
+    // ---------------------------------------------------------------- ranked
+
+    /// Sends a day's points (the server caps them at 20 and keeps the best of the day) and the
+    /// card stats. Returns your season total.
+    pub fn submit_points(&self, s: &Session, day: chrono::NaiveDate, points: u32, stats: &crate::ranked::Stats) -> Result<i64> {
+        let v = self.call(
+            "POST",
+            "/rest/v1/rpc/submit_points",
+            Some(&s.access_token),
+            Some(&json!({
+                "p_day": day.to_string(),
+                "p_points": points.min(crate::ranked::DAILY_CAP),
+                "p_stamped": stats.stamped,
+                "p_badges": stats.badges,
+                "p_best_streak": stats.best_streak,
+            })),
+            None,
+        )?;
+        Ok(v.as_i64().unwrap_or(0))
+    }
+
+    /// 'friends' or 'global', this season. Top 100.
+    pub fn leaderboard(&self, s: &Session, scope: &str) -> Result<Vec<BoardRow>> {
+        if !matches!(scope, "friends" | "global") {
+            bail!("unknown leaderboard");
+        }
+        let v = self.call("POST", "/rest/v1/rpc/leaderboard", Some(&s.access_token), Some(&json!({ "p_scope": scope })), None)?;
+        Ok(serde_json::from_value(v)?)
+    }
+
+    pub fn my_ranking(&self, s: &Session) -> Result<MyRanking> {
+        let v = self.call("POST", "/rest/v1/rpc/my_ranking", Some(&s.access_token), Some(&json!({})), None)?;
+        let rows: Vec<MyRanking> = serde_json::from_value(v)?;
+        rows.into_iter().next().ok_or_else(|| anyhow!("your profile isn't ready yet"))
+    }
+
+    /// A player's card, or None when you may not see them.
+    pub fn player_card(&self, s: &Session, user_id: &str) -> Result<Option<serde_json::Value>> {
+        ensure_uuid(user_id)?;
+        let v = self.call("POST", "/rest/v1/rpc/player_card", Some(&s.access_token), Some(&json!({ "p_user": user_id })), None)?;
+        Ok(if v.is_null() { None } else { Some(v) })
+    }
+
+    /// Show or hide yourself on the global board.
+    pub fn set_show_in_global(&self, s: &Session, enabled: bool) -> Result<()> {
+        ensure_uuid(&s.user_id)?;
+        self.call("PATCH", &format!("/rest/v1/profiles?id=eq.{}", s.user_id), Some(&s.access_token), Some(&json!({ "show_in_global": enabled })), None)?;
+        Ok(())
+    }
+
     /// Deletes your shared list from the server.
     pub fn stop_sharing_library(&self, s: &Session) -> Result<()> {
         self.call("POST", "/rest/v1/rpc/stop_sharing_library", Some(&s.access_token), Some(&json!({})), None)?;
@@ -705,6 +755,26 @@ fn first_profile(v: Value) -> Result<OnlineProfile> {
 
 /// What the user may change. The same limits as the database, checked here first for clear
 /// messages (the database enforces them anyway).
+/// One line of a leaderboard.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BoardRow {
+    pub rank: i64,
+    pub user_id: String,
+    pub display_name: String,
+    pub avatar_icon: i16,
+    pub avatar_color: i16,
+    pub points: i64,
+    pub me: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MyRanking {
+    pub points: i64,
+    pub show_in_global: bool,
+    pub global_rank: Option<i64>,
+    pub global_players: i64,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProfileEdit {
     pub display_name: String,

@@ -132,6 +132,7 @@ export function openQuiz(data, onDone = () => {}, { bonus = false } = {}) {
     let r;
     try {
       r = await api.finishQuiz(answers);
+      api.syncPoints().catch(() => {});
     } catch (e) {
       toast(errText(e), 'error');
       return;
