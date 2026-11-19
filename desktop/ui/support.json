@@ -1,5 +1,5 @@
 {
   "_comment": "Where donations go. Used by the app (Settings) and the website (site/build.py). Leave a value empty to hide its button. Also update .github/FUNDING.yml.",
-  "kofi": "",
+  "kofi": "osmandjulienfreetime",
   "github_sponsors": ""
 }
