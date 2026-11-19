@@ -4772,3 +4772,21 @@ body[data-view="messages"] .assistant-panel {
     min-width: 0;
   }
 }
+
+.quiz-end-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.quiz-end .quiz-end-actions .btn {
+  margin-top: 0;
+}
+
+.quiz-credit {
+  margin: 6px 0 0;
+  color: var(--text-3);
+  font-size: 13px;
+}

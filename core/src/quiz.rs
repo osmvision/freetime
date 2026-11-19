@@ -4,7 +4,11 @@
 
 use crate::history::{now, Entry, History};
 use crate::model::Category;
+use crate::net::{self, Net};
 use anyhow::{bail, Result};
+use rand::seq::SliceRandom;
+use rand::Rng;
+use serde_json::Value;
 use chrono::NaiveDate;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -175,10 +179,91 @@ pub fn finish(bank: &[Question], day: NaiveDate, answers: &[usize], log: &mut Qu
     Ok(result)
 }
 
+// ---------------------------------------------------------------- bonus quiz (Open Trivia DB)
+
+/// Open Trivia Database: free, no key, questions under CC BY-SA 4.0 (credited in the app).
+/// English only. Only called when the user opens the bonus quiz.
+pub const TRIVIA_URL: &str = "https://opentdb.com/api.php";
+
+#[derive(Debug, Clone, Serialize)]
+pub struct Trivia {
+    pub question: String,
+    pub choices: Vec<String>,
+    pub answer: usize,
+    pub category: String,
+    pub difficulty: String,
+}
+
+/// Decodes RFC 3986 percent-encoding (the API's `encode=url3986`, which avoids HTML entities).
+fn percent_decode(s: &str) -> String {
+    let b = s.as_bytes();
+    let mut out = Vec::with_capacity(b.len());
+    let mut i = 0;
+    while i < b.len() {
+        let hex = |c: u8| (c as char).to_digit(16);
+        if b[i] == b'%' && i + 2 < b.len() {
+            if let (Some(h), Some(l)) = (hex(b[i + 1]), hex(b[i + 2])) {
+                out.push((h * 16 + l) as u8);
+                i += 3;
+                continue;
+            }
+        }
+        out.push(b[i]);
+        i += 1;
+    }
+    String::from_utf8_lossy(&out).into_owned()
+}
+
+/// 5 multiple-choice questions, with the right answer at a random place.
+pub fn fetch_trivia(net: &dyn Net, rng: &mut impl Rng) -> Result<Vec<Trivia>> {
+    let v: Value = net::get_json(net, TRIVIA_URL, &[("amount", "5"), ("type", "multiple"), ("encode", "url3986")])?;
+    match v["response_code"].as_u64() {
+        Some(0) => {}
+        Some(5) => bail!("Too many bonus quizzes at once: wait a few seconds and try again"),
+        _ => bail!("No bonus questions available right now"),
+    }
+    let text = |x: &Value| x.as_str().map(percent_decode).unwrap_or_default();
+    let mut out = Vec::new();
+    for r in v["results"].as_array().into_iter().flatten() {
+        let right = text(&r["correct_answer"]);
+        let mut choices: Vec<String> = r["incorrect_answers"].as_array().into_iter().flatten().map(text).collect();
+        if right.is_empty() || choices.len() != 3 {
+            continue;
+        }
+        choices.push(right.clone());
+        choices.shuffle(rng);
+        let answer = choices.iter().position(|c| *c == right).unwrap_or(0);
+        out.push(Trivia { question: text(&r["question"]), choices, answer, category: text(&r["category"]), difficulty: text(&r["difficulty"]) });
+    }
+    if out.is_empty() {
+        bail!("No bonus questions available right now");
+    }
+    Ok(out)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use std::collections::HashSet;
+
+    #[test]
+    fn bonus_trivia_is_decoded_and_shuffled() {
+        use crate::net::fake::FakeNet;
+        let body = r#"{"response_code":0,"results":[{"type":"multiple","difficulty":"easy","category":"Science%3A%20Computers","question":"What%20does%20%22CPU%22%20stand%20for%3F","correct_answer":"Central%20Processing%20Unit","incorrect_answers":["Central%20Process%20Unit","Computer%20Personal%20Unit","Central%20Processor%20Unit"]}]}"#;
+        let net = FakeNet::new().on(TRIVIA_URL, body);
+        let mut rng = rand::rngs::mock::StepRng::new(3, 7);
+        let qs = fetch_trivia(&net, &mut rng).unwrap();
+        assert_eq!(qs.len(), 1);
+        assert_eq!(qs[0].question, "What does \"CPU\" stand for?");
+        assert_eq!(qs[0].category, "Science: Computers");
+        assert_eq!(qs[0].choices[qs[0].answer], "Central Processing Unit");
+        assert!(net.calls()[0].contains("encode=url3986"));
+        let limited = FakeNet::new().on(TRIVIA_URL, r#"{"response_code":5,"results":[]}"#);
+        assert!(fetch_trivia(&limited, &mut rng).unwrap_err().to_string().contains("wait a few seconds"));
+        assert!(fetch_trivia(&FakeNet::new(), &mut rng).is_err(), "offline");
+        assert_eq!(percent_decode("caf%C3%A9%20%25"), "café %");
+        assert_eq!(percent_decode("100%é%"), "100%é%", "a stray % is kept as is");
+    }
 
     fn day(d: u32) -> NaiveDate {
         NaiveDate::from_ymd_opt(2026, 11, d).unwrap()

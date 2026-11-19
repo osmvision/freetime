@@ -1,14 +1,16 @@
 // The daily quiz: 5 questions, the same for everyone today, in French or English. Questions ship
 // with the app (core/data/quiz.toml), so it works offline; results stay on this PC.
+// After it, a bonus quiz from Open Trivia DB (English only, CC BY-SA 4.0), fetched only on request.
 
 import { api } from './api.js';
-import { btn, errText, h, icon, reducedMotion, toast } from './dom.js';
+import { btn, errText, fill, h, icon, reducedMotion, toast } from './dom.js';
 import { currentLang } from './i18n.js';
 
 const LETTERS = ['A', 'B', 'C', 'D'];
 
 /** The question's text in the app's language. Marked translate="no": it's already translated. */
 function pick(q) {
+  if (q.bonus) return { text: q.question, choices: q.choices, why: null };
   const fr = currentLang() === 'fr';
   return { text: fr ? q.fr : q.en, choices: fr ? q.fr_choices : q.en_choices, why: fr ? q.fr_why : q.en_why };
 }
@@ -29,14 +31,26 @@ export function quizCard(data, onOpen) {
       h('span', { class: 'mini-sub' }, data.streak >= 2 ? `${data.streak} days in a row` : done ? 'A new quiz tomorrow' : 'The same for everyone today'),
     ),
     done
-      ? h('span', { class: 'mini-done' }, icon('stamp'), 'Stamped')
+      ? btn({ label: 'Bonus quiz (in English)', icon: 'sparkles', square: true, onclick: openBonus })
       : btn({ label: 'Play', icon: 'play', kind: 'primary', square: true, onclick: onOpen }),
   );
 }
 
+/** Fetches 5 Open Trivia DB questions and opens them as a bonus round (nothing is saved). */
+export async function openBonus() {
+  let list;
+  try {
+    list = await api.bonusQuiz();
+  } catch (e) {
+    toast(errText(e), 'error', 5000);
+    return;
+  }
+  openQuiz({ questions: list.map((q) => ({ ...q, bonus: true })) }, () => {}, { bonus: true });
+}
+
 /** Opens the quiz. `onDone(result)` runs after the score is saved. */
-export function openQuiz(data, onDone = () => {}) {
-  if (data.result) return;
+export function openQuiz(data, onDone = () => {}, { bonus = false } = {}) {
+  if (data.result && !bonus) return;
   const answers = [];
   let i = 0;
   const previousFocus = document.activeElement;
@@ -50,7 +64,7 @@ export function openQuiz(data, onDone = () => {}) {
     h(
       'div',
       { class: 'coupon-head' },
-      h('span', {}, 'Quiz of the day'),
+      h('span', {}, bonus ? 'Bonus quiz · in English' : 'Quiz of the day'),
       h('span', { class: 'quiz-head-end' }, counter, h('button', { type: 'button', class: 'quiz-close', 'aria-label': 'Close the quiz', onclick: close }, icon('x'))),
     ),
     dots,
@@ -101,9 +115,10 @@ export function openQuiz(data, onDone = () => {}) {
       dot.classList.remove('current');
       dot.classList.add(right ? 'right' : 'wrong');
       why.hidden = false;
-      why.replaceChildren(
+      fill(
+        why,
         h('strong', { class: right ? 'quiz-verdict right' : 'quiz-verdict wrong' }, icon(right ? 'check' : 'x'), right ? 'Right!' : 'Not quite'),
-        h('p', { translate: 'no' }, t.why),
+        t.why ? h('p', { translate: 'no' }, t.why) : right ? null : h('p', {}, h('span', {}, 'Answer: '), h('span', { translate: 'no' }, t.choices[q.answer])),
       );
       const last = i === data.questions.length - 1;
       const go = btn({ label: last ? 'See my score' : 'Next question', icon: last ? 'award' : 'arrow-right', kind: 'primary', onclick: last ? finish : () => { i += 1; showQuestion(); } });
@@ -113,6 +128,7 @@ export function openQuiz(data, onDone = () => {}) {
   }
 
   async function finish() {
+    if (bonus) return finishBonus();
     let r;
     try {
       r = await api.finishQuiz(answers);
@@ -130,12 +146,46 @@ export function openQuiz(data, onDone = () => {}) {
         h('p', { class: 'quiz-message' }, message),
         r.streak >= 2 ? h('p', { class: 'quiz-streak' }, icon('flame'), `${r.streak} days in a row`) : null,
         h('p', { class: 'mini-sub' }, 'Counted as a Learn pick: it helps your weekly challenge and badges.'),
-        btn({ label: 'Close', kind: 'primary', onclick: close }),
+        h(
+          'div',
+          { class: 'quiz-end-actions' },
+          btn({ label: 'Close', kind: 'primary', onclick: close }),
+          btn({ label: 'Bonus quiz (in English)', icon: 'sparkles', onclick: () => { close(); openBonus(); } }),
+        ),
         h('div', { class: `stamp validated${reducedMotion() ? ' still' : ''}`, 'aria-hidden': 'true' }, 'Stamped'),
       ),
     );
     body.querySelector('.btn').focus();
     onDone(r);
+  }
+
+  /** Bonus round: scored here, saved nowhere, with the credit Open Trivia DB's license asks for. */
+  function finishBonus() {
+    counter.textContent = '';
+    const score = answers.filter((a, n) => a === data.questions[n].answer).length;
+    const total = data.questions.length;
+    body.replaceChildren(
+      h(
+        'div',
+        { class: 'quiz-end' },
+        h('div', { class: 'quiz-score' }, h('span', { class: 'quiz-big' }, String(score)), h('span', { class: 'quiz-of' }, `/${total}`)),
+        h('p', { class: 'quiz-message' }, score === total ? 'Perfect score!' : score >= 3 ? 'Well played!' : 'Good try!'),
+        h(
+          'div',
+          { class: 'quiz-end-actions' },
+          btn({ label: 'Close', kind: 'primary', onclick: close }),
+          btn({ label: 'Another round', icon: 'refresh-cw', onclick: () => { close(); openBonus(); } }),
+        ),
+        h(
+          'p',
+          { class: 'quiz-credit' },
+          'Questions: ',
+          h('button', { type: 'button', class: 'link', onclick: () => api.open('https://opentdb.com/').catch(() => {}) }, 'Open Trivia Database'),
+          ', CC BY-SA 4.0',
+        ),
+      ),
+    );
+    body.querySelector('.btn').focus();
   }
 
   document.body.append(backdrop);

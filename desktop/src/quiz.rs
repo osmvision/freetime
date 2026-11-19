@@ -49,3 +49,11 @@ pub fn finish_quiz(answers: Vec<usize>) -> Res<QuizDone> {
     }
     Ok(QuizDone { score: s.score, total: s.total, streak: log.streak(today) })
 }
+
+/// The bonus quiz: 5 questions from Open Trivia DB (English, CC BY-SA 4.0). Network, but only
+/// when the user asks for it. Not recorded anywhere: it's just for fun.
+#[tauri::command(async)]
+pub fn bonus_quiz() -> Res<Vec<quiz::Trivia>> {
+    let net = freetime_core::net::HttpNet::shared().map_err(|e| e.to_string())?;
+    quiz::fetch_trivia(net.as_ref(), &mut rand::thread_rng()).map_err(|e| e.to_string())
+}

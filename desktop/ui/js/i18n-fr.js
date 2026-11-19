@@ -385,6 +385,14 @@ export const exact = {
   Updates: 'Mises à jour',
   // ticket book (js/book.js, core/src/book.rs)
   // daily quiz (js/quiz.js)
+  'Bonus quiz (in English)': 'Quiz bonus (en anglais)',
+  'Bonus quiz · in English': 'Quiz bonus · en anglais',
+  'Answer:': 'Réponse :',
+  'Another round': 'Une autre manche',
+  'Good try!': 'Bien essayé !',
+  'Questions:': 'Questions :',
+  'Too many bonus quizzes at once: wait a few seconds and try again': 'Trop de quiz bonus d’un coup : attends quelques secondes et réessaie',
+  'No bonus questions available right now': 'Pas de questions bonus disponibles pour le moment',
   'Quiz of the day': 'Quiz du jour',
   'A new quiz tomorrow': 'Un nouveau quiz demain',
   'The same for everyone today': 'Le même pour tout le monde aujourd’hui',

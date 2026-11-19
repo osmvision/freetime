@@ -58,6 +58,7 @@ fn main() {
             book::get_today,
             quiz::get_quiz,
             quiz::finish_quiz,
+            quiz::bonus_quiz,
             commands::get_share_library,
             commands::set_share_library,
             commands::set_free,
