@@ -2,7 +2,7 @@
 // Every step can be skipped; nothing leaves the PC except the city search and the Steam import,
 // and only when the user uses them.
 
-import { api } from './api.js';
+import { api, inTauri } from './api.js';
 import { AVATAR_COLORS, AVATAR_ICONS, avatar } from './avatars.js';
 import { cityPicker, openMeteoCredit } from './city.js';
 import { btn, categoryIcon, errText, fill, h, icon, toast } from './dom.js';
@@ -232,6 +232,10 @@ function into(answers, categories) {
 }
 
 function games() {
+  if (!inTauri) return [
+    h('h2', { class: 'welcome-step' }, 'Your Steam games'),
+    h('p', { class: 'welcome-lead' }, 'You can import your public Steam library in Settings with your profile and a Web API key. Built-in ideas are ready now.'),
+  ];
   const status = h('div', { class: 'city-status', 'aria-live': 'polite' });
   const pick = h('div', { class: 'row' });
   const finishImport = async (id, button) => {

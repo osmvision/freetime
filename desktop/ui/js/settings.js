@@ -1,7 +1,7 @@
 // City, interests, Steam and YouTube connections. API keys are write-only: the UI never sees them.
 
 import { profileSection } from './account.js';
-import { api } from './api.js';
+import { api, inTauri } from './api.js';
 import { cityPicker, openMeteoCredit } from './city.js';
 import { emptyState, errText, h, icon, pageHead, toast } from './dom.js';
 import { photoCredits } from './photos.js';
@@ -96,7 +96,7 @@ function draw(root, ctx, s) {
         youtubeSection(s, form),
         assistantSection(s, form),
         languageSection(),
-        section('download', 'Updates', 'New versions come from freetime’s GitHub releases and are signed: anything else is refused.', null, updatesBody()),
+        section('download', 'Updates', inTauri ? 'New versions come from freetime’s GitHub releases and are signed: anything else is refused.' : 'The web version updates when you reopen it.', null, updatesBody()),
         dataSection(s),
         supportSection(),
         creditsSection(),
@@ -238,7 +238,7 @@ function steamSection(s, form, ctx, root) {
   const st = s.steam;
   const day = (unix) => new Date(unix * 1000).toLocaleDateString();
   const picker = h('div', { class: 'row' });
-  const label = st.imported ? 'Re-import my games from Steam on this PC' : 'Import my games from Steam on this PC';
+  const label = inTauri ? (st.imported ? 'Re-import my games from Steam on this PC' : 'Import my games from Steam on this PC') : 'Import my Steam library';
   const importBtn = h('button', { type: 'button', class: 'btn', onclick: () => startImport() }, label);
 
   async function finish(steamId) {
@@ -259,6 +259,7 @@ function steamSection(s, form, ctx, root) {
 
   // Only now are Steam's folder and the allowed files read.
   async function startImport() {
+    if (!inTauri) return finish(form.steam_profile || null);
     try {
       const scan = await api.steamScan();
       if (scan.chosen) return finish(scan.chosen);
@@ -307,7 +308,7 @@ function steamSection(s, form, ctx, root) {
   return section(
     'gamepad-2',
     'Steam',
-    'freetime never reads Steam’s files on its own. Import your games once (installed games and playtime), and re-import after installing new ones.',
+    inTauri ? 'freetime never reads Steam’s files on its own. Import your games once (installed games and playtime), and re-import after installing new ones.' : 'Enter your Steam profile and save a Web API key below to import your public game library.',
     pill(st.imported, st.imported ? `${st.games} games` : 'Not imported'),
     h(
       'div',
@@ -440,7 +441,7 @@ function dataSection(s) {
   return section(
     'folder-open',
     'Your data',
-    'Settings, history and caches stay on this computer. API keys are stored in plain text in the config file.',
+    inTauri ? 'Settings, history and caches stay on this computer. API keys are stored in plain text in the config file.' : 'Preferences and history stay in this browser. Personal API keys last for this tab session. Clearing browser data removes local data.',
     null,
     h(
       'div',
@@ -455,7 +456,7 @@ function dataSection(s) {
         'button',
         { type: 'button', class: 'btn small', onclick: () => api.openDataDir().catch((e) => toast(errText(e), 'error')) },
         icon('folder-open'),
-        'Open data folder',
+        inTauri ? 'Open data folder' : 'Export local data',
       ),
     ),
   );

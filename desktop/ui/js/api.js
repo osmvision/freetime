@@ -3,9 +3,10 @@
 const tauri = window.__TAURI__;
 export const inTauri = Boolean(tauri?.core?.invoke);
 
-const invoke = (cmd, args) => tauri.core.invoke(cmd, args);
+const web = () => import('./web-api.js');
+const invoke = (cmd, args) => inTauri ? tauri.core.invoke(cmd, args) : web().then((w) => w.invoke(cmd, args));
 
-export const listen = (event, cb) => tauri.event.listen(event, (e) => cb(e.payload));
+export const listen = (event, cb) => inTauri ? tauri.event.listen(event, (e) => cb(e.payload)) : web().then((w) => w.listen(event, cb));
 
 export const api = {
   bootstrap: () => invoke('bootstrap'),

@@ -215,7 +215,7 @@ fn store_query<'a>(cc: Option<&'a str>, mut query: Vec<(&'a str, &'a str)>) -> V
     query
 }
 
-fn store(net: &dyn Net, cc: Option<&str>) -> Result<Vec<Suggestion>> {
+pub fn store(net: &dyn Net, cc: Option<&str>) -> Result<Vec<Suggestion>> {
     let v: Value = net::get_json(
         net,
         "https://store.steampowered.com/api/featuredcategories",

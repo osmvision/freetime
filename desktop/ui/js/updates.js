@@ -1,7 +1,7 @@
 // New versions: a small notice when one is ready, and the "Updates" settings.
 // Rust does the work (src/updates.rs): it checks GitHub, verifies the signature, installs.
 
-import { api, listen } from './api.js';
+import { api, inTauri, listen } from './api.js';
 import { btn, errText, h, icon, toast } from './dom.js';
 
 let notice = null;
@@ -70,6 +70,17 @@ export async function watchUpdates() {
 
 /** Settings → Updates: the version, the automatic check, and "Check now". */
 export function updatesBody() {
+  if (!inTauri) return [
+    h('p', { class: 'hint' }, 'Reopen freetime to use the latest web version.'),
+    !window.matchMedia('(display-mode: standalone)').matches ? btn({ label: 'Install freetime', icon: 'download', small: true,
+      onclick: async () => (await import('./web-app.js')).installApp() }) : null,
+    btn({ label: 'Reload freetime', icon: 'refresh-cw', small: true, onclick: async () => {
+      const registration = await navigator.serviceWorker?.getRegistration();
+      await registration?.update();
+      registration?.waiting?.postMessage('activate');
+      location.reload();
+    } }),
+  ];
   const version = h('span', { translate: 'no' }, '…');
   const box = h('input', { type: 'checkbox' });
   const result = h('div', { class: 'update-result' });

@@ -1,5 +1,5 @@
 import { api, inTauri, listen } from './api.js';
-import { emptyState, errText, h, hydrateIcons, icon, toast, weatherIcon } from './dom.js';
+import { errText, h, hydrateIcons, icon, toast, weatherIcon } from './dom.js';
 import { loadPhotos } from './photos.js';
 import { loadSupport } from './support.js';
 import * as discover from './discover.js';
@@ -186,12 +186,7 @@ window.addEventListener('unhandledrejection', (e) => toast(errText(e.reason), 'e
 async function start() {
   startI18n();
   hydrateIcons();
-  if (!inTauri) {
-    views.discover.append(
-      emptyState({ icon: 'info', title: 'Open freetime from the desktop app', text: 'This page needs the Tauri runtime.' }),
-    );
-    return;
-  }
+  if (!inTauri) await (await import('./web-app.js')).initWebApp();
   await Promise.all([loadPhotos(), loadSupport()]);
   renderMe();
   let boot = await api.bootstrap();

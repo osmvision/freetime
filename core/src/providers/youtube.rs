@@ -355,7 +355,7 @@ fn search_cached(net: &dyn Net, own_key: Option<&str>, interests: &[String]) -> 
 }
 
 /// Videos for your first interests, and whether every topic answered.
-fn search(net: &dyn Net, own_key: Option<&str>, interests: &[String]) -> Result<(Vec<Suggestion>, bool)> {
+pub fn search(net: &dyn Net, own_key: Option<&str>, interests: &[String]) -> Result<(Vec<Suggestion>, bool)> {
     let topics: Vec<&String> = interests.iter().filter(|i| !i.trim().is_empty()).take(MAX_INTERESTS).collect();
     let (found, complete) = match own_key {
         Some(key) => (api(net, key, &topics)?, true),
