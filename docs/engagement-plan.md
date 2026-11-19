@@ -77,7 +77,7 @@ Three rules every feature below follows:
   opt-in** (off by default, name, avatar, tier, points and badges only). Player cards for friends
   and global players, with report and block.
 
-### 7. Shareable moments (growth)
+### 7. Shareable moments (growth) (built)
 
 - **Monthly and yearly recap**, in the style of Spotify Wrapped, as an image card: "42 h outdoors,
   3 new recipes, your category: sport". It's made on the PC and saved or copied. Nothing is

@@ -24,6 +24,7 @@ import { freeStrip, invitable, invitePanel } from './together.js';
 import { streakChip, weekStrip } from './recap.js';
 import { todayStrip } from './book.js';
 import { offerShare } from './feed.js';
+import { shareTicket } from './share.js';
 
 const TIMES = [15, 30, 45, 60, 90, 120, 180, 240];
 const ENERGY = [
@@ -755,6 +756,7 @@ function coupon(c, { label = 'Admit one' } = {}) {
                 },
               })
             : null,
+          btn({ label: 'Share as an image', icon: 'send', square: true, onclick: () => shareTicket(c) }),
           btn({ label: 'Not this one', icon: 'x', kind: 'quiet', onclick: () => voidCoupon(c, el) }),
         ),
       ),

@@ -3,6 +3,7 @@
 
 import { api } from './api.js';
 import { btn, categoryIcon, fill, fmtMinutes, h, icon } from './dom.js';
+import { shareRecap } from './share.js';
 
 const DISMISSED = 'freetime.recap.dismissed';
 
@@ -40,6 +41,12 @@ export async function recapPanel(box) {
       r.kinds.length
         ? h('div', { class: 'recap-kinds' }, r.kinds.map((k) => h('span', { class: 'recap-kind' }, icon(categoryIcon(k.category)), h('span', {}, k.label), h('span', { class: 'figures' }, `×${k.picks}`))))
         : null,
+      h(
+        'div',
+        { class: 'recap-share' },
+        btn({ label: 'Share my month', icon: 'send', small: true, onclick: () => shareRecap(false) }),
+        btn({ label: 'Share my year', icon: 'send', small: true, kind: 'quiet', onclick: () => shareRecap(true) }),
+      ),
       r.memories.length
         ? h(
             'ul',

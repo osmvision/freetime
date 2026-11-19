@@ -87,6 +87,25 @@ def code_signing_html() -> str:
     return page("Code signing policy · freetime", body, "How freetime's Windows installers are built, signed and approved, who can release them, and the privacy policy.")
 
 
+def invite_html() -> str:
+    """The page an invite link opens: the friend tag (filled by invite.js), and how to join."""
+    body = """<h1 data-i18n>You’re invited to freetime</h1>
+<div id="invite-box">
+  <p data-i18n>A friend wants to plan free time with you. Here is their friend tag:</p>
+  <div class="invite-tag"><code id="invite-tag" translate="no">-----</code>
+    <button type="button" class="btn btn-ghost btn-sm" id="copy-tag" data-i18n>Copy</button></div>
+  <ol class="invite-steps">
+    <li data-i18n>Download freetime for Windows. It’s free.</li>
+    <li data-i18n>Sign in with Google: Settings → Profile.</li>
+    <li data-i18n>Open Friends → Add a friend, and paste the tag.</li>
+  </ol>
+  <a class="btn btn-red btn-lg js-download" href="https://github.com/osmvision/freetime/releases/latest" data-i18n>Download for Windows</a>
+</div>
+<p id="invite-bad" hidden data-i18n>This invite link looks incomplete. Ask your friend for their friend tag.</p>
+<script src="invite.js" defer></script>"""
+    return page("You're invited · freetime", body, "A friend invites you to freetime, the app that picks the best thing to do with your free time.")
+
+
 def credits_html() -> str:
     credits = json.loads((UI / "img" / "ideas" / "credits.json").read_text(encoding="utf-8"))
     items = []
@@ -136,6 +155,7 @@ def main() -> None:
     (OUT / "privacy.html").write_text(privacy_html(), encoding="utf-8")
     (OUT / "credits.html").write_text(credits_html(), encoding="utf-8")
     (OUT / "code-signing.html").write_text(code_signing_html(), encoding="utf-8")
+    (OUT / "invite.html").write_text(invite_html(), encoding="utf-8")
     (OUT / ".nojekyll").write_text("")
     print(f"built {OUT}")
 

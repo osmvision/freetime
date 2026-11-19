@@ -61,6 +61,9 @@ export const api = {
   socialPrefs: () => invoke('get_social_prefs'),
   setSocialPrefs: (prefs) => invoke('set_social_prefs', { prefs }),
   togetherStreaks: () => invoke('together_streaks'),
+  // Shareable cards (drawn locally, saved to Downloads).
+  periodRecap: (year) => invoke('period_recap', { year }),
+  saveCard: (name, png) => invoke('save_card', { name, png }),
   getShareLibrary: () => invoke('get_share_library'),
   setShareLibrary: (enabled) => invoke('set_share_library', { enabled }),
   setFree: (minutes) => invoke('set_free', { minutes }),

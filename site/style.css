@@ -404,3 +404,37 @@ details p { padding: 0 0 24px; color: var(--text-2); max-width: 62ch; }
   .tape-track { animation: none; }
   .window, .stub-float { animation: none; }
 }
+
+/* ---------------------------------------------------------------- invite page */
+
+.invite-tag {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px;
+  margin: 18px 0 26px;
+}
+
+.invite-tag code {
+  padding: 12px 18px;
+  border: 2px dashed var(--lavender-line);
+  border-radius: 10px;
+  background: var(--lavender);
+  color: var(--purple);
+  font: 700 clamp(26px, 5vw, 40px)/1 var(--figures);
+  letter-spacing: 0.08em;
+}
+
+#copy-tag[data-done="true"]::after {
+  content: " ✓";
+}
+
+.invite-steps {
+  margin: 0 0 28px;
+  padding-left: 22px;
+  font-size: 19px;
+}
+
+.invite-steps li + li {
+  margin-top: 8px;
+}

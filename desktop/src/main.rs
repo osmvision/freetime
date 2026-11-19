@@ -7,6 +7,7 @@ mod commands;
 mod feed;
 mod quiz;
 mod ranked;
+mod share;
 mod updates;
 
 fn main() {
@@ -72,6 +73,8 @@ fn main() {
             feed::get_social_prefs,
             feed::set_social_prefs,
             feed::together_streaks,
+            share::period_recap,
+            share::save_card,
             commands::get_share_library,
             commands::set_share_library,
             commands::set_free,

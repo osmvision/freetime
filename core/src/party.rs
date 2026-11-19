@@ -432,7 +432,7 @@ pub(crate) fn b64_encode(data: &[u8]) -> String {
     out
 }
 
-fn b64_decode(text: &str) -> Result<Vec<u8>> {
+pub(crate) fn b64_decode(text: &str) -> Result<Vec<u8>> {
     let vals: Vec<u8> = text
         .bytes()
         .map(|c| B64.iter().position(|x| *x == c).map(|p| p as u8))
