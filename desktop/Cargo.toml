@@ -1,6 +1,6 @@
 [package]
 name = "freetime-desktop"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2021"
 description = "freetime desktop app: find the best thing to do with your free time."
 license = "MIT"
