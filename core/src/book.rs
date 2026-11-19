@@ -23,6 +23,8 @@ pub struct Book {
     /// Done picks that aren't built-in ideas (games, videos): they count, but aren't collected.
     pub games: usize,
     pub videos: usize,
+    /// Daily quizzes finished.
+    pub quizzes: usize,
 }
 
 /// One category of built-in ideas.
@@ -215,6 +217,7 @@ pub fn book(history: &History, catalog: &[Suggestion], now: DateTime<Local>) -> 
     let kinds = did.iter().map(|e| e.category).collect::<HashSet<_>>().len() as u32;
     let full_sets = shelves.iter().filter(|s| s.stamped == s.total).count() as u32;
     let dailies = did.iter().filter(|e| was_daily(e, catalog)).count() as u32;
+    let quizzes = did.iter().filter(|e| e.id.starts_with("quiz:")).count() as u32;
     let best_streak = history.recap(now).best_streak;
 
     let b = |id, icon, title, how, progress: u32, target: u32| Badge { id, icon, title, how, progress: progress.min(target), target, earned: progress >= target };
@@ -232,6 +235,7 @@ pub fn book(history: &History, catalog: &[Suggestion], now: DateTime<Local>) -> 
         b("gamer", "gamepad-2", "Player", "Play 10 game picks", count(Category::Game), 10),
         b("night-owl", "moon", "Night owl", "Do a night idea, like stargazing", night, 1),
         b("daily", "calendar-check", "Daily habit", "Do 7 tickets of the day", dailies, 7),
+        b("quiz", "star", "Quiz master", "Finish 7 daily quizzes", quizzes, 7),
         b("regular", "flame", "Regular", "Keep a 4-week streak", best_streak, 4),
     ];
     // Earned first, then the closest to being earned.
@@ -245,6 +249,7 @@ pub fn book(history: &History, catalog: &[Suggestion], now: DateTime<Local>) -> 
         challenge: challenge(history, catalog, now),
         games: count(Category::Game) as usize,
         videos: count(Category::Video) as usize,
+        quizzes: quizzes as usize,
     }
 }
 

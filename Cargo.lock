@@ -1348,6 +1348,7 @@ version = "0.2.0"
 dependencies = [
  "chrono",
  "freetime-core",
+ "rand 0.8.8",
  "serde",
  "serde_json",
  "tauri",

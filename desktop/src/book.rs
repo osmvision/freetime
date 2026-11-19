@@ -23,6 +23,7 @@ pub struct BookView {
     total: usize,
     games: usize,
     videos: usize,
+    quizzes: usize,
     shelves: Vec<ShelfView>,
     badges: Vec<book::Badge>,
     challenge: book::Challenge,
@@ -49,6 +50,7 @@ pub fn get_book(state: State<'_, AppState>) -> Res<BookView> {
         total: b.total,
         games: b.games,
         videos: b.videos,
+        quizzes: b.quizzes,
         shelves: b
             .shelves
             .into_iter()

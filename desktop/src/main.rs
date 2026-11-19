@@ -4,6 +4,7 @@
 mod assistant;
 mod book;
 mod commands;
+mod quiz;
 mod updates;
 
 fn main() {
@@ -55,6 +56,9 @@ fn main() {
             commands::get_recap,
             book::get_book,
             book::get_today,
+            quiz::get_quiz,
+            quiz::finish_quiz,
+            quiz::bonus_quiz,
             commands::get_share_library,
             commands::set_share_library,
             commands::set_free,

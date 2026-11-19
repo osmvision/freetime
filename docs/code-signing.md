@@ -53,6 +53,7 @@ The app contacts these services only for what you see on screen or turn on yours
 - Open-Meteo: weather and city search.
 - The Steam store and the Epic Games Store: store picks and free games, using your country code.
 - YouTube RSS: videos from the channels and topics you choose.
+- Open Trivia Database: the bonus quiz, only when you open it.
 - GitHub: the update check, which can be turned off in Settings.
 - Supabase and Google sign-in: only if you choose to create the optional online profile, which is
   hosted in the EU.
