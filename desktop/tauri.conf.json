@@ -36,7 +36,8 @@
         "installMode": "currentUser",
         "languages": ["English", "French"],
         "displayLanguageSelector": false,
-        "installerIcon": "icons/icon.ico"
+        "installerIcon": "icons/icon.ico",
+        "installerHooks": "windows/hooks.nsh"
       }
     },
     "icon": [
