@@ -36,6 +36,11 @@ pub fn invoke(cmd: &str, args: &Value, token: Option<&str>) -> Result<Value> {
             )?;
             Value::Null
         }
+        "support_tickets" => json!(client.tickets(&session, arg::<Option<String>>(args, "status")?.as_deref())?),
+        "update_support_ticket" => {
+            client.update_ticket(&session, arg::<i64>(args, "id")?, &text("status")?, &text("note")?)?;
+            Value::Null
+        }
         "social_overview" => {
             json!({"me":session.user_id,"friends":client.friends(&session)?,"conversations":client.conversations(&session)?})
         }

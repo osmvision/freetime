@@ -31,6 +31,9 @@
           <button class="nav-item" data-view="settings" title="Settings (Alt+5)">
             <span data-icon="sliders-horizontal"></span><span class="nav-label">Settings</span>
           </button>
+          <button class="nav-item" data-view="tickets" id="tickets-tab" title="Tickets (admins)" hidden>
+            <span data-icon="flag"></span><span class="nav-label">Tickets</span><span class="nav-badge" id="tickets-badge" hidden></span>
+          </button>
         </nav>
         <div class="bar-tags" id="bar-tags" aria-live="polite"></div>
         <button class="me-chip" id="me-chip" type="button" hidden></button>
@@ -42,6 +45,7 @@
         <section class="view wide" id="view-messages" hidden></section>
         <section class="view" id="view-history" hidden></section>
         <section class="view" id="view-settings" hidden></section>
+        <section class="view" id="view-tickets" hidden></section>
       </main>
     </div>
     <div class="toasts" id="toasts" role="status" aria-live="polite"></div>

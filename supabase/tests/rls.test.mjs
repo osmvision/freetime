@@ -803,3 +803,85 @@ test('streaks together: only accepted, past invites between friends count', asyn
     });
   });
 });
+
+/** Like asService, for a call that must fail: the failed statement is rolled back after. */
+async function serviceFails(fn, pattern) {
+  await db.exec('savepoint s');
+  await db.exec('set local role service_role');
+  try {
+    await assert.rejects(fn({ one: async (sql, params) => (await db.query(sql, params)).rows[0] }), pattern);
+  } finally {
+    await db.exec('rollback to savepoint s');
+    await db.exec('release savepoint s');
+  }
+}
+
+const fileTicket = (q, who, ip, message = 'The quiz button does nothing', category = 'bug') =>
+  q.one('select public.support_submit($1, $2, $3, $4, $5, $6, $7, $8, $9) as id', [who, ip, category, message, null, '0.3.1', 'desktop', 'fr', 'discover']);
+const ipHash = (n) => String(n).padStart(64, 'a');
+
+test('support tickets: only the Edge Function writes them, only admins read and handle them', async () => {
+  await withPeople(async ({ step }) => {
+    await db.query('insert into private.admins (user_id) values ($1)', [BOB]);
+
+    // Nobody but the service role can file one directly.
+    for (const who of [ALICE, null]) {
+      await step(who, async (q) => {
+        await fails(fileTicket(q, ALICE, ipHash(1)), /permission denied/);
+      });
+      await step(who, async (q) => {
+        await fails(q.rows("insert into public.support_tickets (category, message) values ('bug', 'something is broken')"), /permission denied/);
+      });
+    }
+    const { id } = await asService((q) => fileTicket(q, ALICE, ipHash(1)));
+    assert.ok(id > 0);
+    await asService((q) => fileTicket(q, null, ipHash(2), 'I cannot sign in at all', 'account'));
+
+    // Admins see both; others see nothing (signed out: not even the table).
+    assert.equal((await step(BOB, (q) => q.rows('select * from public.support_tickets'))).length, 2);
+    assert.equal((await step(ALICE, (q) => q.rows('select * from public.support_tickets'))).length, 0, 'not even your own');
+    await step(null, async (q) => {
+      await fails(q.rows('select * from public.support_tickets'), /permission denied/);
+    });
+    assert.equal((await step(ALICE, (q) => q.one('select public.is_admin() as a'))).a, false);
+    assert.equal((await step(BOB, (q) => q.one('select public.is_admin() as a'))).a, true);
+    await step(null, async (q) => {
+      await fails(q.one('select public.is_admin()'), /permission denied/);
+    });
+
+    // An admin changes the status and leaves a note; the message itself can't be rewritten.
+    await step(BOB, (q) => q.rows("update public.support_tickets set status = 'in_progress', admin_note = 'Looking at it' where id = $1", [id]));
+    const after = await step(BOB, (q) => q.one('select status, admin_note, updated_at > created_at as touched from public.support_tickets where id = $1', [id]));
+    assert.deepEqual([after.status, after.admin_note], ['in_progress', 'Looking at it']);
+    await step(BOB, async (q) => {
+      await fails(q.rows("update public.support_tickets set message = 'rewritten' where id = $1", [id]), /permission denied/);
+    });
+    await step(BOB, async (q) => {
+      await fails(q.rows("update public.support_tickets set status = 'deleted' where id = $1", [id]), /check constraint/);
+    });
+    // A non-admin's update touches nothing.
+    await step(ALICE, (q) => q.rows("update public.support_tickets set status = 'closed' where id = $1", [id]));
+    assert.equal((await step(BOB, (q) => q.one('select status from public.support_tickets where id = $1', [id]))).status, 'in_progress');
+    await step(BOB, async (q) => {
+      await fails(q.rows('delete from public.support_tickets where id = $1', [id]), /permission denied/);
+    });
+  });
+});
+
+test('support tickets: values are checked, senders are rate limited, deleted accounts are unlinked', async () => {
+  await withPeople(async () => {
+    await serviceFails((q) => fileTicket(q, null, ipHash(3), 'too short'), /check constraint/);
+    await serviceFails((q) => fileTicket(q, null, ipHash(3), 'A real description here', 'spam'), /check constraint/);
+
+    for (let i = 0; i < 10; i++) await asService((q) => fileTicket(q, null, ipHash(4), `Problem number ${i} here`));
+    await serviceFails((q) => fileTicket(q, null, ipHash(4)), /too many tickets from this connection/);
+    await asService((q) => fileTicket(q, null, ipHash(5)));
+
+    for (let i = 0; i < 5; i++) await asService((q) => fileTicket(q, CAROL, ipHash(10 + i), `Account problem ${i} here`));
+    await serviceFails((q) => fileTicket(q, CAROL, ipHash(20)), /too many tickets from this account/);
+
+    await db.query('delete from auth.users where id = $1', [CAROL]);
+    const left = (await db.query('select count(*)::int as n, count(user_id)::int as linked from public.support_tickets where message like $1', ['Account problem%'])).rows[0];
+    assert.deepEqual([left.n, left.linked], [5, 0], 'the tickets stay, without the account');
+  });
+});

@@ -438,3 +438,8 @@ verify_jwt = false
 # cap protect the quota. Secrets: YOUTUBE_API_KEY, optional YOUTUBE_DAILY_SEARCHES.
 [functions.youtube-search]
 verify_jwt = false
+
+# "Report a problem": public on purpose (people who can't sign in must be able to report it).
+# Rate limits and validation live in the function and in public.support_submit.
+[functions.support]
+verify_jwt = false

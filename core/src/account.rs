@@ -373,6 +373,49 @@ impl Client {
         Ok(())
     }
 
+    // ---------------------------------------------------------------- "report a problem" (tickets)
+
+    /// Sends a problem report to the freetime team. Works signed out (`s` = None); signed in, the
+    /// ticket is linked to the account. Returns the ticket's number.
+    pub fn send_ticket(&self, s: Option<&Session>, ticket: &crate::support::NewTicket) -> Result<i64> {
+        let ticket = ticket.checked()?;
+        let body = serde_json::to_value(&ticket)?;
+        let v = self
+            .call("POST", "/functions/v1/support", s.map(|s| s.access_token.as_str()), Some(&body), None)
+            .map_err(|e| crate::support::send_error(&e))?;
+        v["id"].as_i64().ok_or_else(|| anyhow!("unexpected answer from freetime's server"))
+    }
+
+    /// Whether this account is one of freetime's admins (who read the tickets).
+    pub fn is_admin(&self, s: &Session) -> Result<bool> {
+        let v = self.call("POST", "/rest/v1/rpc/is_admin", Some(&s.access_token), Some(&json!({})), None)?;
+        Ok(v.as_bool().unwrap_or(false))
+    }
+
+    /// The latest tickets (admins only: anyone else gets an empty list). `status` filters.
+    pub fn tickets(&self, s: &Session, status: Option<&str>) -> Result<Vec<crate::support::Ticket>> {
+        let filter = match status {
+            Some(st) if crate::support::STATUSES.contains(&st) => format!("&status=eq.{st}"),
+            Some(_) => bail!("unknown ticket status"),
+            None => String::new(),
+        };
+        let path = format!("/rest/v1/support_tickets?select={}&order=created_at.desc&limit=200{filter}", crate::support::TICKET_COLUMNS);
+        let v = self.call("GET", &path, Some(&s.access_token), None, None)?;
+        serde_json::from_value(v).context("unexpected ticket list")
+    }
+
+    /// An admin changes a ticket's status and note.
+    pub fn update_ticket(&self, s: &Session, id: i64, status: &str, note: &str) -> Result<()> {
+        if id <= 0 || !crate::support::STATUSES.contains(&status) {
+            bail!("unknown ticket or status");
+        }
+        let note: String = note.chars().filter(|c| !c.is_control() || matches!(c, '\n' | '\t')).collect();
+        let note: String = note.trim().chars().take(crate::support::MAX_NOTE).collect();
+        let body = json!({ "status": status, "admin_note": if note.is_empty() { Value::Null } else { Value::String(note) } });
+        self.call("PATCH", &format!("/rest/v1/support_tickets?id=eq.{id}"), Some(&s.access_token), Some(&body), Some("return=minimal"))?;
+        Ok(())
+    }
+
     // ------------------------------------------------------------ shared game lists (opt-in)
 
     /// Shares (or refreshes) your Steam app ids and taste with your friends.

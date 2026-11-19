@@ -2289,14 +2289,16 @@ button.tag:hover {
 }
 
 .report-form .reasons,
-.invite-panel .reasons {
+.invite-panel .reasons,
+.problem-form .reasons {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
 }
 
 .report-form .reasons button,
-.invite-panel .reasons button {
+.invite-panel .reasons button,
+.problem-form .reasons button {
   height: 34px;
   padding: 0 12px;
   border: 1.5px solid var(--rule-soft);
@@ -2306,7 +2308,8 @@ button.tag:hover {
 }
 
 .report-form .reasons button[aria-pressed="true"],
-.invite-panel .reasons button[aria-pressed="true"] {
+.invite-panel .reasons button[aria-pressed="true"],
+.problem-form .reasons button[aria-pressed="true"] {
   border-color: var(--purple);
   background: var(--lavender);
   color: var(--purple);
@@ -5616,9 +5619,151 @@ body[data-view="messages"] .assistant-panel {
 
 @media (pointer: coarse) {
   button, .btn.small, .btn.square, .toggle, .suggest button,
-  .report-form .reasons button, .invite-panel .reasons button { min-height: 44px; }
+  .report-form .reasons button, .invite-panel .reasons button, .problem-form .reasons button { min-height: 44px; }
   .btn.square, .toggle, .chip-tag button, .assistant-close, .quiz-close { min-width: 44px; }
   input, textarea, select, .input, .chat-input, .assistant-input { font-size: 16px; }
   .check { min-height: 44px; }
   .check input { flex-shrink: 0; width: 20px; height: 20px; }
+}
+
+/* ---------------------------------------------------------------- report a problem, and the admins' tickets */
+
+.problem-form {
+  width: min(560px, 100%);
+}
+
+.problem-body {
+  display: grid;
+  gap: 14px;
+  padding: 18px 20px 20px;
+}
+
+.problem-body .field {
+  display: grid;
+  gap: 6px;
+}
+
+.problem-body .field > label {
+  color: var(--text-3);
+  font: 700 13px/1.2 var(--display);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.problem-message,
+.ticket-note {
+  height: auto;
+  font: inherit;
+  padding: 10px 12px;
+  line-height: 1.45;
+  resize: vertical;
+}
+
+.problem-message {
+  min-height: 130px;
+}
+
+.problem-count {
+  justify-self: end;
+  color: var(--text-3);
+  font-size: 13px;
+}
+
+.problem-body .hint {
+  margin: 0;
+}
+
+.problem-actions {
+  gap: 10px;
+}
+
+.tickets {
+  display: grid;
+  gap: 14px;
+  margin-top: 16px;
+}
+
+.ticket {
+  display: grid;
+  gap: 8px;
+  padding: 16px 18px;
+  border: 1.5px solid var(--rule-soft);
+  border-radius: var(--r-ticket);
+  background: var(--coupon);
+  box-shadow: var(--shadow);
+}
+
+.ticket-closed {
+  opacity: 0.75;
+}
+
+.ticket-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.ticket-meta,
+.ticket-contact {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  color: var(--text-2);
+  font-size: 13px;
+}
+
+.ticket-meta .icon,
+.ticket-contact .icon {
+  width: 15px;
+  height: 15px;
+}
+
+.ticket-message {
+  margin: 0;
+  color: var(--text);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.ticket-contact-value {
+  color: var(--text);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+  user-select: text;
+}
+
+.ticket-actions {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 10px;
+}
+
+.ticket-status {
+  width: auto;
+}
+
+@media (max-width: 860px) {
+  .ticket-actions {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .ticket-status {
+    width: 100%;
+  }
+}
+
+/* The admins' Tickets tab is an icon (with its count): the top bar has no room for a sixth label.
+   The name stays for screen readers and in the tooltip. */
+.nav-item[data-view="tickets"] .nav-label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }

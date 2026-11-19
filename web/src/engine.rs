@@ -690,6 +690,26 @@ pub fn invoke(call: Call, token: Option<&str>) -> Result<Value> {
             patch["shown"] = json!(state.shown);
             reply
         },
+        // "Report a problem" works signed out; signed in, the ticket is linked to the account.
+        "send_support_ticket" => {
+            let client = freetime_core::account::Client::new()?;
+            let session = token.and_then(|t| client.browser_session(t, freetime_core::history::now()).ok());
+            let ticket: freetime_core::support::NewTicket = arg(&args, "ticket")?;
+            let ticket = freetime_core::support::NewTicket {
+                platform: Some("web".into()),
+                app_version: Some(concat!("web ", env!("CARGO_PKG_VERSION")).into()),
+                ..ticket
+            };
+            json!(client.send_ticket(session.as_ref(), &ticket)?)
+        }
+        "support_is_admin" => {
+            let admin = token.and_then(|t| {
+                let client = freetime_core::account::Client::new().ok()?;
+                let session = client.browser_session(t, freetime_core::history::now()).ok()?;
+                client.is_admin(&session).ok()
+            });
+            json!(admin.unwrap_or(false))
+        }
         _ => super::social::invoke(&cmd, &args, token)?,
     };
     Ok(json!({

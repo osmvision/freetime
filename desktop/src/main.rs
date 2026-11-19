@@ -8,6 +8,7 @@ mod feed;
 mod quiz;
 mod ranked;
 mod share;
+mod support;
 mod updates;
 
 fn main() {
@@ -100,6 +101,10 @@ fn main() {
             assistant::assistant_models,
             assistant::assistant_send,
             assistant::assistant_stop,
+            support::send_support_ticket,
+            support::support_is_admin,
+            support::support_tickets,
+            support::update_support_ticket,
             updates::update_status,
             updates::set_auto_update,
             updates::check_update,

@@ -3,7 +3,8 @@
 import { profileSection } from './account.js';
 import { api, inTauri } from './api.js';
 import { cityPicker, openMeteoCredit } from './city.js';
-import { emptyState, errText, h, icon, pageHead, toast } from './dom.js';
+import { btn, emptyState, errText, h, icon, pageHead, toast } from './dom.js';
+import { openProblemReport } from './problem.js';
 import { photoCredits } from './photos.js';
 import { preferredLang, setLang } from './i18n.js';
 import { updatesBody } from './updates.js';
@@ -98,6 +99,7 @@ function draw(root, ctx, s) {
         languageSection(),
         section('download', 'Updates', inTauri ? 'New versions come from freetime’s GitHub releases and are signed: anything else is refused.' : 'The web version updates when you reopen it.', null, updatesBody()),
         dataSection(s),
+        problemSection(),
         supportSection(),
         creditsSection(),
       ),
@@ -463,6 +465,17 @@ function dataSection(s) {
 }
 
 /** Donations: shown only once a Ko-fi or GitHub Sponsors page is set in support.json. */
+/** "Report a problem": a short form to the freetime team, signed in or not. */
+function problemSection() {
+  return section(
+    'flag',
+    'Report a problem',
+    'Something doesn’t work, or you can’t sign in? Tell the freetime team: every report is read.',
+    null,
+    h('div', { class: 'row' }, btn({ label: 'Report a problem', icon: 'flag', kind: 'primary', onclick: () => openProblemReport('settings') })),
+  );
+}
+
 function supportSection() {
   const body = supportBody();
   if (!body) return null;

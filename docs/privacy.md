@@ -56,6 +56,14 @@ and the short context above are forwarded to Mistral AI (France) to write the an
 streamed back to you. We don't store the messages or the answers; the conversation is only kept
 on your PC.
 
+**Problem reports**
+
+"Report a problem" (in Settings) works with or without an account. A report holds what you write,
+the way to answer you if you leave one, the app's version, its language and the screen you were
+on, and your account if you are signed in. Only the two freetime admins can read reports. To limit
+abuse, your network address is kept as a one-way keyed fingerprint for one day, never in clear.
+Closed reports are deleted after one year; deleting your account unlinks your reports from it.
+
 **Who sees what**
 
 - Your friends, and people you have a pending request with, see your name, avatar, bio and status.

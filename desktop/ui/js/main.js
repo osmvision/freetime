@@ -14,6 +14,7 @@ import { initDisplay } from './display.js';
 import { initViewport } from './viewport.js';
 import { assistantAccountChanged, assistantSettingsChanged, mountAssistant } from './assistant.js';
 import { watchUpdates } from './updates.js';
+import * as ticketsView from './tickets.js';
 
 initDisplay();
 initViewport();
@@ -24,6 +25,7 @@ const views = {
   messages: document.getElementById('view-messages'),
   history: document.getElementById('view-history'),
   settings: document.getElementById('view-settings'),
+  tickets: document.getElementById('view-tickets'),
 };
 const main = document.getElementById('main');
 const tags = document.getElementById('bar-tags');
@@ -41,11 +43,19 @@ const ctx = {
   accountChanged: () => {
     renderMe();
     assistantAccountChanged();
+    refreshAdmin();
   },
   isLive: () => live,
   openChat: (friendId) => goto('messages', { friend: friendId }),
   setInvites: (n) => {
     const badge = document.getElementById('invites-badge');
+    badge.hidden = !n;
+    badge.textContent = n > 99 ? '99+' : String(n);
+  },
+  // Open tickets, on the admins' Tickets tab (undefined: leave it as it is).
+  setTickets: (n) => {
+    if (n === undefined) return;
+    const badge = document.getElementById('tickets-badge');
     badge.hidden = !n;
     badge.textContent = n > 99 ? '99+' : String(n);
   },
@@ -79,6 +89,7 @@ function goto(view, options = {}) {
   if (view === 'messages') messagesView.render(views.messages, ctx, options);
   if (view === 'history') historyView.render(views.history, ctx, options);
   if (view === 'settings') settingsView.render(views.settings, ctx, options);
+  if (view === 'tickets') ticketsView.render(views.tickets, ctx);
 }
 
 for (const button of document.querySelectorAll('.nav-item')) {
@@ -183,6 +194,23 @@ function refresh() {
 window.addEventListener('error', (e) => toast(`Something broke: ${e.message}`, 'error', 6000));
 window.addEventListener('unhandledrejection', (e) => toast(errText(e.reason), 'error', 6000));
 
+/** Shows the Tickets tab to admins only (the database decides who is one), with its count. */
+async function refreshAdmin() {
+  const tab = document.getElementById('tickets-tab');
+  let admin = false;
+  try {
+    admin = await api.supportIsAdmin();
+  } catch {
+    admin = false;
+  }
+  tab.hidden = !admin;
+  if (!admin) {
+    if (document.body.dataset.view === 'tickets') goto('discover');
+    return;
+  }
+  ctx.setTickets(await ticketsView.openCount());
+}
+
 async function start() {
   startI18n();
   hydrateIcons();
@@ -201,6 +229,7 @@ async function start() {
   discover.init(views.discover, boot, ctx);
   document.body.dataset.view = 'discover';
   mountAssistant(ctx);
+  refreshAdmin();
   if (after === 'profile') goto('settings', { focus: 'profile' });
   await listen('unread-updated', (n) => ctx.setUnread(n));
   // The live connection: messages and invites as soon as they're saved.

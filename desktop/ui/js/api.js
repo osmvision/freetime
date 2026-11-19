@@ -82,6 +82,11 @@ export const api = {
   exportMyData: () => invoke('export_my_data'),
   deleteMyAccount: () => invoke('delete_my_account'),
   reportUser: (userId, reason, details, messageIds) => invoke('report_user', { userId, reason, details, messageIds }),
+  // "Report a problem" (works signed out) and the admins' Tickets tab.
+  sendSupportTicket: (ticket) => invoke('send_support_ticket', { ticket }),
+  supportIsAdmin: () => invoke('support_is_admin'),
+  supportTickets: (status = null) => invoke('support_tickets', { status }),
+  updateSupportTicket: (id, status, note) => invoke('update_support_ticket', { id, status, note }),
   socialOverview: () => invoke('social_overview'),
   friendRequest: (tag) => invoke('friend_request', { tag }),
   acceptFriend: (userId) => invoke('accept_friend', { userId }),
