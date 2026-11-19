@@ -5,7 +5,7 @@
 //
 // Both need the user's session (Authorization: Bearer <access token>), checked here.
 // The Mistral key is the function secret MISTRAL_API_KEY: it never reaches the app.
-// ASSISTANT_DAILY_MESSAGES caps messages per account and UTC day (50 by default);
+// ASSISTANT_DAILY_MESSAGES caps messages per account and UTC day (10 by default);
 // ASSISTANT_MODEL picks the model (mistral-small-latest by default). The model, the answer length
 // and the size of the conversation are set here, whatever the app asks for, so the cost stays known.
 
@@ -13,7 +13,7 @@ import { createClient } from 'npm:@supabase/supabase-js@2.45.4';
 
 const MISTRAL = 'https://api.mistral.ai/v1/chat/completions';
 const DEFAULT_MODEL = 'mistral-small-latest';
-const DEFAULT_DAILY_MESSAGES = 50;
+const DEFAULT_DAILY_MESSAGES = 10;
 /** The app sends a system message and the last 20 turns at most. */
 const MAX_MESSAGES = 44;
 /** The system message (with today's ideas) plus the conversation, in characters. */
