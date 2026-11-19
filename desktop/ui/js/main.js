@@ -11,7 +11,7 @@ import { runWelcome } from './welcome.js';
 import { startI18n } from './i18n.js';
 import * as settingsView from './settings.js';
 import { initDisplay } from './display.js';
-import { assistantSettingsChanged, mountAssistant } from './assistant.js';
+import { assistantAccountChanged, assistantSettingsChanged, mountAssistant } from './assistant.js';
 import { watchUpdates } from './updates.js';
 
 initDisplay();
@@ -36,7 +36,10 @@ const ctx = {
   // Start an idea from outside Discover (the ticket book's ticket of the day).
   startIdea: (c) => discover.startIdea(c),
   friendsChanged: () => discover.friendsChanged(),
-  accountChanged: () => renderMe(),
+  accountChanged: () => {
+    renderMe();
+    assistantAccountChanged();
+  },
   isLive: () => live,
   openChat: (friendId) => goto('messages', { friend: friendId }),
   setInvites: (n) => {

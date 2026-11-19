@@ -31,6 +31,8 @@ pub struct AssistantStatus {
     /// With an own key: the model picked in the settings.
     model: String,
     signed_in: bool,
+    /// The signed-in account's id: the UI keeps one conversation per account.
+    account: Option<String>,
     /// Today's free allowance (signed in, no own key).
     free: Option<HostedStatus>,
     /// Why the free assistant can't be reached, when it can't.
@@ -42,10 +44,11 @@ pub fn assistant_status(state: State<'_, AppState>) -> AssistantStatus {
     let key = Keys::resolve().mistral;
     let cfg = Config::load().unwrap_or_default();
     let signed_in = lock(&state.account).is_some() || account::has_saved_session();
+    let session = if signed_in { live_session(&state) } else { Err("you're not signed in".to_string()) };
     let (mut free, mut free_error) = (None, None);
     // Only asked for when it would be used: an own key always wins.
     if key.is_none() && signed_in {
-        match live_session(&state).and_then(|s| {
+        match session.clone().and_then(|s| {
             let http = Mistral::hosted().map_err(err)?;
             assistant::hosted_status(&http, &s.access_token).map_err(err)
         }) {
@@ -59,6 +62,7 @@ pub fn assistant_status(state: State<'_, AppState>) -> AssistantStatus {
         key_set: key.is_some(),
         model: model_of(&cfg),
         signed_in,
+        account: session.ok().map(|s| s.user_id),
         free,
         free_error,
     }
