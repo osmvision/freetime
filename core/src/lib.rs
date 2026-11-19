@@ -19,6 +19,7 @@ pub mod ranked;
 pub mod realtime;
 pub mod region;
 pub mod scoring;
+pub mod streaks;
 pub mod vdf;
 pub mod weather;
 
