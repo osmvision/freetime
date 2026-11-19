@@ -15,6 +15,74 @@ function pick(q) {
   return { text: fr ? q.fr : q.en, choices: fr ? q.fr_choices : q.en_choices, why: fr ? q.fr_why : q.en_why };
 }
 
+/** Topic names, in the app's language (the i18n dictionary would turn "History" into the tab name). */
+const TOPICS = {
+  art: ['Art', 'Art'],
+  food: ['Food', 'Cuisine'],
+  games: ['Games', 'Jeux'],
+  geography: ['Geography', 'Géographie'],
+  history: ['History', 'Histoire'],
+  life: ['Everyday life', 'Vie quotidienne'],
+  logic: ['Logic', 'Logique'],
+  nature: ['Nature', 'Nature'],
+  science: ['Science', 'Sciences'],
+  space: ['Space', 'Espace'],
+  sport: ['Sport', 'Sport'],
+  words: ['Words', 'Mots'],
+};
+
+function topicName(t) {
+  const names = TOPICS[t];
+  if (!names) return t;
+  return currentLang() === 'fr' ? names[1] : names[0];
+}
+
+/** The menu dot: on while today's quiz is waiting. */
+export function setQuizDot(pending) {
+  const dot = document.getElementById('quiz-dot');
+  if (dot) dot.hidden = !pending;
+}
+
+/** The big banner on Discover while today's quiz is waiting. Once played, the small card takes over. */
+export function quizBanner(data, onOpen) {
+  if (!data || data.result) return null;
+  const topics = [...new Set(data.questions.map((q) => q.topic))];
+  const streak =
+    data.streak >= 2 ? `Keep your ${data.streak}-day streak` : data.streak === 1 ? 'Played yesterday: keep it going' : 'Start a streak today';
+  return h(
+    'section',
+    { class: 'quiz-banner', 'aria-label': 'Quiz of the day', onclick: (e) => !e.target.closest('button') && onOpen() },
+    h('span', { class: 'quiz-banner-icon' }, icon('graduation-cap')),
+    h(
+      'div',
+      { class: 'quiz-banner-text' },
+      h('span', { class: 'quiz-banner-k' }, 'Quiz of the day'),
+      h('strong', {}, '5 questions · 2 min'),
+      h('span', { class: 'quiz-banner-sub' }, 'The same for everyone today. 1 ranking point per right answer.'),
+      h('ul', { class: 'quiz-topics', translate: 'no', 'aria-label': 'Topics' }, topics.map((t) => h('li', {}, topicName(t)))),
+    ),
+    h(
+      'div',
+      { class: 'quiz-banner-side' },
+      h('span', { class: 'quiz-banner-streak' }, icon('flame'), streak),
+      btn({ label: 'Play the quiz', icon: 'play', kind: 'primary', onclick: onOpen }),
+    ),
+  );
+}
+
+/** Opens today's quiz from anywhere (the menu, Alt+Q): the questions, or the score once played. */
+export async function openTodayQuiz() {
+  let q;
+  try {
+    q = await api.quiz();
+  } catch (e) {
+    toast(errText(e), 'error');
+    return;
+  }
+  setQuizDot(!q.result);
+  openQuiz(q);
+}
+
 /** The small ticket on Discover and in the book. */
 export function quizCard(data, onOpen) {
   if (!data) return null;
@@ -48,9 +116,9 @@ export async function openBonus() {
   openQuiz({ questions: list.map((q) => ({ ...q, bonus: true })) }, () => {}, { bonus: true });
 }
 
-/** Opens the quiz. `onDone(result)` runs after the score is saved. */
+/** Opens the quiz, or today's score if it's already played. `onDone(result)` runs after the
+ *  score is saved; the "quiz-done" event tells the rest of the app. */
 export function openQuiz(data, onDone = () => {}, { bonus = false } = {}) {
-  if (data.result && !bonus) return;
   const answers = [];
   let i = 0;
   const previousFocus = document.activeElement;
@@ -137,8 +205,23 @@ export function openQuiz(data, onDone = () => {}, { bonus = false } = {}) {
       toast(errText(e), 'error');
       return;
     }
+    showEnd(r, true);
+    setQuizDot(false);
+    document.dispatchEvent(new CustomEvent('quiz-done', { detail: r }));
+    onDone(r);
+  }
+
+  /** The score screen: right after the last answer (`fresh`), or when reopening a played quiz. */
+  function showEnd(r, fresh) {
     counter.textContent = '';
-    const message = r.score === r.total ? 'Perfect score!' : r.score >= 3 ? 'Well played!' : 'Good try. A new quiz tomorrow!';
+    dots.hidden = !fresh;
+    const message = !fresh
+      ? 'Done for today!'
+      : r.score === r.total
+        ? 'Perfect score!'
+        : r.score >= 3
+          ? 'Well played!'
+          : 'Good try. A new quiz tomorrow!';
     body.replaceChildren(
       h(
         'div',
@@ -146,7 +229,7 @@ export function openQuiz(data, onDone = () => {}, { bonus = false } = {}) {
         h('div', { class: 'quiz-score' }, h('span', { class: 'quiz-big' }, String(r.score)), h('span', { class: 'quiz-of' }, `/${r.total}`)),
         h('p', { class: 'quiz-message' }, message),
         r.streak >= 2 ? h('p', { class: 'quiz-streak' }, icon('flame'), `${r.streak} days in a row`) : null,
-        h('p', { class: 'mini-sub' }, 'Counted as a Learn pick: it helps your weekly challenge and badges.'),
+        h('p', { class: 'mini-sub' }, fresh ? 'Counted as a Learn pick: it helps your weekly challenge and badges.' : 'A new quiz tomorrow'),
         h(
           'div',
           { class: 'quiz-end-actions' },
@@ -166,11 +249,10 @@ export function openQuiz(data, onDone = () => {}, { bonus = false } = {}) {
             },
           }),
         ),
-        h('div', { class: `stamp validated${reducedMotion() ? ' still' : ''}`, 'aria-hidden': 'true' }, 'Stamped'),
+        h('div', { class: `stamp validated${!fresh || reducedMotion() ? ' still' : ''}`, 'aria-hidden': 'true' }, 'Stamped'),
       ),
     );
     body.querySelector('.btn').focus();
-    onDone(r);
   }
 
   /** Bonus round: scored here, saved nowhere, with the credit Open Trivia DB's license asks for. */
@@ -204,5 +286,6 @@ export function openQuiz(data, onDone = () => {}, { bonus = false } = {}) {
 
   document.body.append(backdrop);
   document.addEventListener('keydown', onKey);
-  showQuestion();
+  if (data.result && !bonus) showEnd({ ...data.result, streak: data.streak }, false);
+  else showQuestion();
 }

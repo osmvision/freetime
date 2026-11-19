@@ -5,7 +5,7 @@ import { api } from './api.js';
 import { btn, categoryIcon, emptyState, errText, fill, h, icon } from './dom.js';
 import { locale } from './i18n.js';
 import { photo } from './photos.js';
-import { openQuiz, quizCard } from './quiz.js';
+import { openQuiz, quizBanner, quizCard, setQuizDot } from './quiz.js';
 
 const shortDate = (ts) => new Date(ts * 1000).toLocaleDateString(locale(), { day: 'numeric', month: 'short' });
 
@@ -67,7 +67,13 @@ function dailyCard(c, done, onStart) {
   );
 }
 
-/** Discover's strip: ticket of the day, weekly challenge, and a door to the book. */
+/** The strip on screen, redrawn when the quiz is finished from anywhere (banner, menu, Alt+Q). */
+let stripBox = null;
+document.addEventListener('quiz-done', () => {
+  if (stripBox?.box.isConnected) todayStrip(stripBox.box, stripBox.opts);
+});
+
+/** Discover's strip: today's quiz, ticket of the day, weekly challenge, and a door to the book. */
 export async function todayStrip(box, { onStart, openBook }) {
   let t;
   let q = null;
@@ -76,17 +82,22 @@ export async function todayStrip(box, { onStart, openBook }) {
   } catch {
     return box.replaceChildren();
   }
-  const again = () => todayStrip(box, { onStart, openBook });
-  box.replaceChildren(
+  stripBox = { box, opts: { onStart, openBook } };
+  // Today's quiz waits in a banner of its own; once played it shrinks into the strip.
+  const waiting = Boolean(q && !q.result);
+  setQuizDot(waiting);
+  fill(
+    box,
+    waiting ? quizBanner(q, () => openQuiz(q)) : null,
     h(
       'div',
-      { class: 'today' },
+      { class: `today${q?.result ? '' : ' no-quiz'}` },
       dailyCard(t.daily, t.daily_done, async (c) => {
         await onStart(c);
         todayStrip(box, { onStart, openBook });
       }),
       challengeCard(t.challenge),
-      quizCard(q, () => openQuiz(q, again)),
+      waiting ? null : quizCard(q, () => openQuiz(q)),
       h(
         'button',
         { type: 'button', class: 'today-book', onclick: openBook, title: 'Open your ticket book' },
