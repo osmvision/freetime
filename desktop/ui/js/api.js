@@ -43,6 +43,9 @@ export const api = {
   // The ticket book (local only): stamps, badges, challenge, ticket of the day.
   book: () => invoke('get_book'),
   today: () => invoke('get_today'),
+  // The daily quiz (offline: questions ship with the app).
+  quiz: () => invoke('get_quiz'),
+  finishQuiz: (answers) => invoke('finish_quiz', { answers }),
   getShareLibrary: () => invoke('get_share_library'),
   setShareLibrary: (enabled) => invoke('set_share_library', { enabled }),
   setFree: (minutes) => invoke('set_free', { minutes }),

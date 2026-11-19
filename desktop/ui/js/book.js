@@ -5,6 +5,7 @@ import { api } from './api.js';
 import { btn, categoryIcon, emptyState, errText, fill, h, icon } from './dom.js';
 import { locale } from './i18n.js';
 import { photo } from './photos.js';
+import { openQuiz, quizCard } from './quiz.js';
 
 const shortDate = (ts) => new Date(ts * 1000).toLocaleDateString(locale(), { day: 'numeric', month: 'short' });
 
@@ -45,7 +46,7 @@ function dailyCard(c, done, onStart) {
         label: 'Start',
         icon: 'play',
         kind: 'primary',
-        small: true,
+        square: true,
         onclick: async (e) => {
           e.currentTarget.disabled = true;
           await onStart(c);
@@ -69,11 +70,13 @@ function dailyCard(c, done, onStart) {
 /** Discover's strip: ticket of the day, weekly challenge, and a door to the book. */
 export async function todayStrip(box, { onStart, openBook }) {
   let t;
+  let q = null;
   try {
-    t = await api.today();
+    [t, q] = await Promise.all([api.today(), api.quiz().catch(() => null)]);
   } catch {
     return box.replaceChildren();
   }
+  const again = () => todayStrip(box, { onStart, openBook });
   box.replaceChildren(
     h(
       'div',
@@ -83,6 +86,7 @@ export async function todayStrip(box, { onStart, openBook }) {
         todayStrip(box, { onStart, openBook });
       }),
       challengeCard(t.challenge),
+      quizCard(q, () => openQuiz(q, again)),
       h(
         'button',
         { type: 'button', class: 'today-book', onclick: openBook, title: 'Open your ticket book' },
@@ -146,8 +150,9 @@ function shelfSection(s) {
 export async function renderBook(box, ctx) {
   box.replaceChildren(h('div', { class: 'ghost', style: 'height:140px;margin-bottom:24px' }), h('div', { class: 'ghost', style: 'height:420px' }));
   let b;
+  let q = null;
   try {
-    b = await api.book();
+    [b, q] = await Promise.all([api.book(), api.quiz().catch(() => null)]);
   } catch (e) {
     box.replaceChildren(emptyState({ icon: 'triangle-alert', title: 'Could not open your ticket book', text: errText(e) }));
     return;
@@ -168,12 +173,12 @@ export async function renderBook(box, ctx) {
           h('span', { class: 'book-big' }, String(b.stamped)),
           h('span', { class: 'book-of' }, `of ${b.total} ideas stamped`),
           meter(b.stamped, b.total, 'Ideas stamped'),
-          h('span', { class: 'mini-sub' }, b.games || b.videos ? `Plus ${b.games} games and ${b.videos} videos` : 'Every idea you do gets stamped here.'),
+          h('span', { class: 'mini-sub' }, b.games || b.videos || b.quizzes ? `Plus ${b.games} games, ${b.videos} videos and ${b.quizzes} quizzes` : 'Every idea you do gets stamped here.'),
         ),
         h('div', { class: 'book-side' }, dailyCard(b.daily, b.daily_done, async (c) => {
           await ctx.startIdea(c);
           renderBook(box, ctx);
-        }), challengeCard(b.challenge)),
+        }), challengeCard(b.challenge), quizCard(q, () => openQuiz(q, () => renderBook(box, ctx)))),
       ),
     ),
     h(

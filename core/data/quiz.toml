@@ -1,0 +1,1057 @@
+# Questions for the daily quiz (5 a day, the same for everyone; see core/src/quiz.rs).
+# Each question: French and English text, 4 choices in the same order, `answer` = index (0 to 3)
+# of the right choice, and a short "why" shown after answering. Keep facts well established.
+
+# ---------------------------------------------------------------- space
+
+[[q]]
+topic = "space"
+answer = 1
+fr = "Quelle planète est la plus proche du Soleil ?"
+fr_choices = ["Vénus", "Mercure", "Mars", "La Terre"]
+fr_why = "Mercure fait le tour du Soleil en seulement 88 jours."
+en = "Which planet is closest to the Sun?"
+en_choices = ["Venus", "Mercury", "Mars", "Earth"]
+en_why = "Mercury goes around the Sun in just 88 days."
+
+[[q]]
+topic = "space"
+answer = 3
+fr = "Quelle est la plus grande planète du système solaire ?"
+fr_choices = ["Saturne", "Neptune", "La Terre", "Jupiter"]
+fr_why = "Plus de 1 300 Terre pourraient tenir à l'intérieur de Jupiter."
+en = "What is the largest planet in the solar system?"
+en_choices = ["Saturn", "Neptune", "Earth", "Jupiter"]
+en_why = "More than 1,300 Earths could fit inside Jupiter."
+
+[[q]]
+topic = "space"
+answer = 1
+fr = "Combien de temps met la lumière du Soleil pour arriver jusqu'à nous ?"
+fr_choices = ["8 secondes", "8 minutes", "8 heures", "1 jour"]
+fr_why = "Environ 8 minutes et 20 secondes : on voit toujours le Soleil avec un peu de retard."
+en = "How long does sunlight take to reach Earth?"
+en_choices = ["8 seconds", "8 minutes", "8 hours", "1 day"]
+en_why = "About 8 minutes and 20 seconds: we always see the Sun slightly in the past."
+
+[[q]]
+topic = "space"
+answer = 0
+fr = "Quelle planète est surnommée « la planète rouge » ?"
+fr_choices = ["Mars", "Vénus", "Jupiter", "Mercure"]
+fr_why = "Son sol est couvert de poussière riche en oxyde de fer, c'est-à-dire de rouille."
+en = "Which planet is nicknamed \"the red planet\"?"
+en_choices = ["Mars", "Venus", "Jupiter", "Mercury"]
+en_why = "Its ground is covered in dust rich in iron oxide: rust."
+
+[[q]]
+topic = "space"
+answer = 2
+fr = "Qui a été le premier humain à marcher sur la Lune, en 1969 ?"
+fr_choices = ["Buzz Aldrin", "Youri Gagarine", "Neil Armstrong", "Thomas Pesquet"]
+fr_why = "Neil Armstrong est sorti le premier ; Buzz Aldrin l'a suivi une vingtaine de minutes plus tard."
+en = "Who was the first person to walk on the Moon, in 1969?"
+en_choices = ["Buzz Aldrin", "Yuri Gagarin", "Neil Armstrong", "Thomas Pesquet"]
+en_why = "Neil Armstrong stepped out first; Buzz Aldrin followed about twenty minutes later."
+
+[[q]]
+topic = "space"
+answer = 0
+fr = "Combien de temps met la Station spatiale internationale pour faire le tour de la Terre ?"
+fr_choices = ["Environ 90 minutes", "24 heures", "Une semaine", "Un mois"]
+fr_why = "Les astronautes voient donc environ 16 levers de soleil par jour."
+en = "How long does the International Space Station take to circle the Earth?"
+en_choices = ["About 90 minutes", "24 hours", "One week", "One month"]
+en_why = "So astronauts see about 16 sunrises a day."
+
+[[q]]
+topic = "space"
+answer = 1
+fr = "Quelle planète est célèbre pour ses grands anneaux bien visibles ?"
+fr_choices = ["Uranus", "Saturne", "Mars", "Vénus"]
+fr_why = "Ses anneaux sont faits de morceaux de glace et de roche."
+en = "Which planet is famous for its large, clearly visible rings?"
+en_choices = ["Uranus", "Saturn", "Mars", "Venus"]
+en_why = "Its rings are made of chunks of ice and rock."
+
+[[q]]
+topic = "space"
+answer = 2
+fr = "Quelle est l'étoile la plus proche de la Terre ?"
+fr_choices = ["Sirius", "Proxima du Centaure", "Le Soleil", "L'étoile polaire"]
+fr_why = "Le Soleil ! Juste après vient Proxima du Centaure, à environ 4,2 années-lumière."
+en = "What is the closest star to Earth?"
+en_choices = ["Sirius", "Proxima Centauri", "The Sun", "The North Star"]
+en_why = "The Sun! Next comes Proxima Centauri, about 4.2 light-years away."
+
+[[q]]
+topic = "space"
+answer = 3
+fr = "Combien de temps la Terre met-elle pour faire le tour du Soleil ?"
+fr_choices = ["24 heures", "30 jours", "100 jours", "Environ 365 jours"]
+fr_why = "Environ 365 jours et 6 heures : d'où une année bissextile tous les 4 ans."
+en = "How long does the Earth take to go around the Sun?"
+en_choices = ["24 hours", "30 days", "100 days", "About 365 days"]
+en_why = "About 365 days and 6 hours: hence a leap year every 4 years."
+
+[[q]]
+topic = "space"
+answer = 0
+fr = "Qui a été le premier humain dans l'espace, en 1961 ?"
+fr_choices = ["Youri Gagarine", "Neil Armstrong", "Valentina Terechkova", "John Glenn"]
+fr_why = "Il a fait un tour complet de la Terre en environ 108 minutes."
+en = "Who was the first person in space, in 1961?"
+en_choices = ["Yuri Gagarin", "Neil Armstrong", "Valentina Tereshkova", "John Glenn"]
+en_why = "He made one full orbit of the Earth in about 108 minutes."
+
+# ---------------------------------------------------------------- geography
+
+[[q]]
+topic = "geography"
+answer = 2
+fr = "Quel est le plus long fleuve de France ?"
+fr_choices = ["La Seine", "Le Rhône", "La Loire", "La Garonne"]
+fr_why = "La Loire mesure environ 1 000 km, de l'Ardèche jusqu'à l'Atlantique."
+en = "What is the longest river in France?"
+en_choices = ["The Seine", "The Rhône", "The Loire", "The Garonne"]
+en_why = "The Loire is about 1,000 km long, from the Ardèche to the Atlantic."
+
+[[q]]
+topic = "geography"
+answer = 2
+fr = "Quelle est la capitale de l'Australie ?"
+fr_choices = ["Sydney", "Melbourne", "Canberra", "Perth"]
+fr_why = "Canberra a été construite exprès, à mi-chemin entre Sydney et Melbourne qui se disputaient le titre."
+en = "What is the capital of Australia?"
+en_choices = ["Sydney", "Melbourne", "Canberra", "Perth"]
+en_why = "Canberra was built on purpose, between Sydney and Melbourne, which both wanted the title."
+
+[[q]]
+topic = "geography"
+answer = 3
+fr = "Quel est le plus grand océan du monde ?"
+fr_choices = ["L'Atlantique", "L'océan Indien", "L'océan Arctique", "Le Pacifique"]
+fr_why = "Le Pacifique couvre à lui seul environ un tiers de la surface de la Terre."
+en = "What is the largest ocean in the world?"
+en_choices = ["The Atlantic", "The Indian Ocean", "The Arctic Ocean", "The Pacific"]
+en_why = "The Pacific alone covers about a third of the Earth's surface."
+
+[[q]]
+topic = "geography"
+answer = 0
+fr = "Quel est le plus haut sommet des Alpes ?"
+fr_choices = ["Le mont Blanc", "Le Cervin", "Le mont Rose", "L'Eiger"]
+fr_why = "Environ 4 806 m, et sa hauteur varie un peu selon l'épaisseur de neige au sommet."
+en = "What is the highest peak in the Alps?"
+en_choices = ["Mont Blanc", "The Matterhorn", "Monte Rosa", "The Eiger"]
+en_why = "About 4,806 m, and its height changes a little with the snow on top."
+
+[[q]]
+topic = "geography"
+answer = 1
+fr = "Quel pays est devenu le plus peuplé du monde en 2023 ?"
+fr_choices = ["La Chine", "L'Inde", "Les États-Unis", "L'Indonésie"]
+fr_why = "L'Inde a dépassé la Chine en 2023, avec plus de 1,4 milliard d'habitants."
+en = "Which country became the most populous in the world in 2023?"
+en_choices = ["China", "India", "The United States", "Indonesia"]
+en_why = "India overtook China in 2023, with more than 1.4 billion people."
+
+[[q]]
+topic = "geography"
+answer = 1
+fr = "Quel est le plus grand désert chaud du monde ?"
+fr_choices = ["Le Gobi", "Le Sahara", "Le Kalahari", "L'Atacama"]
+fr_why = "Le Sahara est presque aussi grand que les États-Unis. (Le plus grand désert tout court est l'Antarctique !)"
+en = "What is the largest hot desert in the world?"
+en_choices = ["The Gobi", "The Sahara", "The Kalahari", "The Atacama"]
+en_why = "The Sahara is almost as big as the United States. (The largest desert of all is Antarctica!)"
+
+[[q]]
+topic = "geography"
+answer = 2
+fr = "Quelle est la capitale du Canada ?"
+fr_choices = ["Toronto", "Montréal", "Ottawa", "Vancouver"]
+fr_why = "Ottawa est à la frontière entre l'Ontario anglophone et le Québec francophone."
+en = "What is the capital of Canada?"
+en_choices = ["Toronto", "Montreal", "Ottawa", "Vancouver"]
+en_why = "Ottawa sits on the border between English-speaking Ontario and French-speaking Quebec."
+
+[[q]]
+topic = "geography"
+answer = 1
+fr = "Quel est le plus petit pays du monde ?"
+fr_choices = ["Monaco", "Le Vatican", "Saint-Marin", "Le Liechtenstein"]
+fr_why = "Le Vatican fait moins d'un demi-kilomètre carré, au cœur de Rome."
+en = "What is the smallest country in the world?"
+en_choices = ["Monaco", "Vatican City", "San Marino", "Liechtenstein"]
+en_why = "Vatican City is less than half a square kilometre, in the middle of Rome."
+
+[[q]]
+topic = "geography"
+answer = 0
+fr = "Quel pays a la forme d'une botte ?"
+fr_choices = ["L'Italie", "L'Espagne", "La Grèce", "Le Portugal"]
+fr_why = "Et la Sicile ressemble à un ballon au bout de la botte."
+en = "Which country is shaped like a boot?"
+en_choices = ["Italy", "Spain", "Greece", "Portugal"]
+en_why = "And Sicily looks like a ball at the tip of the boot."
+
+[[q]]
+topic = "geography"
+answer = 2
+fr = "Quel pays a le plus de fuseaux horaires, territoires d'outre-mer compris ?"
+fr_choices = ["La Russie", "Les États-Unis", "La France", "La Chine"]
+fr_why = "La France en a 12, grâce à ses territoires d'outre-mer, de la Polynésie à La Réunion."
+en = "Which country has the most time zones, overseas territories included?"
+en_choices = ["Russia", "The United States", "France", "China"]
+en_why = "France has 12, thanks to its overseas territories, from French Polynesia to Réunion."
+
+[[q]]
+topic = "geography"
+answer = 3
+fr = "Au large de quel pays se trouve la Grande Barrière de corail ?"
+fr_choices = ["Le Brésil", "Le Mexique", "Les Philippines", "L'Australie"]
+fr_why = "C'est la plus grande structure construite par des êtres vivants : on la voit depuis l'espace."
+en = "Off the coast of which country is the Great Barrier Reef?"
+en_choices = ["Brazil", "Mexico", "The Philippines", "Australia"]
+en_why = "It's the largest structure built by living things: you can see it from space."
+
+[[q]]
+topic = "geography"
+answer = 0
+fr = "Quelle est la plus haute montagne du monde ?"
+fr_choices = ["L'Everest", "Le K2", "Le Kilimandjaro", "Le mont Blanc"]
+fr_why = "Environ 8 849 m, à la frontière entre le Népal et la Chine."
+en = "What is the highest mountain in the world?"
+en_choices = ["Everest", "K2", "Kilimanjaro", "Mont Blanc"]
+en_why = "About 8,849 m, on the border between Nepal and China."
+
+[[q]]
+topic = "geography"
+answer = 1
+fr = "Quelle ville est traversée par la Tamise ?"
+fr_choices = ["Dublin", "Londres", "Édimbourg", "Amsterdam"]
+fr_why = "La Tamise traverse Londres avant de se jeter dans la mer du Nord."
+en = "Which city does the Thames flow through?"
+en_choices = ["Dublin", "London", "Edinburgh", "Amsterdam"]
+en_why = "The Thames flows through London before reaching the North Sea."
+
+# ---------------------------------------------------------------- history
+
+[[q]]
+topic = "history"
+answer = 1
+fr = "En quelle année a eu lieu la prise de la Bastille ?"
+fr_choices = ["1776", "1789", "1815", "1848"]
+fr_why = "Le 14 juillet 1789, devenu la fête nationale française."
+en = "In which year was the Bastille stormed?"
+en_choices = ["1776", "1789", "1815", "1848"]
+en_why = "On 14 July 1789, now France's national day."
+
+[[q]]
+topic = "history"
+answer = 2
+fr = "Qui a peint La Joconde ?"
+fr_choices = ["Michel-Ange", "Raphaël", "Léonard de Vinci", "Botticelli"]
+fr_why = "Léonard de Vinci l'a emportée en France ; elle est aujourd'hui au Louvre."
+en = "Who painted the Mona Lisa?"
+en_choices = ["Michelangelo", "Raphael", "Leonardo da Vinci", "Botticelli"]
+en_why = "Leonardo took it to France; it's now in the Louvre."
+
+[[q]]
+topic = "history"
+answer = 2
+fr = "En quelle année le mur de Berlin est-il tombé ?"
+fr_choices = ["1961", "1975", "1989", "1991"]
+fr_why = "Le 9 novembre 1989 ; l'Allemagne a été réunifiée l'année suivante."
+en = "In which year did the Berlin Wall fall?"
+en_choices = ["1961", "1975", "1989", "1991"]
+en_why = "On 9 November 1989; Germany was reunified the next year."
+
+[[q]]
+topic = "history"
+answer = 0
+fr = "Qui a été la première femme à recevoir un prix Nobel ?"
+fr_choices = ["Marie Curie", "Rosalind Franklin", "Ada Lovelace", "Simone Veil"]
+fr_why = "En 1903. Elle reste la seule personne récompensée dans deux sciences : physique et chimie."
+en = "Who was the first woman to win a Nobel Prize?"
+en_choices = ["Marie Curie", "Rosalind Franklin", "Ada Lovelace", "Simone Veil"]
+en_why = "In 1903. She's still the only person awarded in two sciences: physics and chemistry."
+
+[[q]]
+topic = "history"
+answer = 1
+fr = "Pour quel événement la tour Eiffel a-t-elle été construite ?"
+fr_choices = ["Les Jeux olympiques de 1900", "L'Exposition universelle de 1889", "Le sacre de Napoléon III", "La fin de la Première Guerre mondiale"]
+fr_why = "Elle devait être démontée au bout de 20 ans ; elle a été sauvée notamment grâce à la radio."
+en = "For which event was the Eiffel Tower built?"
+en_choices = ["The 1900 Olympic Games", "The 1889 World's Fair", "Napoleon III's coronation", "The end of World War I"]
+en_why = "It was meant to come down after 20 years; radio helped save it."
+
+[[q]]
+topic = "history"
+answer = 2
+fr = "Quelle civilisation a construit le Machu Picchu ?"
+fr_choices = ["Les Aztèques", "Les Mayas", "Les Incas", "Les Olmèques"]
+fr_why = "Les Incas l'ont bâti au XVe siècle, à près de 2 400 m d'altitude, au Pérou."
+en = "Which civilisation built Machu Picchu?"
+en_choices = ["The Aztecs", "The Maya", "The Incas", "The Olmecs"]
+en_why = "The Incas built it in the 15th century, about 2,400 m up in Peru."
+
+[[q]]
+topic = "history"
+answer = 3
+fr = "Dans quelle ville se trouve le Colisée ?"
+fr_choices = ["Athènes", "Istanbul", "Naples", "Rome"]
+fr_why = "Il pouvait accueillir environ 50 000 spectateurs pour les combats de gladiateurs."
+en = "In which city is the Colosseum?"
+en_choices = ["Athens", "Istanbul", "Naples", "Rome"]
+en_why = "It could hold about 50,000 spectators for gladiator fights."
+
+[[q]]
+topic = "history"
+answer = 0
+fr = "Qui a inventé l'imprimerie à caractères mobiles en Europe, vers 1450 ?"
+fr_choices = ["Gutenberg", "Galilée", "Newton", "Pascal"]
+fr_why = "Sa Bible, imprimée vers 1455, est l'un des premiers livres imprimés en Europe."
+en = "Who invented movable-type printing in Europe, around 1450?"
+en_choices = ["Gutenberg", "Galileo", "Newton", "Pascal"]
+en_why = "His Bible, printed around 1455, is one of the first printed books in Europe."
+
+# ---------------------------------------------------------------- science and the body
+
+[[q]]
+topic = "science"
+answer = 1
+fr = "Quel est le symbole chimique de l'or ?"
+fr_choices = ["Ag", "Au", "Or", "Gd"]
+fr_why = "Du latin « aurum ». Ag, c'est l'argent (« argentum »)."
+en = "What is the chemical symbol for gold?"
+en_choices = ["Ag", "Au", "Go", "Gd"]
+en_why = "From the Latin \"aurum\". Ag is silver (\"argentum\")."
+
+[[q]]
+topic = "science"
+answer = 1
+fr = "À quelle température l'eau bout-elle au niveau de la mer ?"
+fr_choices = ["90 °C", "100 °C", "110 °C", "120 °C"]
+fr_why = "En montagne, elle bout plus tôt : vers 85 °C au sommet du mont Blanc."
+en = "At what temperature does water boil at sea level?"
+en_choices = ["90 °C", "100 °C", "110 °C", "120 °C"]
+en_why = "In the mountains it boils sooner: around 85 °C on top of Mont Blanc."
+
+[[q]]
+topic = "science"
+answer = 1
+fr = "Combien d'os compte le squelette d'un adulte ?"
+fr_choices = ["106", "206", "306", "186"]
+fr_why = "Un bébé en a environ 300 : certains se soudent en grandissant."
+en = "How many bones does an adult skeleton have?"
+en_choices = ["106", "206", "306", "186"]
+en_why = "A baby has about 300: some fuse together as we grow."
+
+[[q]]
+topic = "science"
+answer = 2
+fr = "Quel gaz les plantes absorbent-elles pour faire leur photosynthèse ?"
+fr_choices = ["L'oxygène", "L'azote", "Le dioxyde de carbone", "L'hélium"]
+fr_why = "Elles absorbent du CO₂ et rejettent de l'oxygène."
+en = "Which gas do plants take in for photosynthesis?"
+en_choices = ["Oxygen", "Nitrogen", "Carbon dioxide", "Helium"]
+en_why = "They take in CO₂ and give off oxygen."
+
+[[q]]
+topic = "science"
+answer = 2
+fr = "Combien de cœurs a une pieuvre ?"
+fr_choices = ["1", "2", "3", "4"]
+fr_why = "Deux pour les branchies, un pour le reste du corps. Et son sang est bleu !"
+en = "How many hearts does an octopus have?"
+en_choices = ["1", "2", "3", "4"]
+en_why = "Two for the gills, one for the rest of the body. And its blood is blue!"
+
+[[q]]
+topic = "science"
+answer = 2
+fr = "À quelle vitesse voyage la lumière, environ ?"
+fr_choices = ["300 km/s", "3 000 km/s", "300 000 km/s", "3 millions de km/s"]
+fr_why = "Assez vite pour faire plus de 7 fois le tour de la Terre en une seconde."
+en = "About how fast does light travel?"
+en_choices = ["300 km/s", "3,000 km/s", "300,000 km/s", "3 million km/s"]
+en_why = "Fast enough to go around the Earth more than 7 times in one second."
+
+[[q]]
+topic = "science"
+answer = 1
+fr = "Quel organe produit l'insuline ?"
+fr_choices = ["Le foie", "Le pancréas", "Les reins", "L'estomac"]
+fr_why = "L'insuline aide le corps à utiliser le sucre du sang."
+en = "Which organ makes insulin?"
+en_choices = ["The liver", "The pancreas", "The kidneys", "The stomach"]
+en_why = "Insulin helps the body use the sugar in the blood."
+
+[[q]]
+topic = "science"
+answer = 0
+fr = "Quel est le matériau naturel le plus dur ?"
+fr_choices = ["Le diamant", "Le quartz", "Le granit", "Le fer"]
+fr_why = "Le diamant est fait uniquement de carbone, comme la mine d'un crayon !"
+en = "What is the hardest natural material?"
+en_choices = ["Diamond", "Quartz", "Granite", "Iron"]
+en_why = "Diamond is pure carbon, just like pencil lead!"
+
+[[q]]
+topic = "science"
+answer = 3
+fr = "Quel est l'os le plus long du corps humain ?"
+fr_choices = ["Le tibia", "L'humérus", "La colonne vertébrale", "Le fémur"]
+fr_why = "Le fémur, dans la cuisse, mesure environ un quart de notre taille."
+en = "What is the longest bone in the human body?"
+en_choices = ["The shinbone", "The upper arm bone", "The spine", "The thigh bone (femur)"]
+en_why = "The femur, in the thigh, is about a quarter of our height."
+
+[[q]]
+topic = "science"
+answer = 0
+fr = "Que mesure l'échelle de Richter ?"
+fr_choices = ["La force des séismes", "La vitesse du vent", "La hauteur des vagues", "La chaleur des volcans"]
+fr_why = "Un degré de plus correspond à environ 32 fois plus d'énergie libérée."
+en = "What does the Richter scale measure?"
+en_choices = ["Earthquake strength", "Wind speed", "Wave height", "Volcano heat"]
+en_why = "One step up means about 32 times more energy released."
+
+[[q]]
+topic = "science"
+answer = 1
+fr = "En binaire, combien font 1 + 1 ?"
+fr_choices = ["2", "10", "11", "1"]
+fr_why = "En binaire, on n'a que 0 et 1 : après 1 vient 10, comme 9 + 1 = 10 en décimal."
+en = "In binary, what is 1 + 1?"
+en_choices = ["2", "10", "11", "1"]
+en_why = "Binary only has 0 and 1: after 1 comes 10, just like 9 + 1 = 10 in decimal."
+
+# ---------------------------------------------------------------- animals and nature
+
+[[q]]
+topic = "nature"
+answer = 1
+fr = "Quel est l'animal terrestre le plus rapide ?"
+fr_choices = ["Le lion", "Le guépard", "L'antilope", "Le cheval"]
+fr_why = "Le guépard dépasse les 100 km/h, mais seulement sur de courtes distances."
+en = "What is the fastest land animal?"
+en_choices = ["The lion", "The cheetah", "The antelope", "The horse"]
+en_why = "The cheetah tops 100 km/h, but only over short distances."
+
+[[q]]
+topic = "nature"
+answer = 0
+fr = "Quel est le plus grand animal ayant jamais existé ?"
+fr_choices = ["La baleine bleue", "Le diplodocus", "L'éléphant d'Afrique", "Le requin-baleine"]
+fr_why = "Elle peut dépasser 30 m de long, plus grande que tous les dinosaures connus."
+en = "What is the largest animal that has ever lived?"
+en_choices = ["The blue whale", "Diplodocus", "The African elephant", "The whale shark"]
+en_why = "It can be more than 30 m long, bigger than any known dinosaur."
+
+[[q]]
+topic = "nature"
+answer = 1
+fr = "Combien de pattes a une araignée ?"
+fr_choices = ["6", "8", "10", "12"]
+fr_why = "Huit pattes : les araignées ne sont pas des insectes, qui en ont six."
+en = "How many legs does a spider have?"
+en_choices = ["6", "8", "10", "12"]
+en_why = "Eight legs: spiders aren't insects, which have six."
+
+[[q]]
+topic = "nature"
+answer = 2
+fr = "Quel oiseau peut voler en marche arrière ?"
+fr_choices = ["L'aigle", "Le pigeon", "Le colibri", "Le moineau"]
+fr_why = "Ses ailes battent des dizaines de fois par seconde : il peut même faire du sur-place."
+en = "Which bird can fly backwards?"
+en_choices = ["The eagle", "The pigeon", "The hummingbird", "The sparrow"]
+en_why = "Its wings beat dozens of times a second, so it can even hover in place."
+
+[[q]]
+topic = "nature"
+answer = 0
+fr = "Quel arbre produit des glands ?"
+fr_choices = ["Le chêne", "Le hêtre", "Le châtaignier", "Le noisetier"]
+fr_why = "Un grand chêne peut produire des milliers de glands en une seule année."
+en = "Which tree grows acorns?"
+en_choices = ["The oak", "The beech", "The chestnut", "The hazel"]
+en_why = "A big oak can drop thousands of acorns in a single year."
+
+[[q]]
+topic = "nature"
+answer = 3
+fr = "Que mangent surtout les koalas ?"
+fr_choices = ["Des fruits", "Des insectes", "Du bambou", "Des feuilles d'eucalyptus"]
+fr_why = "Ces feuilles sont si peu nourrissantes qu'ils dorment jusqu'à 20 heures par jour."
+en = "What do koalas mostly eat?"
+en_choices = ["Fruit", "Insects", "Bamboo", "Eucalyptus leaves"]
+en_why = "The leaves are so low in energy that koalas sleep up to 20 hours a day."
+
+[[q]]
+topic = "nature"
+answer = 1
+fr = "À partir de quoi les abeilles fabriquent-elles le miel ?"
+fr_choices = ["Le pollen", "Le nectar des fleurs", "La sève des arbres", "La rosée"]
+fr_why = "Elles butinent le nectar, puis le transforment et le stockent dans les alvéoles."
+en = "What do bees make honey from?"
+en_choices = ["Pollen", "Flower nectar", "Tree sap", "Dew"]
+en_why = "They collect nectar, then turn it into honey and store it in the comb."
+
+[[q]]
+topic = "nature"
+answer = 2
+fr = "Quel est le plus grand animal terrestre ?"
+fr_choices = ["La girafe", "Le rhinocéros", "L'éléphant d'Afrique", "L'hippopotame"]
+fr_why = "Il peut peser plus de 6 tonnes. (La girafe, elle, est la plus haute.)"
+en = "What is the largest land animal?"
+en_choices = ["The giraffe", "The rhino", "The African elephant", "The hippo"]
+en_why = "It can weigh more than 6 tonnes. (The giraffe is the tallest.)"
+
+[[q]]
+topic = "nature"
+answer = 0
+fr = "Comment s'appelle le bébé de la grenouille ?"
+fr_choices = ["Le têtard", "Le poussin", "L'alevin", "Le chiot"]
+fr_why = "Le têtard vit dans l'eau et respire par des branchies avant de devenir grenouille."
+en = "What is a baby frog called?"
+en_choices = ["A tadpole", "A chick", "A fry", "A puppy"]
+en_why = "A tadpole lives in water and breathes through gills before it becomes a frog."
+
+# ---------------------------------------------------------------- food
+
+[[q]]
+topic = "food"
+answer = 0
+fr = "Quel est l'ingrédient principal du guacamole ?"
+fr_choices = ["L'avocat", "Le concombre", "Les petits pois", "Le poivron vert"]
+fr_why = "Le guacamole vient du Mexique, où l'avocat est cultivé depuis des milliers d'années."
+en = "What is the main ingredient of guacamole?"
+en_choices = ["Avocado", "Cucumber", "Peas", "Green pepper"]
+en_why = "Guacamole comes from Mexico, where avocados have been grown for thousands of years."
+
+[[q]]
+topic = "food"
+answer = 0
+fr = "Que veut dire « aglio e olio » dans les pâtes du même nom ?"
+fr_choices = ["Ail et huile", "Ail et oignon", "Huile et olives", "Tomate et basilic"]
+fr_why = "Une recette napolitaine toute simple : pâtes, ail, huile d'olive et piment."
+en = "What does \"aglio e olio\" mean, as in the pasta dish?"
+en_choices = ["Garlic and oil", "Garlic and onion", "Oil and olives", "Tomato and basil"]
+en_why = "A simple dish from Naples: pasta, garlic, olive oil and chili."
+
+[[q]]
+topic = "food"
+answer = 1
+fr = "Quelle épice donne traditionnellement sa couleur jaune à la paella ?"
+fr_choices = ["Le curcuma", "Le safran", "Le paprika", "Le cumin"]
+fr_why = "Le safran est l'épice la plus chère du monde : il vient du pistil d'une fleur, le crocus."
+en = "Which spice traditionally makes paella yellow?"
+en_choices = ["Turmeric", "Saffron", "Paprika", "Cumin"]
+en_why = "Saffron is the world's priciest spice: it comes from the stigma of a crocus flower."
+
+[[q]]
+topic = "food"
+answer = 2
+fr = "Lequel de ces aliments est un fruit pour les botanistes ?"
+fr_choices = ["La carotte", "La pomme de terre", "La tomate", "La laitue"]
+fr_why = "La tomate contient des graines et pousse à partir d'une fleur : c'est un fruit."
+en = "Which of these is a fruit to a botanist?"
+en_choices = ["Carrot", "Potato", "Tomato", "Lettuce"]
+en_why = "A tomato holds seeds and grows from a flower: it's a fruit."
+
+[[q]]
+topic = "food"
+answer = 3
+fr = "Quel ingrédient n'entre PAS dans une pâte à crêpes classique ?"
+fr_choices = ["La farine", "Les œufs", "Le lait", "La levure"]
+fr_why = "Les crêpes restent fines : pas besoin de levure, contrairement aux pancakes."
+en = "Which ingredient does NOT go into classic French crêpe batter?"
+en_choices = ["Flour", "Eggs", "Milk", "Yeast"]
+en_why = "Crêpes stay thin: no raising agent, unlike pancakes."
+
+[[q]]
+topic = "food"
+answer = 1
+fr = "Quel fruit sec est utilisé dans le pesto alla genovese ?"
+fr_choices = ["Les amandes", "Les pignons de pin", "Les noix", "Les noisettes"]
+fr_why = "Basilic, pignons, ail, parmesan, pecorino et huile d'olive, pilés au mortier."
+en = "Which nut goes into pesto alla genovese?"
+en_choices = ["Almonds", "Pine nuts", "Walnuts", "Hazelnuts"]
+en_why = "Basil, pine nuts, garlic, parmesan, pecorino and olive oil, crushed in a mortar."
+
+[[q]]
+topic = "food"
+answer = 0
+fr = "Selon la légende, que représentent les couleurs de la pizza Margherita ?"
+fr_choices = ["Le drapeau italien", "Les saisons", "La ville de Naples", "Le Vésuve"]
+fr_why = "Basilic, mozzarella et tomate : vert, blanc et rouge, en l'honneur de la reine Marguerite."
+en = "According to legend, what do the colours of a Margherita pizza stand for?"
+en_choices = ["The Italian flag", "The seasons", "The city of Naples", "Mount Vesuvius"]
+en_why = "Basil, mozzarella and tomato: green, white and red, for Queen Margherita."
+
+[[q]]
+topic = "food"
+answer = 2
+fr = "D'où viennent les grains de café ?"
+fr_choices = ["D'une racine", "D'une feuille", "Des graines d'un fruit rouge", "D'une fleur séchée"]
+fr_why = "Ce sont les graines de la « cerise » du caféier, ensuite séchées et torréfiées."
+en = "Where do coffee beans come from?"
+en_choices = ["A root", "A leaf", "The seeds of a red fruit", "A dried flower"]
+en_why = "They are the seeds of the coffee \"cherry\", dried and then roasted."
+
+[[q]]
+topic = "food"
+answer = 3
+fr = "Quelle céréale sert à faire les sushis ?"
+fr_choices = ["Le blé", "L'orge", "Le maïs", "Le riz"]
+fr_why = "Du riz rond, assaisonné avec du vinaigre de riz, du sucre et du sel."
+en = "Which grain is used for sushi?"
+en_choices = ["Wheat", "Barley", "Corn", "Rice"]
+en_why = "Short-grain rice, seasoned with rice vinegar, sugar and salt."
+
+[[q]]
+topic = "food"
+answer = 1
+fr = "De quel pays vient le houmous ?"
+fr_choices = ["De l'Inde", "Du Proche-Orient", "Du Mexique", "Du Japon"]
+fr_why = "Une purée de pois chiches, tahini (crème de sésame), citron et ail."
+en = "Where does hummus come from?"
+en_choices = ["India", "The Middle East", "Mexico", "Japan"]
+en_why = "A purée of chickpeas, tahini (sesame paste), lemon and garlic."
+
+# ---------------------------------------------------------------- sport
+
+[[q]]
+topic = "sport"
+answer = 2
+fr = "Combien de joueurs par équipe y a-t-il sur un terrain de football ?"
+fr_choices = ["9", "10", "11", "12"]
+fr_why = "Dix joueurs de champ et un gardien de but."
+en = "How many players per team are on a football (soccer) pitch?"
+en_choices = ["9", "10", "11", "12"]
+en_why = "Ten outfield players and one goalkeeper."
+
+[[q]]
+topic = "sport"
+answer = 1
+fr = "Quelle est la distance d'un marathon ?"
+fr_choices = ["40 km", "42,195 km", "45 km", "21,1 km"]
+fr_why = "Cette distance précise date des Jeux olympiques de Londres, en 1908."
+en = "How long is a marathon?"
+en_choices = ["40 km", "42.195 km", "45 km", "21.1 km"]
+en_why = "That exact distance dates from the 1908 London Olympics."
+
+[[q]]
+topic = "sport"
+answer = 0
+fr = "De quelle couleur est le maillot du leader du Tour de France ?"
+fr_choices = ["Jaune", "Vert", "Blanc", "À pois rouges"]
+fr_why = "Jaune comme le papier du journal L'Auto, qui a créé le Tour en 1903."
+en = "What colour is the Tour de France leader's jersey?"
+en_choices = ["Yellow", "Green", "White", "Red polka dots"]
+en_why = "Yellow like the paper of L'Auto, the newspaper that created the Tour in 1903."
+
+[[q]]
+topic = "sport"
+answer = 2
+fr = "Au basket, combien de points vaut un panier marqué derrière la ligne à trois points ?"
+fr_choices = ["1", "2", "3", "4"]
+fr_why = "Trois points ; un lancer franc n'en vaut qu'un."
+en = "In basketball, how many points is a basket from behind the arc worth?"
+en_choices = ["1", "2", "3", "4"]
+en_why = "Three points; a free throw is worth just one."
+
+[[q]]
+topic = "sport"
+answer = 1
+fr = "Combien d'anneaux y a-t-il sur le drapeau olympique ?"
+fr_choices = ["4", "5", "6", "7"]
+fr_why = "Cinq anneaux enlacés, pour l'union des continents."
+en = "How many rings are on the Olympic flag?"
+en_choices = ["4", "5", "6", "7"]
+en_why = "Five linked rings, for the union of the continents."
+
+[[q]]
+topic = "sport"
+answer = 2
+fr = "Combien de plumes compte un volant de badminton officiel ?"
+fr_choices = ["8", "12", "16", "20"]
+fr_why = "16 plumes d'oie ou de canard ; un smash peut dépasser les 400 km/h."
+en = "How many feathers does an official badminton shuttlecock have?"
+en_choices = ["8", "12", "16", "20"]
+en_why = "16 goose or duck feathers; a smash can go faster than 400 km/h."
+
+[[q]]
+topic = "sport"
+answer = 1
+fr = "Au tennis, après 30, quel score vient ensuite ?"
+fr_choices = ["35", "40", "45", "50"]
+fr_why = "15, 30, 40, puis jeu. On pense que le 45 a été raccourci en 40."
+en = "In tennis, which score comes after 30?"
+en_choices = ["35", "40", "45", "50"]
+en_why = "15, 30, 40, then game. 45 is thought to have been shortened to 40."
+
+[[q]]
+topic = "sport"
+answer = 1
+fr = "À la pétanque, comment s'appelle la petite boule qu'on vise ?"
+fr_choices = ["Le bouchon", "Le cochonnet", "Le pion", "Le palet"]
+fr_why = "On l'appelle aussi le « but » ou le « petit »."
+en = "In pétanque, what is the small ball you aim for called?"
+en_choices = ["The cork", "The jack (cochonnet)", "The pawn", "The puck"]
+en_why = "In French it's the cochonnet, the \"piglet\"."
+
+[[q]]
+topic = "sport"
+answer = 0
+fr = "Que fait-on quand on fait du « bloc » en escalade ?"
+fr_choices = ["On grimpe sans corde sur des murs bas, au-dessus de tapis", "On grimpe en équipe de cinq", "On grimpe les yeux bandés", "On grimpe uniquement sur la glace"]
+fr_why = "Les voies, appelées « blocs », sont courtes mais demandent souvent beaucoup de technique."
+en = "What do you do when you go bouldering?"
+en_choices = ["Climb low walls without a rope, above crash mats", "Climb in teams of five", "Climb blindfolded", "Climb only on ice"]
+en_why = "The routes, called \"problems\", are short but often very technical."
+
+[[q]]
+topic = "sport"
+answer = 3
+fr = "Dans quel sport utilise-t-on un « birdie » et un « eagle » ?"
+fr_choices = ["Le badminton", "Le tir à l'arc", "Le volley", "Le golf"]
+fr_why = "Un birdie, c'est un coup de moins que le par ; un eagle, deux coups de moins."
+en = "In which sport do you score a \"birdie\" and an \"eagle\"?"
+en_choices = ["Badminton", "Archery", "Volleyball", "Golf"]
+en_why = "A birdie is one under par; an eagle is two under."
+
+# ---------------------------------------------------------------- words and languages
+
+[[q]]
+topic = "words"
+answer = 2
+fr = "Combien de lettres compte l'alphabet français ?"
+fr_choices = ["24", "25", "26", "28"]
+fr_why = "26 lettres, comme en anglais. Les accents ne comptent pas comme des lettres à part."
+en = "How many letters are in the English alphabet?"
+en_choices = ["24", "25", "26", "28"]
+en_why = "26 letters, the same as in French, where accents don't count as separate letters."
+
+[[q]]
+topic = "words"
+answer = 0
+fr = "Lequel de ces mots est un palindrome (il se lit pareil dans les deux sens) ?"
+fr_choices = ["Kayak", "Canoë", "Radeau", "Bateau"]
+fr_why = "K-A-Y-A-K, dans un sens comme dans l'autre. Comme « ressasser » !"
+en = "Which of these words is a palindrome (reads the same both ways)?"
+en_choices = ["Kayak", "Canoe", "Raft", "Boat"]
+en_why = "K-A-Y-A-K, either way round. Like \"racecar\"!"
+
+[[q]]
+topic = "words"
+answer = 2
+fr = "Comment dit-on « bonjour » en japonais ?"
+fr_choices = ["Arigato", "Sayonara", "Konnichiwa", "Kawaii"]
+fr_why = "Arigato veut dire merci, sayonara au revoir, et kawaii mignon."
+en = "How do you say \"hello\" in Japanese?"
+en_choices = ["Arigato", "Sayonara", "Konnichiwa", "Kawaii"]
+en_why = "Arigato means thank you, sayonara goodbye, and kawaii cute."
+
+[[q]]
+topic = "words"
+answer = 2
+fr = "Quelle langue compte le plus de locuteurs natifs au monde ?"
+fr_choices = ["L'anglais", "L'espagnol", "Le chinois mandarin", "L'hindi"]
+fr_why = "Près d'un milliard de personnes l'ont pour langue maternelle."
+en = "Which language has the most native speakers in the world?"
+en_choices = ["English", "Spanish", "Mandarin Chinese", "Hindi"]
+en_why = "Close to a billion people speak it as their first language."
+
+[[q]]
+topic = "words"
+answer = 1
+fr = "Que veut dire « origami » en japonais ?"
+fr_choices = ["Papier coloré", "Plier le papier", "Oiseau de papier", "Art ancien"]
+fr_why = "« Ori » signifie plier et « kami » papier."
+en = "What does \"origami\" mean in Japanese?"
+en_choices = ["Coloured paper", "Folding paper", "Paper bird", "Ancient art"]
+en_why = "\"Ori\" means folding and \"kami\" means paper."
+
+[[q]]
+topic = "words"
+answer = 3
+fr = "De quelle langue vient le mot « algèbre » ?"
+fr_choices = ["Du grec", "Du latin", "De l'hébreu", "De l'arabe"]
+fr_why = "D'« al-jabr », dans le titre d'un livre du mathématicien al-Khwârizmî, au IXe siècle."
+en = "Which language does the word \"algebra\" come from?"
+en_choices = ["Greek", "Latin", "Hebrew", "Arabic"]
+en_why = "From \"al-jabr\", in the title of a book by the mathematician al-Khwarizmi in the 9th century."
+
+# ---------------------------------------------------------------- art and music
+
+[[q]]
+topic = "art"
+answer = 1
+fr = "Combien de cordes a une guitare classique ?"
+fr_choices = ["4", "6", "7", "12"]
+fr_why = "Six cordes, accordées mi, la, ré, sol, si, mi."
+en = "How many strings does a classical guitar have?"
+en_choices = ["4", "6", "7", "12"]
+en_why = "Six strings, tuned E, A, D, G, B, E."
+
+[[q]]
+topic = "art"
+answer = 2
+fr = "Qui a composé Les Quatre Saisons ?"
+fr_choices = ["Mozart", "Bach", "Vivaldi", "Beethoven"]
+fr_why = "Antonio Vivaldi, un compositeur vénitien, vers 1720."
+en = "Who composed The Four Seasons?"
+en_choices = ["Mozart", "Bach", "Vivaldi", "Beethoven"]
+en_why = "Antonio Vivaldi, a Venetian composer, around 1720."
+
+[[q]]
+topic = "art"
+answer = 0
+fr = "Quel peintre a réalisé La Nuit étoilée ?"
+fr_choices = ["Vincent van Gogh", "Claude Monet", "Pablo Picasso", "Salvador Dalí"]
+fr_why = "En 1889, à Saint-Rémy-de-Provence, inspirée de la vue depuis sa chambre."
+en = "Which painter made The Starry Night?"
+en_choices = ["Vincent van Gogh", "Claude Monet", "Pablo Picasso", "Salvador Dalí"]
+en_why = "In 1889 in Saint-Rémy-de-Provence, inspired by the view from his room."
+
+[[q]]
+topic = "art"
+answer = 1
+fr = "Combien de touches a un piano standard ?"
+fr_choices = ["76", "88", "92", "100"]
+fr_why = "52 blanches et 36 noires."
+en = "How many keys does a standard piano have?"
+en_choices = ["76", "88", "92", "100"]
+en_why = "52 white and 36 black."
+
+[[q]]
+topic = "art"
+answer = 3
+fr = "En peinture, laquelle de ces couleurs n'est PAS une couleur primaire traditionnelle ?"
+fr_choices = ["Le rouge", "Le jaune", "Le bleu", "Le vert"]
+fr_why = "Le vert s'obtient en mélangeant du jaune et du bleu."
+en = "In painting, which of these is NOT a traditional primary colour?"
+en_choices = ["Red", "Yellow", "Blue", "Green"]
+en_why = "Green comes from mixing yellow and blue."
+
+[[q]]
+topic = "art"
+answer = 2
+fr = "Quel mouvement artistique est né avec le tableau Impression, soleil levant de Monet ?"
+fr_choices = ["Le cubisme", "Le surréalisme", "L'impressionnisme", "Le pop art"]
+fr_why = "Un critique s'est moqué du titre en 1874, et le nom est resté."
+en = "Which art movement got its name from Monet's painting Impression, Sunrise?"
+en_choices = ["Cubism", "Surrealism", "Impressionism", "Pop art"]
+en_why = "A critic mocked the title in 1874, and the name stuck."
+
+# ---------------------------------------------------------------- games
+
+[[q]]
+topic = "games"
+answer = 1
+fr = "Quel jeu d'arcade de 1972 simulait une partie de tennis de table ?"
+fr_choices = ["Tetris", "Pong", "Pac-Man", "Space Invaders"]
+fr_why = "Pong, d'Atari, a été l'un des premiers grands succès du jeu vidéo."
+en = "Which 1972 arcade game simulated table tennis?"
+en_choices = ["Tetris", "Pong", "Pac-Man", "Space Invaders"]
+en_why = "Atari's Pong was one of the first big video game hits."
+
+[[q]]
+topic = "games"
+answer = 1
+fr = "Dans quel pays Tetris a-t-il été créé ?"
+fr_choices = ["Au Japon", "En URSS", "Aux États-Unis", "Au Royaume-Uni"]
+fr_why = "Alexeï Pajitnov l'a créé en 1984 à Moscou, sur un ordinateur de recherche."
+en = "In which country was Tetris created?"
+en_choices = ["Japan", "The Soviet Union", "The United States", "The United Kingdom"]
+en_why = "Alexey Pajitnov made it in 1984 in Moscow, on a research computer."
+
+[[q]]
+topic = "games"
+answer = 1
+fr = "Aux échecs, quelle pièce se déplace uniquement en diagonale ?"
+fr_choices = ["La tour", "Le fou", "Le cavalier", "Le roi"]
+fr_why = "Chaque joueur a deux fous : l'un reste toujours sur les cases blanches, l'autre sur les noires."
+en = "In chess, which piece only moves diagonally?"
+en_choices = ["The rook", "The bishop", "The knight", "The king"]
+en_why = "Each player has two bishops: one always stays on light squares, the other on dark ones."
+
+[[q]]
+topic = "games"
+answer = 2
+fr = "Combien de cases compte un échiquier ?"
+fr_choices = ["36", "49", "64", "100"]
+fr_why = "8 × 8 = 64 cases, autant de blanches que de noires."
+en = "How many squares are on a chessboard?"
+en_choices = ["36", "49", "64", "100"]
+en_why = "8 × 8 = 64 squares, half light and half dark."
+
+[[q]]
+topic = "games"
+answer = 3
+fr = "Aux échecs, quelle pièce se déplace en forme de L ?"
+fr_choices = ["La dame", "Le pion", "Le fou", "Le cavalier"]
+fr_why = "C'est aussi la seule pièce qui peut sauter par-dessus les autres."
+en = "In chess, which piece moves in an L shape?"
+en_choices = ["The queen", "The pawn", "The bishop", "The knight"]
+en_why = "It's also the only piece that can jump over others."
+
+[[q]]
+topic = "games"
+answer = 0
+fr = "Combien de faces a un dé classique ?"
+fr_choices = ["6", "8", "10", "12"]
+fr_why = "Et les faces opposées font toujours 7 : 1 et 6, 2 et 5, 3 et 4."
+en = "How many faces does a standard die have?"
+en_choices = ["6", "8", "10", "12"]
+en_why = "And opposite faces always add up to 7: 1 and 6, 2 and 5, 3 and 4."
+
+# ---------------------------------------------------------------- logic and riddles
+
+[[q]]
+topic = "logic"
+answer = 1
+fr = "Combien font 3 + 3 × 3 ?"
+fr_choices = ["18", "12", "9", "15"]
+fr_why = "La multiplication passe en premier : 3 × 3 = 9, puis 3 + 9 = 12."
+en = "What is 3 + 3 × 3?"
+en_choices = ["18", "12", "9", "15"]
+en_why = "Multiplication comes first: 3 × 3 = 9, then 3 + 9 = 12."
+
+[[q]]
+topic = "logic"
+answer = 1
+fr = "Un berger a 17 moutons. Tous sauf 9 s'enfuient. Combien lui en reste-t-il ?"
+fr_choices = ["8", "9", "17", "0"]
+fr_why = "« Tous sauf 9 » s'enfuient : il en reste donc 9."
+en = "A shepherd has 17 sheep. All but 9 run away. How many are left?"
+en_choices = ["8", "9", "17", "0"]
+en_why = "\"All but 9\" ran away, so 9 are left."
+
+[[q]]
+topic = "logic"
+answer = 2
+fr = "Quel nombre continue la suite 2, 4, 8, 16… ?"
+fr_choices = ["18", "24", "32", "20"]
+fr_why = "Chaque nombre est le double du précédent : 16 × 2 = 32."
+en = "Which number comes next: 2, 4, 8, 16…?"
+en_choices = ["18", "24", "32", "20"]
+en_why = "Each number doubles the one before: 16 × 2 = 32."
+
+[[q]]
+topic = "logic"
+answer = 1
+fr = "Dans une course, tu doubles le deuxième. À quelle place es-tu ?"
+fr_choices = ["Premier", "Deuxième", "Troisième", "Ça dépend"]
+fr_why = "Tu prends sa place : tu es deuxième. Le premier est toujours devant !"
+en = "In a race, you overtake the person in second place. What place are you in?"
+en_choices = ["First", "Second", "Third", "It depends"]
+en_why = "You take their place: second. First place is still ahead of you!"
+
+[[q]]
+topic = "logic"
+answer = 3
+fr = "Combien de mois de l'année ont 28 jours ?"
+fr_choices = ["1", "2", "6", "Les 12"]
+fr_why = "Tous les mois ont au moins 28 jours, pas seulement février."
+en = "How many months of the year have 28 days?"
+en_choices = ["1", "2", "6", "All 12"]
+en_why = "Every month has at least 28 days, not just February."
+
+[[q]]
+topic = "logic"
+answer = 2
+fr = "Combien de minutes y a-t-il dans 2 heures et demie ?"
+fr_choices = ["120", "130", "150", "250"]
+fr_why = "2 × 60 = 120, plus 30 : 150 minutes."
+en = "How many minutes are in two and a half hours?"
+en_choices = ["120", "130", "150", "250"]
+en_why = "2 × 60 = 120, plus 30: 150 minutes."
+
+[[q]]
+topic = "logic"
+answer = 1
+fr = "Qu'est-ce qui monte et ne redescend jamais ?"
+fr_choices = ["La pluie", "L'âge", "Un ballon", "La marée"]
+fr_why = "Notre âge ne fait que monter, année après année."
+en = "What goes up and never comes down?"
+en_choices = ["Rain", "Your age", "A balloon", "The tide"]
+en_why = "Your age only goes up, year after year."
+
+[[q]]
+topic = "logic"
+answer = 0
+fr = "Plus on en prend, plus on en laisse derrière soi. Qu'est-ce que c'est ?"
+fr_choices = ["Des pas", "Des photos", "Des notes", "Des pommes"]
+fr_why = "Chaque pas laisse une empreinte derrière toi."
+en = "The more of these you take, the more you leave behind. What are they?"
+en_choices = ["Footsteps", "Photos", "Notes", "Apples"]
+en_why = "Every step leaves a footprint behind you."
+
+[[q]]
+topic = "logic"
+answer = 2
+fr = "Si 5 machines font 5 objets en 5 minutes, combien de temps faut-il à 100 machines pour faire 100 objets ?"
+fr_choices = ["100 minutes", "20 minutes", "5 minutes", "1 minute"]
+fr_why = "Chaque machine fait un objet en 5 minutes, donc 100 machines font 100 objets en 5 minutes."
+en = "If 5 machines make 5 items in 5 minutes, how long do 100 machines take to make 100 items?"
+en_choices = ["100 minutes", "20 minutes", "5 minutes", "1 minute"]
+en_why = "Each machine makes one item in 5 minutes, so 100 machines make 100 items in 5 minutes."
+
+[[q]]
+topic = "logic"
+answer = 3
+fr = "Une raquette et une balle coûtent 1,10 € en tout. La raquette coûte 1 € de plus que la balle. Combien coûte la balle ?"
+fr_choices = ["10 centimes", "1 €", "15 centimes", "5 centimes"]
+fr_why = "Balle 0,05 € + raquette 1,05 € = 1,10 €. Le piège classique, c'est 10 centimes !"
+en = "A bat and a ball cost 1.10 in total. The bat costs 1.00 more than the ball. How much is the ball?"
+en_choices = ["10 cents", "1.00", "15 cents", "5 cents"]
+en_why = "Ball 0.05 + bat 1.05 = 1.10. The classic trap is 10 cents!"
+
+# ---------------------------------------------------------------- everyday life
+
+[[q]]
+topic = "life"
+answer = 1
+fr = "Combien de temps dure une sieste éclair idéale, selon la plupart des conseils ?"
+fr_choices = ["5 minutes", "10 à 20 minutes", "1 heure", "2 heures"]
+fr_why = "Au-delà, on risque de tomber en sommeil profond et de se réveiller groggy."
+en = "How long is an ideal power nap, by most advice?"
+en_choices = ["5 minutes", "10 to 20 minutes", "1 hour", "2 hours"]
+en_why = "Any longer and you may fall into deep sleep and wake up groggy."
+
+[[q]]
+topic = "life"
+answer = 2
+fr = "Selon une étude de 2009, combien de temps faut-il en moyenne pour prendre une habitude ?"
+fr_choices = ["7 jours", "21 jours", "Environ 66 jours", "1 an"]
+fr_why = "En moyenne 66 jours, avec de gros écarts selon les gens. Les « 21 jours » sont un mythe."
+en = "According to a 2009 study, how long does it take on average to form a habit?"
+en_choices = ["7 days", "21 days", "About 66 days", "1 year"]
+en_why = "66 days on average, with big differences between people. The \"21 days\" is a myth."
+
+[[q]]
+topic = "life"
+answer = 0
+fr = "À combien de degrés Fahrenheit l'eau gèle-t-elle ?"
+fr_choices = ["32 °F", "0 °F", "100 °F", "-40 °F"]
+fr_why = "0 °C = 32 °F. Et à -40, Celsius et Fahrenheit sont égaux !"
+en = "At how many degrees Fahrenheit does water freeze?"
+en_choices = ["32 °F", "0 °F", "100 °F", "-40 °F"]
+en_why = "0 °C = 32 °F. And at -40, Celsius and Fahrenheit are equal!"
+
+[[q]]
+topic = "life"
+answer = 3
+fr = "Quelle est la meilleure façon de garder des herbes aromatiques fraîches comme le basilic ?"
+fr_choices = ["Au congélateur", "Au fond du frigo", "Dans un sac fermé", "Les tiges dans un verre d'eau, à température ambiante"]
+fr_why = "Le basilic n'aime pas le froid : comme un bouquet de fleurs, il tient mieux dans un verre d'eau."
+en = "What's the best way to keep fresh herbs like basil?"
+en_choices = ["In the freezer", "At the back of the fridge", "In a sealed bag", "Stems in a glass of water, at room temperature"]
+en_why = "Basil dislikes the cold: like a bunch of flowers, it lasts longer in a glass of water."

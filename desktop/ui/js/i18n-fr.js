@@ -384,6 +384,22 @@ export const exact = {
   'Idea photos come from Flickr and Wikimedia Commons (found with Openverse) under free licenses. Steam and YouTube artwork belongs to its owners.': 'Les photos des idées viennent de Flickr et Wikimedia Commons (trouvées avec Openverse) sous licences libres. Les visuels Steam et YouTube appartiennent à leurs propriétaires.',
   Updates: 'Mises à jour',
   // ticket book (js/book.js, core/src/book.rs)
+  // daily quiz (js/quiz.js)
+  'Quiz of the day': 'Quiz du jour',
+  'A new quiz tomorrow': 'Un nouveau quiz demain',
+  'The same for everyone today': 'Le même pour tout le monde aujourd’hui',
+  'Play': 'Jouer',
+  'Close the quiz': 'Fermer le quiz',
+  'Right!': 'Bonne réponse !',
+  'Not quite': 'Raté',
+  'See my score': 'Voir mon score',
+  'Next question': 'Question suivante',
+  'Perfect score!': 'Sans faute !',
+  'Well played!': 'Bien joué !',
+  'Good try. A new quiz tomorrow!': 'Bien essayé. Un nouveau quiz demain !',
+  'Counted as a Learn pick: it helps your weekly challenge and badges.': 'Compté comme une idée « Apprendre » : ça aide ton défi de la semaine et tes badges.',
+  'Quiz master': 'As du quiz',
+  'Finish 7 daily quizzes': 'Termine 7 quiz du jour',
   'This week’s challenge': 'Défi de la semaine',
   'Done! A new one comes on Monday.': 'Réussi ! Un nouveau défi arrive lundi.',
   'Stamped': 'Tamponné',
@@ -675,6 +691,9 @@ export const patterns = [
   // headline and counts
   ['{n0} kinds', '{0} types'],
   ['of {n0} ideas stamped', 'idées tamponnées sur {0}'],
+  ['{n0}/{n1} today', '{0}/{1} aujourd’hui'],
+  ['{n0} days in a row', '{0} jours de suite'],
+  ['Plus {n0} games, {n1} videos and {n2} quizzes', 'Plus {0} jeux, {1} vidéos et {2} quiz'],
   ['Plus {n0} games and {n1} videos', 'Plus {0} jeux et {1} vidéos'],
   ['{n0}/{n1} · {n2} days left', '{0}/{1} · encore {2} jours'],
   ['{n0}/{n1} · last day', '{0}/{1} · dernier jour'],
@@ -842,6 +861,7 @@ export const special = [
 
 /** The built-in ideas, by their English title and description. */
 export const ideas = {
+  "Today's quiz": ['Quiz du jour', ''],
   'Easy 5 km run': ['5 km de footing tranquille', 'Allure où tu peux parler, sans fixer ta montre. Ajoute 4 petits sprints à la fin si tu te sens bien.'],
   "Bike ride to a place you've never been": ['Balade à vélo vers un endroit inconnu', 'Choisis un parc, un point de vue ou un quartier sur la carte et vas-y à vélo.'],
   '20-minute bodyweight HIIT': ['HIIT au poids du corps, 20 minutes', '40 s d’effort / 20 s de pause : squats, pompes, mountain climbers, fentes, burpees. 4 tours.'],
