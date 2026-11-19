@@ -4,6 +4,23 @@
 // Tone: informal "tu", short and friendly.
 
 export const exact = {
+  "Web": "Web",
+  "Browser storage": "Stockage du navigateur",
+  "Settings saved": "Réglages enregistrés",
+  "Import my Steam library": "Importer ma bibliothèque Steam",
+  "Export local data": "Exporter les données locales",
+  "Reload freetime": "Recharger freetime",
+  "Install freetime": "Installer freetime",
+  "Use your browser menu to add freetime to your home screen. On iPhone, open Share, then Add to Home Screen.": "Utilise le menu du navigateur pour ajouter freetime à ton écran d’accueil. Sur iPhone, ouvre Partager, puis Sur l’écran d’accueil.",
+  "Connection restored": "Connexion rétablie",
+  "Ideas matched to your time, mood and interests.": "Des idées adaptées à ton temps, ton énergie et tes centres d’intérêt.",
+  "The web version updates when you reopen it.": "La version web se met à jour lorsque tu la rouvres.",
+  "Reopen freetime to use the latest web version.": "Rouvre freetime pour utiliser la dernière version web.",
+  "Enter your Steam profile and save a Web API key below to import your public game library.": "Renseigne ton profil Steam et enregistre une clé Web API ci-dessous pour importer ta bibliothèque publique.",
+  "Preferences and history stay in this browser. Personal API keys last for this tab session. Clearing browser data removes local data.": "Tes préférences et ton historique restent dans ce navigateur. Les clés API personnelles sont conservées pour la session de cet onglet. Effacer les données du navigateur supprime les données locales.",
+  "You can import your public Steam library in Settings with your profile and a Web API key. Built-in ideas are ready now.": "Tu peux importer ta bibliothèque Steam publique dans les réglages avec ton profil et une clé Web API. Les idées intégrées sont déjà prêtes.",
+  "You are offline. Reconnect to load new picks and messages.": "Tu es hors connexion. Reconnecte-toi pour charger de nouvelles idées et tes messages.",
+  "Offline cache could not be prepared. You can keep using the web app.": "Le cache hors connexion n’a pas pu être préparé. Tu peux continuer à utiliser l’application web.",
   // ------------------------------------------------------------ shell
   Discover: 'Découvrir',
   Friends: 'Amis',

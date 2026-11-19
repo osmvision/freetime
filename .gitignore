@@ -24,3 +24,6 @@ __pycache__/
 /graphify-out/.graphify_python
 /graphify-out/.graphify_root
 /graphify-out/cache/
+/web/node_modules/
+/web/dist/
+/web/.tools/

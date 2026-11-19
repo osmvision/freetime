@@ -4,7 +4,7 @@ use crate::net::{self, Net};
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Weather {
     pub place: String,
     pub temp_c: f64,

@@ -185,7 +185,7 @@
   box-shadow: inset 0 -2px 0 var(--on-navy);
 }
 
-@media (max-width: 1100px) {
+@container app-viewport (max-width: 1100px) {
   :root[data-contrast="high"] .nav {
     box-shadow: inset 0 2px 0 var(--on-navy);
   }
@@ -215,6 +215,9 @@ body {
   height: 100%;
   margin: 0;
 }
+
+/* Query the available layout width after application zoom as well as on resize. */
+html { container: app-viewport / inline-size; }
 
 body {
   overflow: hidden;
@@ -282,7 +285,7 @@ button {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   grid-template-rows: auto minmax(0, 1fr);
-  height: 100vh;
+  height: var(--viewport-height, 100dvh);
 }
 
 /* the navy header bar of a ticket: wordmark, tabs, then the baggage tags */
@@ -460,6 +463,7 @@ button.tag:hover {
 }
 
 .main {
+  min-height: 0;
   overflow-y: auto;
 }
 
@@ -648,7 +652,7 @@ button.tag:hover {
   position: absolute;
   top: calc(100% + 6px);
   left: 0;
-  z-index: 45;
+  z-index: 65;
   min-width: 230px;
   overflow-y: auto;
   overscroll-behavior: contain;
@@ -2048,7 +2052,7 @@ button.tag:hover {
   font-weight: 600;
 }
 
-@media (max-width: 860px) {
+@container app-viewport (max-width: 860px) {
   .welcome-body {
     padding: 22px 18px 18px;
   }
@@ -2449,7 +2453,7 @@ button.tag:hover {
   color: var(--red);
 }
 
-@media (max-width: 860px) {
+@container app-viewport (max-width: 860px) {
   .recap-figures {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -3106,13 +3110,13 @@ button.tag:hover {
 
 /* ---------------------------------------------------------------- narrow windows */
 
-@media (max-width: 1440px) {
+@container app-viewport (max-width: 1440px) {
   .select-name {
     display: none;
   }
 }
 
-@media (max-width: 1100px) {
+@container app-viewport (max-width: 1100px) {
   .coupon {
     grid-template-columns: minmax(0, 1fr) 280px;
   }
@@ -3141,7 +3145,7 @@ button.tag:hover {
 }
 
 /* the bar gets tight: smaller gaps, the weather tag drops the city name */
-@media (max-width: 1340px) {
+@container app-viewport (max-width: 1340px) {
   .topbar {
     gap: 20px;
   }
@@ -3157,7 +3161,7 @@ button.tag:hover {
 
 /* not enough room for the tabs next to the wordmark and tags (narrow windows, or low vision mode):
    the tabs move to a bar at the bottom, labels kept */
-@media (max-width: 1100px) {
+@container app-viewport (max-width: 1100px) {
   .nav {
     position: fixed;
     left: 0;
@@ -3208,7 +3212,7 @@ button.tag:hover {
 }
 
 /* phones: compact bar, one column of content (the tabs are already at the bottom) */
-@media (max-width: 860px) {
+@container app-viewport (max-width: 860px) {
   .topbar {
     gap: 12px;
     height: 56px;
@@ -3796,7 +3800,7 @@ body[data-view="messages"] .assistant-panel {
 }
 
 /* the tab bar is at the bottom: everything moves up above it */
-@media (max-width: 1100px) {
+@container app-viewport (max-width: 1100px) {
   .assistant-fab {
     bottom: 84px;
   }
@@ -3903,7 +3907,7 @@ body[data-view="messages"] .assistant-panel {
   display: none;
 }
 
-@media (max-width: 600px) {
+@container app-viewport (max-width: 600px) {
   .update-notice {
     left: 16px;
     right: 16px;
@@ -3912,13 +3916,13 @@ body[data-view="messages"] .assistant-panel {
 }
 
 /* the tab bar is at the bottom: the notice sits above it, left of the assistant bubble */
-@media (max-width: 1100px) {
+@container app-viewport (max-width: 1100px) {
   .update-notice {
     bottom: 84px;
   }
 }
 
-@media (max-width: 600px) {
+@container app-viewport (max-width: 600px) {
   .update-notice {
     right: 92px;
   }
@@ -4431,7 +4435,7 @@ body[data-view="messages"] .assistant-panel {
   box-shadow: var(--shadow), 0 0 0 2px var(--lavender-line);
 }
 
-@media (max-width: 1100px) {
+@container app-viewport (max-width: 1100px) {
   .today {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   }
@@ -4762,7 +4766,7 @@ body[data-view="messages"] .assistant-panel {
   animation: none;
 }
 
-@media (max-width: 1300px) {
+@container app-viewport (max-width: 1300px) {
   .today {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   }
@@ -5391,4 +5395,228 @@ body[data-view="messages"] .assistant-panel {
 .share-window .hint {
   margin: 10px 0 0;
   text-align: center;
+}
+
+/* Mobile web shell. Shared measurements include display zoom, browser chrome,
+   the software keyboard and the safe areas of installed PWAs. */
+:root {
+  --ui-zoom: 1;
+  --safe-top: calc(env(safe-area-inset-top, 0px) / var(--ui-zoom));
+  --safe-bottom: calc(env(safe-area-inset-bottom, 0px) / var(--ui-zoom));
+  --safe-left: calc(env(safe-area-inset-left, 0px) / var(--ui-zoom));
+  --safe-right: calc(env(safe-area-inset-right, 0px) / var(--ui-zoom));
+  --header-height: calc(64px + var(--safe-top));
+  --nav-height: 0px;
+}
+
+.topbar {
+  height: var(--header-height);
+  padding-top: var(--safe-top);
+  padding-left: max(28px, var(--safe-left));
+  padding-right: max(28px, var(--safe-right));
+}
+
+.chat-layout {
+  height: calc(var(--viewport-height, 100dvh) - var(--header-height) - 64px);
+}
+
+.assistant-panel,
+body[data-view="messages"] .assistant-panel {
+  max-height: calc(var(--viewport-height, 100dvh) - var(--header-height) - 108px);
+}
+
+@container app-viewport (max-width: 1100px) {
+  body { --nav-height: calc(70px + var(--safe-bottom)); }
+
+  .nav {
+    min-height: var(--nav-height);
+    bottom: var(--keyboard-inset, 0px);
+    padding: 4px max(4px, var(--safe-right)) calc(8px + var(--safe-bottom)) max(4px, var(--safe-left));
+  }
+
+  .nav-item { flex: 1 1 0; min-width: 0; padding-inline: 3px; }
+  .nav-label { max-width: 100%; overflow-wrap: anywhere; line-height: 1.15; }
+  .main { padding-bottom: var(--nav-height); scroll-padding-block: 16px 96px; }
+  .bar-tags { flex-shrink: 1; min-width: 0; }
+  .bar-tags .tag { min-width: 0; }
+  .bar-tags .tag-label { display: inline; min-width: 0; white-space: normal; overflow-wrap: anywhere; }
+  .view { padding-left: max(24px, var(--safe-left)); padding-right: max(24px, var(--safe-right)); }
+  .settings { grid-template-columns: repeat(auto-fit, minmax(min(380px, 100%), 1fr)); }
+  .chat-layout { height: calc(var(--viewport-height, 100dvh) - var(--header-height) - var(--nav-height) - 64px); min-height: 260px; }
+
+  /* All ticket information stays readable as columns narrow. */
+  .view, .panel, .section, .section-top, .page-head > div, .mini-ticket,
+  .profile-card > div, .strip-actions { min-width: 0; }
+  .view { overflow-wrap: anywhere; }
+  .head-actions, .section-head, .section-top, .coupon-head, .save-bar { flex-wrap: wrap; }
+  .head-actions { flex-shrink: 1; }
+  .btn, .select-button, .option { height: auto; min-height: 44px; white-space: normal; }
+  .btn { padding-block: 10px; overflow-wrap: normal; }
+  .btn.square { flex-shrink: 0; }
+  .input, textarea { min-width: 0; }
+  .fare dd, .stat-value, .entry-title, .mini-text strong, .mini-k, .mini-sub,
+  .credit, .book-title {
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+    overflow-wrap: anywhere;
+  }
+  .leaf-title, .leaf-detail { display: block; -webkit-line-clamp: unset; overflow: visible; }
+  .leaf-actions { flex-wrap: wrap; }
+  .select-value { overflow-wrap: anywhere; }
+  .menu .option { padding-block: 10px; }
+  .option-left { min-width: 0; }
+  .today { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .mini-ticket { flex-wrap: wrap; }
+  .mini-text { flex-basis: 100px; }
+  .today-book { min-height: 80px; }
+  .stat-value { line-height: 1.25; }
+  .stat:nth-child(2n), .recap-figure:nth-child(2n) { border-right: 0; }
+  .stat:nth-child(-n + 2), .recap-figure:nth-child(-n + 2) { border-bottom: 1px dashed var(--line-soft); }
+  .stats, .recap-figures { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .save-bar { bottom: 0; padding-bottom: 12px; }
+
+  .assistant-fab { right: max(16px, var(--safe-right)); bottom: calc(var(--keyboard-inset, 0px) + var(--nav-height) + 14px); }
+  body[data-view="messages"] .assistant-fab { bottom: calc(var(--keyboard-inset, 0px) + var(--nav-height) + 106px); }
+  .assistant-panel { bottom: calc(var(--nav-height) + 82px); height: min(640px, calc(var(--viewport-height, 100dvh) - var(--header-height) - var(--nav-height) - 98px)); }
+  .toasts { left: max(12px, var(--safe-left)); right: max(12px, var(--safe-right)); bottom: calc(var(--keyboard-inset, 0px) + var(--nav-height) + 82px); }
+  .toast { max-width: 100%; overflow-wrap: anywhere; }
+  .update-notice { bottom: calc(var(--keyboard-inset, 0px) + var(--nav-height) + 14px); }
+  .update-notice .row { flex-wrap: wrap; }
+
+  .welcome, .quiz-backdrop {
+    padding: max(12px, var(--safe-top)) max(12px, var(--safe-right)) max(12px, var(--safe-bottom)) max(12px, var(--safe-left));
+    top: var(--viewport-top, 0px);
+    bottom: auto;
+    height: var(--viewport-height, 100dvh);
+    align-items: safe center;
+  }
+  .welcome-ticket { flex-shrink: 0; }
+  .quiz { max-height: 100%; min-height: 0; overscroll-behavior: contain; }
+  .welcome-nav { flex-wrap: wrap; }
+  .welcome-kinds, .badges, .book-grid { grid-template-columns: repeat(auto-fit, minmax(min(150px, 100%), 1fr)); }
+  .book { grid-template-columns: repeat(auto-fill, minmax(min(250px, 100%), 1fr)); }
+  .person-actions { flex-wrap: wrap; }
+}
+
+@container app-viewport (max-width: 860px) {
+  body { --header-height: calc(56px + var(--safe-top)); }
+  .topbar { gap: 8px; height: var(--header-height); padding-inline: max(14px, var(--safe-left)) max(14px, var(--safe-right)); }
+  .view { padding: 20px max(16px, var(--safe-right)) 28px max(16px, var(--safe-left)); }
+  .context { flex-wrap: wrap; overflow: visible; margin-right: 0; }
+  .context .select { max-width: 100%; }
+  .select-button { max-width: 100%; }
+  .select-name { display: inline; }
+  .book-cover-body { padding: 18px; }
+  .chat-layout { height: calc(var(--viewport-height, 100dvh) - var(--header-height) - var(--nav-height) - 48px); }
+  .chat-list { max-height: 140px; }
+  .chat-head { flex-wrap: wrap; padding: 10px 12px; }
+  .chat-head .entry-main { flex: 1 1 80px; }
+  .chat-messages, .chat-compose { padding: 12px; }
+  .chat-compose .btn { padding-inline: 12px; }
+  .chat-input { min-width: 0; }
+  .bubble { max-width: 90%; }
+  .report-form { max-height: 35dvh; overflow-y: auto; }
+  .assistant-panel, body[data-view="messages"] .assistant-panel {
+    top: calc(var(--viewport-top, 0px) + var(--header-height) + 8px);
+    bottom: auto;
+    height: calc(var(--viewport-height, 100dvh) - var(--header-height) - var(--nav-height) - 16px);
+    left: max(8px, var(--safe-left)); right: max(8px, var(--safe-right));
+  }
+}
+
+@container app-viewport (max-width: 600px) {
+  /* The tags get their own row so weather, city and sync remain visible. */
+  body { --header-height: calc(108px + var(--safe-top)); }
+  .topbar { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 8px; padding-bottom: 8px; }
+  .wordmark { align-self: end; min-height: 44px; }
+  .me-chip { grid-column: 2; grid-row: 1; min-height: 44px; align-self: end; }
+  .bar-tags { grid-column: 1 / -1; grid-row: 2; margin: 0; min-width: 0; gap: 6px; }
+  .bar-tags .tag { min-width: 0; height: auto; min-height: 38px; gap: 5px; padding-inline: 16px 8px; white-space: normal; }
+  .bar-tags .tag:first-child { flex: 1 1 auto; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 0 5px; }
+  .bar-tags .tag:first-child > .icon { grid-column: 1; grid-row: 1; }
+  .bar-tags .tag:first-child .tag-value { grid-column: 2; grid-row: 1; white-space: nowrap; }
+  .bar-tags .tag:first-child .tag-label { grid-column: 1 / -1; grid-row: 2; letter-spacing: .04em; }
+  .bar-tags .tag-sync { flex: 0 0 auto; }
+  .bar-tags .tag-label, .tag-sync .tag-value { display: inline; font-size: 12px; line-height: 1.2; overflow-wrap: anywhere; }
+  .bar-tags .tag-value { font-size: 13px; }
+  .bar-tags .tag-sync .tag-value { white-space: nowrap; }
+  .bar-tags .tag-action { flex-shrink: 0; min-height: 38px; width: 34px; }
+  .wordmark-text { font-size: 22px; }
+  .nav-item { font-size: clamp(10px, calc(3.5vw / var(--ui-zoom)), 13px); letter-spacing: 0; }
+  .nav-label { white-space: nowrap; overflow-wrap: normal; }
+  .view { padding: 18px max(12px, var(--safe-right)) 24px max(12px, var(--safe-left)); }
+  .page-head { gap: 14px; }
+  .page-title { font-size: 36px; }
+  .head-actions { width: 100%; }
+  .head-actions .btn { flex: 1 1 140px; }
+  .context { gap: 6px; }
+  .context .select { flex: 1 1 100%; width: 100%; }
+  .select-button {
+    display: grid;
+    grid-template-columns: auto auto minmax(0, 1fr) auto;
+    width: 100%;
+    height: auto;
+    min-height: 52px;
+    padding: 8px 12px;
+    gap: 8px;
+    text-align: left;
+  }
+  .select-value {
+    min-width: 0;
+    justify-self: end;
+    text-align: right;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+  .select-name { font-size: 12px; letter-spacing: .04em; }
+  .today { grid-template-columns: minmax(0, 1fr); gap: 10px; }
+  .today-book { grid-auto-flow: column; justify-content: center; min-height: 60px; }
+  .coupon-body { padding: 18px 14px; }
+  .coupon-head { padding: 12px 14px; line-height: 1.35; gap: 8px; }
+  .coupon-title { font-size: 32px; }
+  .fare > div { padding-inline: 8px; }
+  .fare dd { font-size: 15px; }
+  .book { grid-template-columns: minmax(0, 1fr); }
+  .panel { padding: 16px 14px; }
+  .section-top { gap: 8px; }
+  .status { margin-left: 0; white-space: normal; line-height: 1.3; }
+  .row .input { flex-basis: 100%; }
+  .save-bar { gap: 8px; }
+  .save-bar .btn { width: 100%; }
+  .seg { flex-wrap: wrap; }
+  .seg-btn { flex: 1 1 auto; }
+  .entry { grid-template-columns: 44px minmax(0, 1fr); gap: 10px; }
+  .entry > .toggles { grid-column: 2; flex-wrap: wrap; }
+  .friend, .invite-row { grid-template-columns: 44px minmax(0, 1fr); gap: 10px; }
+  .friend > .person-actions, .friend > .btn, .invite-row > :last-child { grid-column: 2; }
+  .codes { padding-inline: 12px; }
+  .codes summary { flex-wrap: wrap; padding-block: 10px; }
+  .entry-thumb { width: 44px; }
+  .taste-row { grid-template-columns: 18px minmax(0, 1fr) 48px 42px; gap: 6px; }
+  .stat, .recap-figure { padding: 14px 10px; }
+  .stat-value { font-size: 22px; }
+  .profile-card { gap: 12px; }
+  .size-choices { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .quiz-body { padding: 16px 14px; }
+  .quiz-dots { padding-inline: 14px; }
+  .quiz-question { font-size: 26px; }
+  .quiz-close { width: 44px; height: 44px; }
+  .welcome-kinds { grid-template-columns: minmax(0, 1fr); }
+  .chat-layout { height: calc(var(--viewport-height, 100dvh) - var(--header-height) - var(--nav-height) - 42px); }
+  .chat-list { max-height: 112px; padding: 6px; }
+  .chat-compose { flex-wrap: wrap; gap: 6px; }
+  .chat-input { flex-basis: 140px; }
+  .assistant-top { flex-wrap: wrap; }
+  .update-notice { left: 12px; right: 80px; padding: 12px; }
+  .update-notice > .icon { display: none; }
+}
+
+@media (pointer: coarse) {
+  button, .btn.small, .btn.square, .toggle, .suggest button,
+  .report-form .reasons button, .invite-panel .reasons button { min-height: 44px; }
+  .btn.square, .toggle, .chip-tag button, .assistant-close, .quiz-close { min-width: 44px; }
+  input, textarea, select, .input, .chat-input, .assistant-input { font-size: 16px; }
+  .check { min-height: 44px; }
+  .check input { flex-shrink: 0; width: 20px; height: 20px; }
 }

@@ -220,6 +220,17 @@ struct UserResp {
 }
 
 impl Client {
+    /// Validates a browser access token with Auth. This never reads or writes a
+    /// desktop session, and derives the account id from the verified user.
+    pub fn browser_session(&self, token: &str, now: i64) -> Result<Session> {
+        let user: UserResp = serde_json::from_value(self.call("GET", "/auth/v1/user", Some(token), None, None)?)?;
+        ensure_uuid(&user.id)?;
+        Ok(Session {
+            access_token: token.to_string(), refresh_token: String::new(),
+            expires_at: now + 60, user_id: user.id, email: user.email,
+        })
+    }
+
     pub fn new() -> Result<Client> {
         let tls = native_tls::TlsConnector::new()?;
         let agent = ureq::AgentBuilder::new()
