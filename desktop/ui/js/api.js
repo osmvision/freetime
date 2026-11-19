@@ -62,6 +62,10 @@ export const api = {
   duelQuestions: (id, questions) => invoke('duel_questions', { id, questions }),
   playDuel: (id, questions, answers) => invoke('play_duel', { id, questions, answers }),
   dropDuel: (id) => invoke('drop_duel', { id }),
+  // Two-player games with friends (moves are checked on the server).
+  gameAction: (request) => invoke('game_action', { request }),
+  myMatches: () => invoke('my_matches'),
+  leaveMatch: (id) => invoke('leave_match', { id }),
   // Friends' feed and social settings.
   friendFeed: () => invoke('friend_feed'),
   sharePost: (post) => invoke('share_post', { post }),

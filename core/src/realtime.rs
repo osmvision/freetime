@@ -36,6 +36,8 @@ pub enum Event {
     Profile { id: String, display_name: String, free_until: Option<String> },
     /// A quiz duel you're in was created or changed (someone played, declined or cancelled).
     Duel { id: String, challenger: String, opponent: String, status: String, inserted: bool },
+    /// A game you're in was started or moved on: whose turn it is now (0 = player_a), if anyone's.
+    Match { id: String, game: String, player_a: String, player_b: String, turn: Option<i64>, status: String, inserted: bool },
 }
 
 pub fn websocket_url() -> String {
@@ -55,7 +57,8 @@ pub fn join_frame(token: &str, r#ref: u64) -> String {
                     { "event": "INSERT", "schema": "public", "table": "messages" },
                     { "event": "*", "schema": "public", "table": "invites" },
                     { "event": "UPDATE", "schema": "public", "table": "profiles" },
-                    { "event": "*", "schema": "public", "table": "duels" }
+                    { "event": "*", "schema": "public", "table": "duels" },
+                    { "event": "*", "schema": "public", "table": "matches" }
                 ],
                 "private": false
             },
@@ -118,6 +121,15 @@ pub fn parse(text: &str) -> Option<Event> {
             id: text_of("id")?,
             challenger: text_of("challenger")?,
             opponent: text_of("opponent")?,
+            status: text_of("status")?,
+            inserted: kind == "INSERT",
+        }),
+        ("matches", kind @ ("INSERT" | "UPDATE")) => Some(Event::Match {
+            id: text_of("id")?,
+            game: text_of("game")?,
+            player_a: text_of("player_a")?,
+            player_b: text_of("player_b")?,
+            turn: record.get("turn").and_then(Value::as_i64),
             status: text_of("status")?,
             inserted: kind == "INSERT",
         }),
@@ -218,7 +230,7 @@ mod tests {
         let join: Value = serde_json::from_str(&join_frame("TOKEN", 1)).unwrap();
         assert_eq!(join["event"], "phx_join");
         assert_eq!(join["payload"]["access_token"], "TOKEN");
-        assert_eq!(join["payload"]["config"]["postgres_changes"].as_array().unwrap().len(), 4);
+        assert_eq!(join["payload"]["config"]["postgres_changes"].as_array().unwrap().len(), 5);
     }
 
     #[test]
@@ -253,6 +265,17 @@ mod tests {
         assert_eq!(parse(frame), Some(Event::Duel { id: "d1".into(), challenger: "a".into(), opponent: "b".into(), status: "open".into(), inserted: true }));
         let done = frame.replace("INSERT", "UPDATE").replace("\"open\"", "\"done\"");
         assert_eq!(parse(&done), Some(Event::Duel { id: "d1".into(), challenger: "a".into(), opponent: "b".into(), status: "done".into(), inserted: false }));
+    }
+
+    #[test]
+    fn reads_games() {
+        let frame = r#"{"topic":"realtime:freetime","event":"postgres_changes","payload":{"data":{"table":"matches","type":"UPDATE","record":{"id":"m1","game":"four","player_a":"a","player_b":"b","state":{"board":[]},"turn":1,"status":"active","version":3}}}}"#;
+        assert_eq!(
+            parse(frame),
+            Some(Event::Match { id: "m1".into(), game: "four".into(), player_a: "a".into(), player_b: "b".into(), turn: Some(1), status: "active".into(), inserted: false })
+        );
+        let over = frame.replace("\"turn\":1", "\"turn\":null");
+        assert!(matches!(parse(&over), Some(Event::Match { turn: None, .. })));
     }
 
     #[test]

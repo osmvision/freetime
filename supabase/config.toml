@@ -443,3 +443,8 @@ verify_jwt = false
 # Rate limits and validation live in the function and in public.support_submit.
 [functions.support]
 verify_jwt = false
+
+# Turn-based games with friends: checks the caller's session itself (verify_jwt off, like the
+# assistant), then every move with the shared rules (rules.js, copied from the app). No secrets.
+[functions.games]
+verify_jwt = false

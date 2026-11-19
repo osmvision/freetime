@@ -5,6 +5,7 @@ import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { before, test } from 'node:test';
+import { GameError, handle } from '../functions/games/handler.js';
 
 const here = import.meta.dirname;
 const migrations = join(here, '..', 'migrations');
@@ -1090,4 +1091,190 @@ test('duels: the answer key covers the questions with valid values', async () =>
   assert.ok(r.n >= 100);
   assert.ok(r.topics >= 5, 'enough topics for 5 different ones');
   assert.ok(r.lo >= 0 && r.hi <= 3);
+});
+
+// ---------------------------------------------------------------- turn-based games
+
+/** The games Edge Function's database, as the service role (like supabase-js: { data, error }). */
+const serviceDb = {
+  async rpc(name, args) {
+    const keys = Object.keys(args);
+    const sql = `select public.${name}(${keys.map((k, i) => `${k} => $${i + 1}`).join(', ')}) as r`;
+    const params = keys.map((k) => (args[k] !== null && typeof args[k] === 'object' ? JSON.stringify(args[k]) : args[k]));
+    await db.exec('savepoint svc');
+    await db.exec('set local role service_role');
+    try {
+      const res = await db.query(sql, params);
+      await db.exec('reset role');
+      await db.exec('release savepoint svc');
+      return { data: res.rows[0].r, error: null };
+    } catch (e) {
+      await db.exec('rollback to savepoint svc');
+      await db.exec('release savepoint svc');
+      return { data: null, error: { code: e.code, message: e.message } };
+    }
+  },
+};
+
+/** Calls the Edge Function's handler as `user`; returns its answer or { status, code }. */
+async function games(user, body, first = 0) {
+  try {
+    return await handle(serviceDb, user, body, () => (first === 0 ? 0.1 : 0.9));
+  } catch (e) {
+    if (e instanceof GameError) return { status: e.status, code: e.code, message: e.message };
+    throw e;
+  }
+}
+
+const myMatches = (step, who) => step(who, async (q) => (await q.one('select public.my_matches() as m')).m);
+
+test('games: only the Edge Function (service role) writes games; players only read their own', async () => {
+  await withPeople(async ({ step }) => {
+    for (const who of [ALICE, null]) {
+      await step(who, async (q) => {
+        await fails(q.one("select public.match_open($1, $2, 'four', '{}'::jsonb, 0::smallint, null)", [ALICE, BOB]), /permission denied/);
+      });
+      await step(who, async (q) => {
+        await fails(q.one('select public.match_load($1, $2)', [ALICE, ALICE]), /permission denied/);
+      });
+      await step(who, async (q) => {
+        await fails(q.one("select public.match_save($1, $2, 0, '{}'::jsonb, 0::smallint, 'a', null)", [ALICE, ALICE]), /permission denied/);
+      });
+      await step(who, async (q) => {
+        await fails(q.rows('select * from public.match_secrets'), /permission denied/);
+      });
+    }
+    await befriend(ALICE, BOB);
+    const { id } = await games(ALICE, { action: 'start', game: 'four', opponent: BOB });
+    await step(ALICE, async (q) => {
+      await fails(q.rows("update public.matches set result = 'a' where id = $1", [id]), /permission denied/);
+    });
+    await step(ALICE, async (q) => {
+      await fails(q.rows("insert into public.matches (game, player_a, player_b, state) values ('four', $1, $2, '{}')", [ALICE, BOB]), /permission denied/);
+    });
+    assert.equal((await step(CAROL, (q) => q.rows('select * from public.matches'))).length, 0, 'strangers see nothing');
+    assert.equal((await step(BOB, (q) => q.rows('select * from public.matches'))).length, 1);
+    await step(null, async (q) => {
+      await fails(q.one('select public.my_matches()'), /permission denied/);
+    });
+  });
+});
+
+test('games: a whole game of four in a row, checked move by move', async () => {
+  await withPeople(async ({ step }) => {
+    assert.equal((await games(ALICE, { action: 'start', game: 'four', opponent: BOB })).code, 'not_found', 'friends only');
+    await befriend(ALICE, BOB);
+    const start = await games(ALICE, { action: 'start', game: 'four', opponent: BOB }, 0);
+    assert.equal(start.state.turn, 0);
+    assert.equal((await games(ALICE, { action: 'start', game: 'four', opponent: BOB })).code, 'already', 'one game per pair');
+    assert.equal((await games(BOB, { action: 'start', game: 'four', opponent: ALICE })).code, 'already');
+    let [mine] = await myMatches(step, ALICE);
+    assert.deepEqual([mine.phase, mine.me, mine.game], ['your_turn', 0, 'four']);
+    assert.equal((await myMatches(step, BOB))[0].phase, 'waiting');
+
+    let version = 0;
+    const move = async (who, col) => {
+      const r = await games(who, { action: 'move', match: start.id, version, move: { col } });
+      if (r.version) version = r.version;
+      return r;
+    };
+    assert.equal((await move(BOB, 3)).code, 'illegal', 'not his turn');
+    assert.equal((await move(CAROL, 3)).code, 'not_found', 'not her game');
+    assert.equal((await games(ALICE, { action: 'move', match: start.id, version: 7, move: { col: 0 } })).code, 'stale');
+    assert.equal((await move(ALICE, 9)).code, 'illegal');
+    for (const [who, col] of [[ALICE, 0], [BOB, 1], [ALICE, 0], [BOB, 1], [ALICE, 0], [BOB, 1]]) {
+      assert.ok((await move(who, col)).state, `${who} plays ${col}`);
+    }
+    const last = await move(ALICE, 0);
+    assert.equal(last.state.winner, 0);
+    assert.equal((await move(BOB, 2)).code, 'over');
+    [mine] = await myMatches(step, ALICE);
+    assert.deepEqual([mine.phase, mine.outcome], ['over', 'won']);
+    assert.equal((await myMatches(step, BOB))[0].outcome, 'lost');
+    // A finished game frees the pair for a new one, and shows in the export.
+    assert.ok((await games(BOB, { action: 'start', game: 'four', opponent: ALICE })).id);
+    const data = (await step(ALICE, (q) => q.one('select public.export_my_data() as d'))).d;
+    assert.equal(data.games.length, 2);
+  });
+});
+
+test('games: torpedoes fleets stay secret; shots are resolved on the server', async () => {
+  await withPeople(async ({ step }) => {
+    await befriend(ALICE, BOB);
+    const fleetA = { ships: [[0, 1, 2, 3], [16, 24, 32], [20, 21, 22], [62, 63]] };
+    const fleetB = { ships: [[7, 15, 23, 31], [40, 41, 42], [44, 45, 46], [56, 57]] };
+    assert.equal((await games(ALICE, { action: 'start', game: 'torpedoes', opponent: BOB, fleet: { ships: [[0, 1]] } })).code, 'illegal', 'a full fleet is needed');
+    const start = await games(ALICE, { action: 'start', game: 'torpedoes', opponent: BOB, fleet: fleetA });
+    const seen = await step(BOB, (q) => q.one('select state::text as s from public.matches where id = $1', [start.id]));
+    assert.equal(seen.s.includes('ships'), false, 'Bob never receives Alice’s ships');
+    assert.equal(JSON.stringify(await myMatches(step, BOB)).includes('"ships"'), false);
+    let version = 0;
+    const act = async (who, move) => {
+      const r = await games(who, { action: 'move', match: start.id, version, move });
+      if (r.version) version = r.version;
+      return r;
+    };
+    assert.equal((await act(ALICE, { fleet: fleetA })).code, 'illegal', 'not her turn: Bob places now');
+    assert.equal((await act(BOB, { fleet: fleetB })).state.phase, 'play');
+    assert.deepEqual((await act(ALICE, { cell: 56 })).state.shots[0], [{ c: 56, r: 'hit' }]);
+    assert.equal((await act(BOB, { cell: 0 })).state.shots[1][0].r, 'hit');
+    assert.equal((await act(ALICE, { cell: 57 })).state.sunk[0].length, 1);
+    // Each player gets their own fleet back, never the other's.
+    assert.deepEqual((await myMatches(step, ALICE))[0].my_secret, fleetA);
+    assert.deepEqual((await myMatches(step, BOB))[0].my_secret, fleetB);
+    assert.equal(JSON.stringify(await myMatches(step, BOB)).includes('[0,1,2,3]'), false, 'Alice’s ships never reach Bob');
+    // Bob's own fleet is in his export; Alice's isn't.
+    const data = (await step(BOB, (q) => q.one('select public.export_my_data() as d'))).d;
+    assert.deepEqual(data.games[0].your_ships, fleetB);
+  });
+});
+
+test('games: declining, cancelling, resigning, expiry, blocks and the limit of 5', async () => {
+  await withPeople(async ({ step }) => {
+    await befriend(ALICE, BOB);
+    await befriend(ALICE, CAROL);
+    const leave = (who, id) => step(who, async (q) => (await q.one('select public.leave_match($1) as r', [id])).r);
+    let g = await games(ALICE, { action: 'start', game: 'dots', opponent: BOB }, 1);
+    assert.equal(await leave(BOB, g.id), 'declined');
+    g = await games(ALICE, { action: 'start', game: 'dots', opponent: BOB }, 0);
+    assert.equal(await leave(ALICE, g.id), 'cancelled');
+    // Once Bob played, leaving is resigning: the other player wins.
+    g = await games(ALICE, { action: 'start', game: 'gomoku', opponent: BOB }, 1);
+    assert.ok((await games(BOB, { action: 'move', match: g.id, version: 0, move: { cell: 60 } })).state);
+    assert.equal(await leave(BOB, g.id), 'resigned');
+    assert.equal((await myMatches(step, ALICE)).find((m) => m.id === g.id).outcome, 'won');
+    await step(ALICE, async (q) => {
+      await fails(q.one('select public.leave_match($1)', [g.id]), /over/);
+    });
+    await step(CAROL, async (q) => {
+      await fails(q.one('select public.leave_match($1)', [g.id]), /no such game/);
+    });
+    // 7 days without a move: expired, no more moves.
+    g = await games(ALICE, { action: 'start', game: 'draughts', opponent: BOB }, 0);
+    await db.query("update public.matches set updated_at = now() - interval '8 days' where id = $1", [g.id]);
+    assert.equal((await games(ALICE, { action: 'move', match: g.id, version: 0, move: { path: [61, 50] } })).code, 'over');
+    assert.equal((await myMatches(step, BOB)).find((m) => m.id === g.id).outcome, 'expired');
+    // At most 5 games started at once.
+    for (const game of ['four', 'gomoku', 'draughts', 'dots', 'torpedoes']) {
+      const r = await games(ALICE, { action: 'start', game, opponent: CAROL, fleet: game === 'torpedoes' ? { ships: [[0, 1, 2, 3], [16, 24, 32], [20, 21, 22], [62, 63]] } : undefined });
+      assert.ok(r.id, `${game}: ${r.message}`);
+    }
+    assert.equal((await games(ALICE, { action: 'start', game: 'draughts', opponent: BOB })).code, 'too_many');
+    // A block hides the games and stops them.
+    const id = (await myMatches(step, ALICE)).find((m) => m.other.id === CAROL && m.game === 'four').id;
+    await step(CAROL, (q) => q.rows('insert into public.blocks (blocker, blocked) values ($1, $2)', [CAROL, ALICE]));
+    assert.ok((await myMatches(step, ALICE)).every((m) => m.other.id !== CAROL));
+    assert.equal((await games(ALICE, { action: 'move', match: id, version: 0, move: { col: 3 } })).code, 'not_found');
+  });
+});
+
+test('games: bad requests are refused before anything is saved', async () => {
+  await withPeople(async () => {
+    assert.equal((await games(ALICE, { action: 'start', game: 'chess', opponent: BOB })).code, 'bad_request');
+    assert.equal((await games(ALICE, { action: 'start', game: 'four', opponent: 'not-a-uuid' })).code, 'bad_request');
+    assert.equal((await games(ALICE, { action: 'move', match: BOB, version: 'x' })).code, 'bad_request');
+    assert.equal((await games(ALICE, { action: 'dance' })).code, 'bad_request');
+    assert.equal((await games(ALICE, { action: 'move', match: '00000000-0000-4000-8000-0000000000ff', version: 0, move: {} })).code, 'not_found');
+    assert.equal((await db.query('select count(*)::int as n from public.matches')).rows[0].n, 0);
+  });
 });

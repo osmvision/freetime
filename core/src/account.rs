@@ -579,6 +579,33 @@ impl Client {
         Ok(())
     }
 
+    // ---------------------------------------------------------------- turn-based games
+
+    /// Starts a game or plays a move: `request` is { "action": "start" | "move", ... }
+    /// (supabase/functions/games/handler.js). The games Edge Function checks it with the rules.
+    pub fn game_action(&self, s: &Session, request: &Value) -> Result<Value> {
+        let action = request.get("action").and_then(Value::as_str).unwrap_or("");
+        if !matches!(action, "start" | "move") {
+            bail!("unknown game action");
+        }
+        if request.to_string().len() > 4000 {
+            bail!("that move is too big");
+        }
+        self.call("POST", "/functions/v1/games", Some(&s.access_token), Some(request), None)
+    }
+
+    /// Your games: your turn first, then waiting, then finished (last 30 days).
+    pub fn my_matches(&self, s: &Session) -> Result<Value> {
+        self.call("POST", "/rest/v1/rpc/my_matches", Some(&s.access_token), Some(&json!({})), None)
+    }
+
+    /// Declines, cancels or resigns a game. Returns "declined", "cancelled" or "resigned".
+    pub fn leave_match(&self, s: &Session, id: &str) -> Result<String> {
+        ensure_uuid(id)?;
+        let v = self.call("POST", "/rest/v1/rpc/leave_match", Some(&s.access_token), Some(&json!({ "p_match": id })), None)?;
+        v.as_str().map(str::to_string).ok_or_else(|| anyhow!("unexpected response"))
+    }
+
     /// Deletes your shared list from the server.
     pub fn stop_sharing_library(&self, s: &Session) -> Result<()> {
         self.call("POST", "/rest/v1/rpc/stop_sharing_library", Some(&s.access_token), Some(&json!({})), None)?;

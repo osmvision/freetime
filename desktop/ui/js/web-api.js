@@ -68,6 +68,7 @@ async function connectRealtime(session) {
     })
     .on('postgres_changes', { event: '*', schema: 'public', table: 'invites' }, () => emit('invites-changed', null))
     .on('postgres_changes', { event: '*', schema: 'public', table: 'duels' }, () => emit('duels-changed', null))
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'matches' }, () => emit('matches-changed', null))
     .subscribe((status) => emit('live-status', status === 'SUBSCRIBED'));
 }
 

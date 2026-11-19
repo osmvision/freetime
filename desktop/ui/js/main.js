@@ -47,6 +47,7 @@ const ctx = {
     assistantAccountChanged();
     refreshAdmin();
     gamesView.refreshDuelDot();
+    gamesView.refreshMatchDot();
   },
   isLive: () => live,
   openChat: (friendId) => goto('messages', { friend: friendId }),
@@ -267,6 +268,13 @@ async function start() {
   const duelsChanged = () => (views.games.hidden ? gamesView.refreshDuelDot() : gamesView.render(views.games, ctx));
   await listen('duels-changed', duelsChanged);
   document.addEventListener('duel-played', () => gamesView.refreshDuelDot());
+  // Games with friends: an open game window follows along; the list and the dot catch up.
+  gamesView.refreshMatchDot();
+  await listen('matches-changed', () => {
+    document.dispatchEvent(new CustomEvent('matches-changed'));
+    if (views.games.hidden) gamesView.refreshMatchDot();
+    else gamesView.render(views.games, ctx);
+  });
   await watchUpdates();
   await listen('online-updated', (online) => {
     renderTags(online);
