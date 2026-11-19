@@ -80,6 +80,19 @@ const FR = {
   'Report a problem': 'Signaler un problème',
   'Made by two friends. MIT license.': 'Fait par deux amis. Licence MIT.',
   '← Back to freetime': '← Retour à freetime',
+  'Features': 'Fonctions',
+  'Keep coming back': 'Ce qui fait revenir',
+  'Every free hour counts.': 'Chaque heure libre compte.',
+  'Collect every idea': 'Collectionne chaque idée',
+  'Each thing you do gets stamped in your ticket book. Earn badges, take on the weekly challenge, try the ticket of the day.': 'Chaque chose que tu fais est tamponnée dans ton carnet. Gagne des badges, relève le défi de la semaine, essaie le ticket du jour.',
+  'A quiz a day': 'Un quiz par jour',
+  'Five questions, two minutes, the same for everyone. Learn something, then compare with friends.': 'Cinq questions, deux minutes, les mêmes pour tout le monde. Apprends un truc, puis compare avec tes amis.',
+  'Your month, as a card': 'Ton mois en une carte',
+  'A recap of your month or your year to share anywhere. Made on your PC.': 'Le bilan de ton mois ou de ton année, à partager partout. Créé sur ton PC.',
+  'Climb a tier each month': 'Monte de rang chaque mois',
+  'Points for what you actually do, 20 a day at most. Friends board, and a global top if you opt in.': 'Des points pour ce que tu fais vraiment, 20 par jour au maximum. Classement entre amis, et un top mondial si tu le veux.',
+  'See what friends did': 'Vois ce que font tes amis',
+  'Share a pick you loved, react with a tap, keep a streak together. Friends only, and it ends: no endless scrolling.': 'Partage une idée que tu as adorée, réagis en un clic, tiens une série ensemble. Entre amis seulement, et le fil a une fin : pas de défilement infini.',
   'You’re invited to freetime': 'On t’invite sur freetime',
   'A friend wants to plan free time with you. Here is their friend tag:': 'Un ami veut organiser son temps libre avec toi. Voici son tag d’ami :',
   Copy: 'Copier',
@@ -124,6 +137,7 @@ function setLang(lang) {
     pic.querySelector('img').src = `img/app-${name}${fr}.webp`;
   }
   for (const img of document.querySelectorAll('img[data-night]')) img.src = `img/app-night${fr}.webp`;
+  for (const img of document.querySelectorAll('img[data-feat]')) img.src = `img/feat-${img.dataset.feat}${fr}.webp`;
   const btn = document.querySelector('.lang');
   if (btn) {
     btn.textContent = lang === 'fr' ? 'EN' : 'FR';

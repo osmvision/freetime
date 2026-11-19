@@ -438,3 +438,76 @@ details p { padding: 0 0 24px; color: var(--text-2); max-width: 62ch; }
 .invite-steps li + li {
   margin-top: 8px;
 }
+
+/* ---------------------------------------------------------------- features grid */
+
+.bento {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 20px;
+  margin-top: 44px;
+}
+
+.feat {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--coupon);
+  box-shadow: var(--shadow);
+}
+
+.feat img {
+  width: 100%;
+  background: var(--tint);
+  border-bottom: 2px dashed var(--perf);
+}
+
+.feat-wide {
+  grid-column: span 2;
+}
+
+.feat-full {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: 1.5fr 1fr;
+  align-items: center;
+}
+
+.feat-full img {
+  border-bottom: 0;
+  border-right: 2px dashed var(--perf);
+}
+
+.feat-text {
+  padding: 20px 24px 24px;
+}
+
+.feat-text h3 {
+  margin-bottom: 8px;
+  font-size: 30px;
+  font-weight: 800;
+}
+
+.feat-text p {
+  color: var(--text-2);
+  font-size: 17px;
+}
+
+@media (max-width: 900px) {
+  .bento {
+    grid-template-columns: 1fr;
+  }
+  .feat-wide,
+  .feat-full {
+    grid-column: auto;
+  }
+  .feat-full {
+    display: flex;
+  }
+  .feat-full img {
+    border-right: 0;
+    border-bottom: 2px dashed var(--perf);
+  }
+}

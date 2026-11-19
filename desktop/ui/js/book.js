@@ -173,7 +173,7 @@ export async function renderBook(box, ctx) {
           h('span', { class: 'book-big' }, String(b.stamped)),
           h('span', { class: 'book-of' }, `of ${b.total} ideas stamped`),
           meter(b.stamped, b.total, 'Ideas stamped'),
-          h('span', { class: 'mini-sub' }, b.games || b.videos || b.quizzes ? `Plus ${b.games} games, ${b.videos} videos and ${b.quizzes} quizzes` : 'Every idea you do gets stamped here.'),
+          h('span', { class: 'mini-sub' }, b.games || b.videos || b.quizzes ? `Plus ${b.games ?? 0} games, ${b.videos ?? 0} videos and ${b.quizzes ?? 0} quizzes` : 'Every idea you do gets stamped here.'),
         ),
         h('div', { class: 'book-side' }, dailyCard(b.daily, b.daily_done, async (c) => {
           await ctx.startIdea(c);
