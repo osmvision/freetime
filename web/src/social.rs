@@ -2,7 +2,7 @@ use crate::engine::arg;
 use anyhow::{bail, Context, Result};
 use freetime_core::{
     account::{Client, NewInvite, ProfileEdit},
-    history,
+    duel, history, quiz,
 };
 use serde_json::{json, Value};
 
@@ -86,6 +86,26 @@ pub fn invoke(cmd: &str, args: &Value, token: Option<&str>) -> Result<Value> {
         }
         "cancel_invite" => {
             client.cancel_invite(&session, arg(args, "id")?)?;
+            Value::Null
+        }
+        "meet_people" => json!({
+            "visible": client.my_ranking(&session)?.show_in_global,
+            "people": client.meet_people(&session)?,
+        }),
+        "request_friend" => json!(client.request_friend(&session, &text("userId")?)?),
+        "my_duels" => json!(client.my_duels(&session)?),
+        "create_duel" => json!(client.create_duel(&session, &text("friend")?)?),
+        "duel_questions" => json!(duel::questions(&quiz::load(), &text("id")?, &arg::<Vec<String>>(args, "questions")?)?),
+        "play_duel" => {
+            let (id, questions): (String, Vec<String>) = (text("id")?, arg(args, "questions")?);
+            let bank = quiz::load();
+            let sent = duel::bank_answers(&bank, &id, &questions, &arg::<Vec<usize>>(args, "answers")?)?;
+            let mut r = client.play_duel(&session, &id, &sent)?;
+            r.key = duel::questions(&bank, &id, &questions)?.iter().map(|q| q.answer).collect();
+            json!(r)
+        }
+        "drop_duel" => {
+            client.drop_duel(&session, &text("id")?)?;
             Value::Null
         }
         _ => bail!("Unknown web command"),

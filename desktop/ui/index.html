@@ -19,6 +19,9 @@
           <button class="nav-item" data-view="discover" aria-current="page" title="Discover (Alt+1)">
             <span data-icon="compass"></span><span class="nav-label">Discover</span>
           </button>
+          <button class="nav-item nav-games" data-view="games" title="Games (Alt+Q)">
+            <span data-icon="swords"></span><span class="nav-label">Games</span><span class="nav-dot" id="quiz-dot" hidden></span>
+          </button>
           <button class="nav-item" data-view="friends" title="Friends (Alt+2)">
             <span data-icon="users"></span><span class="nav-label">Friends</span><span class="nav-badge" id="invites-badge" hidden></span>
           </button>
@@ -41,6 +44,7 @@
 
       <main class="main" id="main">
         <section class="view" id="view-discover"></section>
+        <section class="view" id="view-games" hidden></section>
         <section class="view" id="view-friends" hidden></section>
         <section class="view wide" id="view-messages" hidden></section>
         <section class="view" id="view-history" hidden></section>

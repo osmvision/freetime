@@ -67,6 +67,7 @@ async function connectRealtime(session) {
       emit('message-new', { message, mine: message.sender === session.user.id });
     })
     .on('postgres_changes', { event: '*', schema: 'public', table: 'invites' }, () => emit('invites-changed', null))
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'duels' }, () => emit('duels-changed', null))
     .subscribe((status) => emit('live-status', status === 'SUBSCRIBED'));
 }
 

@@ -5626,6 +5626,594 @@ body[data-view="messages"] .assistant-panel {
   .check input { flex-shrink: 0; width: 20px; height: 20px; }
 }
 
+/* ---------------------------------------------------------------- today's quiz, front and centre (js/quiz.js) */
+
+/* the banner on Discover while the quiz waits; it shrinks into the strip once played */
+.quiz-banner {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 20px;
+  margin-bottom: 14px;
+  padding: 18px 22px;
+  overflow: hidden;
+  border-radius: var(--r-ticket);
+  background: var(--purple);
+  color: var(--on-purple);
+  box-shadow: var(--shadow);
+  cursor: pointer;
+  animation: issue 0.35s var(--ease) backwards;
+}
+
+/* a big question mark in the background, like a watermark on the ticket */
+.quiz-banner::after {
+  content: "?";
+  position: absolute;
+  right: 268px;
+  top: 50%;
+  transform: translateY(-50%) rotate(12deg);
+  color: color-mix(in srgb, var(--on-purple) 9%, transparent);
+  font: 800 190px/1 var(--display);
+  pointer-events: none;
+}
+
+.quiz-banner > * {
+  position: relative;
+  z-index: 1;
+}
+
+.quiz-banner-icon {
+  display: grid;
+  place-items: center;
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: var(--on-purple);
+  color: var(--purple);
+}
+
+.quiz-banner-icon .icon {
+  width: 30px;
+  height: 30px;
+}
+
+.quiz-banner-text {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.quiz-banner-k {
+  color: color-mix(in srgb, var(--on-purple) 78%, transparent);
+  font: 700 12px/1.2 var(--figures);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.quiz-banner strong {
+  font: 800 32px/1.05 var(--display);
+  text-transform: uppercase;
+}
+
+.quiz-banner-sub {
+  color: color-mix(in srgb, var(--on-purple) 85%, transparent);
+  font-size: 15px;
+}
+
+.quiz-topics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 6px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.quiz-topics li {
+  padding: 4px 10px 3px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--on-purple) 14%, transparent);
+  font: 700 12px/1.2 var(--figures);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.quiz-banner-side {
+  display: grid;
+  justify-items: end;
+  gap: 12px;
+  padding-left: 22px;
+  border-left: 2px dashed color-mix(in srgb, var(--on-purple) 32%, transparent);
+}
+
+.quiz-banner-streak {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font: 700 14px/1.2 var(--display);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.quiz-banner-streak .icon {
+  width: 17px;
+  height: 17px;
+}
+
+.quiz-banner .btn.primary {
+  min-height: 50px;
+  padding-inline: 22px;
+  font-size: 18px;
+}
+
+.quiz-banner:hover .btn.primary {
+  border-color: var(--red-press);
+  background: var(--red-press);
+}
+
+/* the strip without the quiz card: ticket of the day, challenge, book (narrower windows already
+   use two columns) */
+@container app-viewport (min-width: 1301px) {
+  .today.no-quiz {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) auto;
+  }
+}
+
+/* the menu tab: a dot while today's quiz waits */
+.nav-dot {
+  position: absolute;
+  top: 14px;
+  left: 30px;
+  width: 10px;
+  height: 10px;
+  border: 2px solid var(--navy);
+  border-radius: 50%;
+  background: var(--red);
+}
+
+.nav-dot[hidden] {
+  display: none;
+}
+
+@container app-viewport (max-width: 1100px) {
+  .nav-dot {
+    top: 6px;
+    left: calc(50% + 4px);
+  }
+}
+
+@container app-viewport (max-width: 760px) {
+  .quiz-banner {
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 14px 16px;
+    padding: 16px;
+  }
+
+  .quiz-banner::after {
+    right: 12px;
+    font-size: 150px;
+  }
+
+  .quiz-banner-icon {
+    width: 48px;
+    height: 48px;
+  }
+
+  .quiz-banner-icon .icon {
+    width: 24px;
+    height: 24px;
+  }
+
+  .quiz-banner strong {
+    font-size: 26px;
+  }
+
+  .quiz-banner-side {
+    grid-column: 1 / -1;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    padding: 14px 0 0;
+    border-left: 0;
+    border-top: 2px dashed color-mix(in srgb, var(--on-purple) 32%, transparent);
+  }
+
+  .quiz-banner-streak {
+    justify-self: start;
+    white-space: normal;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .quiz-banner {
+    animation: none;
+  }
+}
+
+/* ---------------------------------------------------------------- games: quiz duels (js/games.js) */
+
+.games-quiz {
+  margin-bottom: 22px;
+}
+
+.games-today {
+  grid-template-columns: minmax(0, 1fr);
+  margin-bottom: 0;
+}
+
+.duels {
+  margin-bottom: 22px;
+}
+
+.duels-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px 20px;
+  margin-bottom: 8px;
+}
+
+.duels-head .hint {
+  margin-bottom: 0;
+}
+
+.duel-group + .duel-group {
+  margin-top: 14px;
+}
+
+.duel-group-title {
+  margin: 12px 0 2px;
+  color: var(--purple);
+  font: 700 12px/1.2 var(--figures);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.duel-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.duel {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 0;
+  border-bottom: 1px dashed var(--line-soft);
+}
+
+.duel:last-child {
+  border-bottom: 0;
+}
+
+.duel-who {
+  overflow-wrap: anywhere;
+}
+
+.duel-who strong {
+  font-weight: 700;
+}
+
+.duel-your_turn {
+  margin: 0 -12px;
+  padding-inline: 12px;
+  border-radius: 10px;
+  background: var(--lavender);
+}
+
+.duel-declined,
+.duel-cancelled,
+.duel-expired {
+  opacity: 0.7;
+}
+
+.duel-when {
+  color: var(--text-3);
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.duel-verdict {
+  padding: 4px 10px 3px;
+  border-radius: 999px;
+  font: 700 13px/1.2 var(--display);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.duel-verdict.won {
+  background: var(--purple);
+  color: var(--on-purple);
+}
+
+.duel-verdict.lost {
+  background: var(--red-wash);
+  color: var(--red);
+}
+
+.duel-verdict.draw,
+.duel-verdict.off {
+  background: var(--wash);
+  color: var(--text-2);
+}
+
+.duels-empty {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  padding: 26px 12px 10px;
+  color: var(--text-2);
+  text-align: center;
+}
+
+.duels-empty > .icon {
+  width: 34px;
+  height: 34px;
+  color: var(--purple);
+}
+
+.duels-empty strong {
+  color: var(--text);
+  font: 800 22px/1.1 var(--display);
+  text-transform: uppercase;
+}
+
+.duels-empty .btn {
+  margin-top: 8px;
+}
+
+/* the duel window: a pick is marked, the answer stays secret until the end */
+.quiz-choice.picked {
+  border-color: var(--navy);
+  background: var(--wash);
+}
+
+.quiz-choice.picked .quiz-letter {
+  background: var(--navy);
+  color: #fff;
+}
+
+.quiz-choice.picked:disabled {
+  opacity: 1;
+}
+
+.quiz-dot.done {
+  background: var(--navy);
+}
+
+.duel-vs {
+  display: inline-flex;
+  gap: 8px;
+  margin: 0;
+  color: var(--text-2);
+  font-weight: 600;
+}
+
+.duel-review {
+  display: grid;
+  gap: 8px;
+  margin: 18px 0 4px;
+  padding: 0;
+  list-style: none;
+  text-align: left;
+}
+
+.duel-review li {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr);
+  gap: 2px 10px;
+  font-size: 15px;
+}
+
+.duel-review .icon {
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+}
+
+.duel-review .right .icon {
+  color: var(--purple);
+}
+
+.duel-review .wrong .icon {
+  color: var(--red);
+}
+
+.duel-answer {
+  grid-column: 2;
+  color: var(--text-3);
+  font-size: 14px;
+}
+
+.pick-friend .quiz-body {
+  max-height: min(60vh, 520px);
+  overflow-y: auto;
+}
+
+/* what comes next */
+.soon {
+  padding: 18px 22px;
+  border: 2px dashed var(--lavender-line);
+  border-radius: var(--r-ticket);
+}
+
+.soon h2 {
+  margin: 0 0 4px;
+  font: 800 22px/1 var(--display);
+  text-transform: uppercase;
+}
+
+.soon .hint {
+  margin: 0 0 12px;
+}
+
+.soon-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.soon-list li {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 12px;
+  border-radius: 999px;
+  background: var(--lavender);
+  color: var(--purple);
+  font: 700 14px/1.2 var(--display);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.soon-list .icon {
+  width: 16px;
+  height: 16px;
+}
+
+/* ---------------------------------------------------------------- meet (js/meet.js) */
+
+.meet-hidden {
+  border: 2px solid var(--purple);
+}
+
+.meet-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 14px;
+  margin: 14px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.meet-card {
+  display: grid;
+  grid-template-rows: 1fr auto;
+  gap: 12px;
+  padding: 16px 14px 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--coupon);
+  text-align: center;
+}
+
+.meet-who {
+  display: grid;
+  justify-items: center;
+  align-content: start;
+  gap: 6px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.meet-who .avatar.lg {
+  margin-bottom: 4px;
+}
+
+.meet-who strong {
+  max-width: 100%;
+  overflow: hidden;
+  font: 800 20px/1.1 var(--display);
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.meet-who:hover strong {
+  color: var(--purple);
+}
+
+.meet-facts {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px 10px;
+  color: var(--text-2);
+  font-size: 13px;
+}
+
+.meet-new {
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--red);
+  color: var(--on-red);
+  font: 700 11px/1.5 var(--figures);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.meet-asked {
+  color: var(--purple);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.meet-action {
+  display: flex;
+  justify-content: center;
+}
+
+.meet-sent {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  color: var(--text-3);
+  font: 700 14px/1.2 var(--display);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.meet-sent .icon {
+  width: 16px;
+  height: 16px;
+}
+
+.no-friends {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 16px;
+}
+
+.no-friends .hint {
+  flex: 1 1 260px;
+  margin: 0;
+}
+
+@container app-viewport (max-width: 600px) {
+  .duel {
+    grid-template-columns: 44px minmax(0, 1fr);
+  }
+
+  .duel > .duel-when,
+  .duel > .duel-verdict {
+    grid-column: 2;
+    justify-self: start;
+  }
+
+  .duel > .person-actions {
+    grid-column: 1 / -1;
+    justify-content: flex-end;
+  }
+
+  .meet-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+}
+
 /* ---------------------------------------------------------------- report a problem, and the admins' tickets */
 
 .problem-form {

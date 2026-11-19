@@ -9,7 +9,7 @@ import { currentLang, locale, t } from './i18n.js';
 import { photoFor } from './photos.js';
 
 const SITE = 'osmvision.github.io/freetime';
-const INVITE = (tag) => `https://${SITE}/invite.html?tag=${encodeURIComponent(tag)}`;
+export const INVITE = (tag) => `https://${SITE}/invite.html?tag=${encodeURIComponent(tag)}`;
 
 const C = {
   navy: '#0d1b3d',
@@ -320,7 +320,7 @@ async function drawTicket(c, tag) {
 
 // ---------------------------------------------------------------- the share window
 
-async function myTag() {
+export async function myTag() {
   try {
     const a = await api.account();
     return a?.signed_in ? (a.profile?.friend_tag ?? null) : null;

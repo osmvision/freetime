@@ -4,6 +4,7 @@
 mod assistant;
 mod book;
 mod commands;
+mod duels;
 mod feed;
 mod quiz;
 mod ranked;
@@ -67,6 +68,13 @@ fn main() {
             ranked::ranked_overview,
             ranked::player_card,
             ranked::set_global_ranking,
+            duels::meet_people,
+            duels::request_friend,
+            duels::my_duels,
+            duels::create_duel,
+            duels::duel_questions,
+            duels::play_duel,
+            duels::drop_duel,
             feed::friend_feed,
             feed::share_post,
             feed::delete_post,

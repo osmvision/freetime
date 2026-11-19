@@ -54,6 +54,14 @@ export const api = {
   playerCard: (userId) => invoke('player_card', { userId }),
   setGlobalRanking: (enabled) => invoke('set_global_ranking', { enabled }),
   syncPoints: () => invoke('sync_points'),
+  // Meet (people who chose to be visible) and quiz duels with friends.
+  meetPeople: () => invoke('meet_people'),
+  requestFriend: (userId) => invoke('request_friend', { userId }),
+  myDuels: () => invoke('my_duels'),
+  createDuel: (friend) => invoke('create_duel', { friend }),
+  duelQuestions: (id, questions) => invoke('duel_questions', { id, questions }),
+  playDuel: (id, questions, answers) => invoke('play_duel', { id, questions, answers }),
+  dropDuel: (id) => invoke('drop_duel', { id }),
   // Friends' feed and social settings.
   friendFeed: () => invoke('friend_feed'),
   sharePost: (post) => invoke('share_post', { post }),

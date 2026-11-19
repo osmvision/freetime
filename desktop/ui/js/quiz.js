@@ -15,6 +15,74 @@ function pick(q) {
   return { text: fr ? q.fr : q.en, choices: fr ? q.fr_choices : q.en_choices, why: fr ? q.fr_why : q.en_why };
 }
 
+/** Topic names, in the app's language (the i18n dictionary would turn "History" into the tab name). */
+const TOPICS = {
+  art: ['Art', 'Art'],
+  food: ['Food', 'Cuisine'],
+  games: ['Games', 'Jeux'],
+  geography: ['Geography', 'Géographie'],
+  history: ['History', 'Histoire'],
+  life: ['Everyday life', 'Vie quotidienne'],
+  logic: ['Logic', 'Logique'],
+  nature: ['Nature', 'Nature'],
+  science: ['Science', 'Sciences'],
+  space: ['Space', 'Espace'],
+  sport: ['Sport', 'Sport'],
+  words: ['Words', 'Mots'],
+};
+
+function topicName(t) {
+  const names = TOPICS[t];
+  if (!names) return t;
+  return currentLang() === 'fr' ? names[1] : names[0];
+}
+
+/** The Games menu dot: on while today's quiz waits or a duel is your turn. */
+const waiting = { quiz: false, duels: 0 };
+
+function showDot() {
+  const dot = document.getElementById('quiz-dot');
+  if (dot) dot.hidden = !(waiting.quiz || waiting.duels > 0);
+}
+
+export function setQuizDot(pending) {
+  waiting.quiz = pending;
+  showDot();
+}
+
+/** How many duels wait for you. */
+export function setDuelDot(count) {
+  waiting.duels = count;
+  showDot();
+}
+
+/** The big banner on Discover while today's quiz is waiting. Once played, the small card takes over. */
+export function quizBanner(data, onOpen) {
+  if (!data || data.result) return null;
+  const topics = [...new Set(data.questions.map((q) => q.topic))];
+  const streak =
+    data.streak >= 2 ? `Keep your ${data.streak}-day streak` : data.streak === 1 ? 'Played yesterday: keep it going' : 'Start a streak today';
+  return h(
+    'section',
+    { class: 'quiz-banner', 'aria-label': 'Quiz of the day', onclick: (e) => !e.target.closest('button') && onOpen() },
+    h('span', { class: 'quiz-banner-icon' }, icon('graduation-cap')),
+    h(
+      'div',
+      { class: 'quiz-banner-text' },
+      h('span', { class: 'quiz-banner-k' }, 'Quiz of the day'),
+      h('strong', {}, '5 questions · 2 min'),
+      h('span', { class: 'quiz-banner-sub' }, 'The same for everyone today. 1 ranking point per right answer.'),
+      h('ul', { class: 'quiz-topics', translate: 'no', 'aria-label': 'Topics' }, topics.map((t) => h('li', {}, topicName(t)))),
+    ),
+    h(
+      'div',
+      { class: 'quiz-banner-side' },
+      h('span', { class: 'quiz-banner-streak' }, icon('flame'), streak),
+      btn({ label: 'Play the quiz', icon: 'play', kind: 'primary', onclick: onOpen }),
+    ),
+  );
+}
+
 /** The small ticket on Discover and in the book. */
 export function quizCard(data, onOpen) {
   if (!data) return null;
@@ -48,9 +116,10 @@ export async function openBonus() {
   openQuiz({ questions: list.map((q) => ({ ...q, bonus: true })) }, () => {}, { bonus: true });
 }
 
-/** Opens the quiz. `onDone(result)` runs after the score is saved. */
-export function openQuiz(data, onDone = () => {}, { bonus = false } = {}) {
-  if (data.result && !bonus) return;
+/** Opens the quiz, or today's score if it's already played. `onDone(result)` runs after the
+ *  score is saved; the "quiz-done" event tells the rest of the app. With `duel`, it's one side of a
+ *  quiz duel: answers aren't revealed until the end, and the server scores them. */
+export function openQuiz(data, onDone = () => {}, { bonus = false, duel = null } = {}) {
   const answers = [];
   let i = 0;
   const previousFocus = document.activeElement;
@@ -64,7 +133,7 @@ export function openQuiz(data, onDone = () => {}, { bonus = false } = {}) {
     h(
       'div',
       { class: 'coupon-head' },
-      h('span', {}, bonus ? 'Bonus quiz · in English' : 'Quiz of the day'),
+      duel ? h('span', {}, h('span', {}, 'Quiz duel vs'), ' ', h('span', { translate: 'no' }, duel.other)) : h('span', {}, bonus ? 'Bonus quiz · in English' : 'Quiz of the day'),
       h('span', { class: 'quiz-head-end' }, counter, h('button', { type: 'button', class: 'quiz-close', 'aria-label': 'Close the quiz', onclick: close }, icon('x'))),
     ),
     dots,
@@ -76,6 +145,7 @@ export function openQuiz(data, onDone = () => {}, { bonus = false } = {}) {
     backdrop.remove();
     document.removeEventListener('keydown', onKey);
     previousFocus?.focus?.();
+    duel?.onClose?.();
   }
 
   function onKey(e) {
@@ -105,6 +175,7 @@ export function openQuiz(data, onDone = () => {}, { bonus = false } = {}) {
 
     function answer(k) {
       answers.push(k);
+      if (duel) return answerDuel(k);
       const right = k === q.answer;
       for (const [n, b] of choices.entries()) {
         b.disabled = true;
@@ -125,10 +196,31 @@ export function openQuiz(data, onDone = () => {}, { bonus = false } = {}) {
       next.replaceChildren(go);
       go.focus();
     }
+
+    /** In a duel the answer stays secret until the end: mark the pick and move on. */
+    function answerDuel(k) {
+      for (const [n, b] of choices.entries()) {
+        b.disabled = true;
+        if (n === k) b.classList.add('picked');
+      }
+      const dot = dots.children[i];
+      dot.classList.remove('current');
+      dot.classList.add('done');
+      const last = i === data.questions.length - 1;
+      setTimeout(() => {
+        if (!backdrop.isConnected) return;
+        if (last) finish();
+        else {
+          i += 1;
+          showQuestion();
+        }
+      }, reducedMotion() ? 0 : 450);
+    }
   }
 
   async function finish() {
     if (bonus) return finishBonus();
+    if (duel) return finishDuel();
     let r;
     try {
       r = await api.finishQuiz(answers);
@@ -137,8 +229,23 @@ export function openQuiz(data, onDone = () => {}, { bonus = false } = {}) {
       toast(errText(e), 'error');
       return;
     }
+    showEnd(r, true);
+    setQuizDot(false);
+    document.dispatchEvent(new CustomEvent('quiz-done', { detail: r }));
+    onDone(r);
+  }
+
+  /** The score screen: right after the last answer (`fresh`), or when reopening a played quiz. */
+  function showEnd(r, fresh) {
     counter.textContent = '';
-    const message = r.score === r.total ? 'Perfect score!' : r.score >= 3 ? 'Well played!' : 'Good try. A new quiz tomorrow!';
+    dots.hidden = !fresh;
+    const message = !fresh
+      ? 'Done for today!'
+      : r.score === r.total
+        ? 'Perfect score!'
+        : r.score >= 3
+          ? 'Well played!'
+          : 'Good try. A new quiz tomorrow!';
     body.replaceChildren(
       h(
         'div',
@@ -146,7 +253,7 @@ export function openQuiz(data, onDone = () => {}, { bonus = false } = {}) {
         h('div', { class: 'quiz-score' }, h('span', { class: 'quiz-big' }, String(r.score)), h('span', { class: 'quiz-of' }, `/${r.total}`)),
         h('p', { class: 'quiz-message' }, message),
         r.streak >= 2 ? h('p', { class: 'quiz-streak' }, icon('flame'), `${r.streak} days in a row`) : null,
-        h('p', { class: 'mini-sub' }, 'Counted as a Learn pick: it helps your weekly challenge and badges.'),
+        h('p', { class: 'mini-sub' }, fresh ? 'Counted as a Learn pick: it helps your weekly challenge and badges.' : 'A new quiz tomorrow'),
         h(
           'div',
           { class: 'quiz-end-actions' },
@@ -166,11 +273,72 @@ export function openQuiz(data, onDone = () => {}, { bonus = false } = {}) {
             },
           }),
         ),
-        h('div', { class: `stamp validated${reducedMotion() ? ' still' : ''}`, 'aria-hidden': 'true' }, 'Stamped'),
+        h('div', { class: `stamp validated${!fresh || reducedMotion() ? ' still' : ''}`, 'aria-hidden': 'true' }, 'Stamped'),
       ),
     );
     body.querySelector('.btn').focus();
-    onDone(r);
+  }
+
+  /** A duel: the server scores it. Shows each answer, and who won if the other already played. */
+  async function finishDuel() {
+    counter.textContent = '';
+    fill(body, h('div', { class: 'quiz-end' }, h('p', { class: 'quiz-message' }, 'Checking your answers…')));
+    let r;
+    try {
+      r = await api.playDuel(duel.id, duel.ids, answers);
+    } catch (e) {
+      fill(
+        body,
+        h(
+          'div',
+          { class: 'quiz-end' },
+          h('p', { class: 'quiz-message' }, 'Your answers didn’t go through'),
+          h('p', { class: 'mini-sub' }, errText(e)),
+          h('div', { class: 'quiz-end-actions' }, btn({ label: 'Try again', icon: 'refresh-cw', kind: 'primary', onclick: finishDuel }), btn({ label: 'Close', onclick: close })),
+        ),
+      );
+      return;
+    }
+    for (const [n, dot] of [...dots.children].entries()) {
+      dot.classList.remove('done');
+      dot.classList.add(answers[n] === r.key[n] ? 'right' : 'wrong');
+    }
+    const other = h('span', { translate: 'no' }, duel.other);
+    let outcome;
+    if (r.other_score == null) {
+      outcome = h('p', { class: 'mini-sub' }, h('span', {}, 'Now it’s up to'), ' ', other, '. ', h('span', {}, 'You’ll see who won when they play.'));
+    } else {
+      const text = r.score > r.other_score ? 'You won!' : r.score < r.other_score ? 'You lost this one' : 'Draw!';
+      outcome = h('div', {}, h('p', { class: 'quiz-message' }, text), h('p', { class: 'duel-vs' }, other, ' ', h('span', { class: 'figures' }, `${r.other_score}/5`)));
+    }
+    const review = h(
+      'ol',
+      { class: 'duel-review' },
+      data.questions.map((q, n) => {
+        const t = pick(q);
+        const right = answers[n] === r.key[n];
+        return h(
+          'li',
+          { class: right ? 'right' : 'wrong' },
+          icon(right ? 'check' : 'x'),
+          h('span', { translate: 'no' }, t.text),
+          right ? null : h('span', { class: 'duel-answer' }, h('span', {}, 'Answer: '), h('span', { translate: 'no' }, t.choices[r.key[n]])),
+        );
+      }),
+    );
+    fill(
+      body,
+      h(
+        'div',
+        { class: 'quiz-end' },
+        h('div', { class: 'quiz-score' }, h('span', { class: 'quiz-big' }, String(r.score)), h('span', { class: 'quiz-of' }, '/5')),
+        outcome,
+        review,
+        h('div', { class: 'quiz-end-actions' }, btn({ label: 'Close', kind: 'primary', onclick: close })),
+      ),
+    );
+    body.querySelector('.btn').focus();
+    document.dispatchEvent(new CustomEvent('duel-played'));
   }
 
   /** Bonus round: scored here, saved nowhere, with the credit Open Trivia DB's license asks for. */
@@ -204,5 +372,6 @@ export function openQuiz(data, onDone = () => {}, { bonus = false } = {}) {
 
   document.body.append(backdrop);
   document.addEventListener('keydown', onKey);
-  showQuestion();
+  if (data.result && !bonus) showEnd({ ...data.result, streak: data.streak }, false);
+  else showQuestion();
 }

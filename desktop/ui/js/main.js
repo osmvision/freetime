@@ -15,12 +15,14 @@ import { initViewport } from './viewport.js';
 import { assistantAccountChanged, assistantSettingsChanged, mountAssistant } from './assistant.js';
 import { watchUpdates } from './updates.js';
 import * as ticketsView from './tickets.js';
+import * as gamesView from './games.js';
 
 initDisplay();
 initViewport();
 
 const views = {
   discover: document.getElementById('view-discover'),
+  games: document.getElementById('view-games'),
   friends: document.getElementById('view-friends'),
   messages: document.getElementById('view-messages'),
   history: document.getElementById('view-history'),
@@ -44,6 +46,7 @@ const ctx = {
     renderMe();
     assistantAccountChanged();
     refreshAdmin();
+    gamesView.refreshDuelDot();
   },
   isLive: () => live,
   openChat: (friendId) => goto('messages', { friend: friendId }),
@@ -85,6 +88,7 @@ function goto(view, options = {}) {
     else button.removeAttribute('aria-current');
   }
   main.scrollTop = 0;
+  if (view === 'games') gamesView.render(views.games, ctx);
   if (view === 'friends') friendsView.render(views.friends, ctx, options);
   if (view === 'messages') messagesView.render(views.messages, ctx, options);
   if (view === 'history') historyView.render(views.history, ctx, options);
@@ -92,13 +96,18 @@ function goto(view, options = {}) {
   if (view === 'tickets') ticketsView.render(views.tickets, ctx);
 }
 
-for (const button of document.querySelectorAll('.nav-item')) {
+for (const button of document.querySelectorAll('.nav-item[data-view]')) {
   button.addEventListener('click', () => goto(button.dataset.view));
 }
 
-// Alt+1 to Alt+5 switch screens.
+// Alt+1 to Alt+5 switch screens, Alt+Q opens Games.
 document.addEventListener('keydown', (e) => {
   if (!e.altKey || e.ctrlKey || e.metaKey) return;
+  if (e.key.toLowerCase() === 'q' && !document.querySelector('.quiz-backdrop')) {
+    e.preventDefault();
+    goto('games');
+    return;
+  }
   const view = { 1: 'discover', 2: 'friends', 3: 'messages', 4: 'history', 5: 'settings' }[e.key];
   if (view) {
     e.preventDefault();
@@ -253,6 +262,11 @@ async function start() {
   });
   await listen('invites-updated', (n) => ctx.setInvites(n));
   await listen('friend-free-changed', () => discover.friendFreeChanged());
+  // Quiz duels: a friend challenged you or played their side.
+  gamesView.refreshDuelDot();
+  const duelsChanged = () => (views.games.hidden ? gamesView.refreshDuelDot() : gamesView.render(views.games, ctx));
+  await listen('duels-changed', duelsChanged);
+  document.addEventListener('duel-played', () => gamesView.refreshDuelDot());
   await watchUpdates();
   await listen('online-updated', (online) => {
     renderTags(online);
