@@ -14,6 +14,7 @@ import { initDisplay } from './display.js';
 import { initViewport } from './viewport.js';
 import { assistantAccountChanged, assistantSettingsChanged, mountAssistant } from './assistant.js';
 import { watchUpdates } from './updates.js';
+import { openTodayQuiz } from './quiz.js';
 
 initDisplay();
 initViewport();
@@ -81,13 +82,19 @@ function goto(view, options = {}) {
   if (view === 'settings') settingsView.render(views.settings, ctx, options);
 }
 
-for (const button of document.querySelectorAll('.nav-item')) {
+for (const button of document.querySelectorAll('.nav-item[data-view]')) {
   button.addEventListener('click', () => goto(button.dataset.view));
 }
+document.getElementById('nav-quiz').addEventListener('click', openTodayQuiz);
 
-// Alt+1 to Alt+5 switch screens.
+// Alt+1 to Alt+5 switch screens, Alt+Q opens today's quiz.
 document.addEventListener('keydown', (e) => {
   if (!e.altKey || e.ctrlKey || e.metaKey) return;
+  if (e.key.toLowerCase() === 'q' && !document.querySelector('.quiz-backdrop')) {
+    e.preventDefault();
+    openTodayQuiz();
+    return;
+  }
   const view = { 1: 'discover', 2: 'friends', 3: 'messages', 4: 'history', 5: 'settings' }[e.key];
   if (view) {
     e.preventDefault();
