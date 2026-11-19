@@ -2,6 +2,7 @@
 // Signing in is the only thing here that touches the network, and only when clicked.
 
 import { api } from './api.js';
+import { forgetAssistantChat } from './assistant.js';
 import { AVATAR_COLORS, AVATAR_ICONS, avatar } from './avatars.js';
 import { btn, errText, fill, h, icon, toast } from './dom.js';
 
@@ -242,6 +243,7 @@ function yourData(box, onChange) {
       really.disabled = true;
       try {
         await api.deleteMyAccount();
+        forgetAssistantChat();
         toast('Your online account is deleted', 'ok', 6000);
         profileSection(box, onChange);
         onChange();

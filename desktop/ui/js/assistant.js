@@ -9,7 +9,11 @@ import { api, listen } from './api.js';
 import { currentLang, t } from './i18n.js';
 import { categoryIcon, errText, fill, h, icon, toast } from './dom.js';
 
-const STORE = 'freetime.assistant.v1';
+// One conversation per account (`<prefix><account id>`), and one for when nobody is signed in.
+const STORE_PREFIX = 'freetime.assistant.v2.';
+const STORE_SIGNED_OUT = `${STORE_PREFIX}local`;
+// Before v2, one conversation was shared by everyone on the PC: it is deleted, not handed to anyone.
+const OLD_STORE = 'freetime.assistant.v1';
 const CONSENT = 'freetime.assistant.consent';
 const MOOD_KEY = 'freetime.mood.v2';
 const KEEP = 60;
@@ -23,7 +27,8 @@ const STARTERS = [
 
 const state = {
   open: false,
-  messages: load(),
+  /** Filled once the status says whose conversation it is. */
+  messages: [],
   /** The id of the answer being streamed, or null. */
   busy: null,
   /** { ready, key_set, key_from_env, model, signed_in, free, free_error } once asked. */
@@ -38,9 +43,13 @@ let frame = 0;
 
 // ---------------------------------------------------------------- storage
 
+/** Where the current account's conversation is kept; null until the status is known. */
+let storeKey = null;
+
 function load() {
+  if (!storeKey) return [];
   try {
-    const saved = JSON.parse(localStorage.getItem(STORE) ?? '[]');
+    const saved = JSON.parse(localStorage.getItem(storeKey) ?? '[]');
     return Array.isArray(saved) ? saved.filter((m) => m && (m.role === 'user' || m.role === 'assistant')) : [];
   } catch {
     return [];
@@ -48,10 +57,21 @@ function load() {
 }
 
 function save() {
+  if (!storeKey) return;
   try {
     const kept = state.messages.filter((m) => !m.pending).slice(-KEEP);
-    localStorage.setItem(STORE, JSON.stringify(kept));
+    localStorage.setItem(storeKey, JSON.stringify(kept));
   } catch {}
+}
+
+/** Shows the conversation of whoever is signed in now (or the signed-out one). */
+function useAccount(account) {
+  const key = account ? `${STORE_PREFIX}${account}` : STORE_SIGNED_OUT;
+  if (key === storeKey) return;
+  // An answer still coming belongs to the previous account: stop it, it won't be shown here.
+  if (state.busy) api.assistantStop(state.busy).catch(() => {});
+  storeKey = key;
+  state.messages = load();
 }
 
 function consented() {
@@ -464,6 +484,7 @@ async function refreshStatus() {
   } catch {
     state.status = { ready: false, key_set: false, signed_in: false, model: '' };
   }
+  useAccount(state.status.account ?? null);
   if (state.open) drawLog();
 }
 
@@ -488,6 +509,9 @@ function setOpen(open) {
 
 /** Adds the bubble and the panel to the app. `context.goto` opens a screen. */
 export function mountAssistant(context) {
+  try {
+    localStorage.removeItem(OLD_STORE);
+  } catch {}
   ctx = context;
   const app = document.querySelector('.app');
   const fab = h('button', { type: 'button', class: 'assistant-fab', 'aria-controls': 'assistant-panel', 'aria-expanded': 'false' });
@@ -561,6 +585,23 @@ export function mountAssistant(context) {
   app.append(fab, panel);
   setOpen(false);
   refreshStatus();
+}
+
+/** Signed in, signed out or switched accounts: show the right conversation. */
+export function assistantAccountChanged() {
+  if (els) refreshStatus();
+}
+
+/** The account was deleted: its conversation on this PC goes too. */
+export function forgetAssistantChat() {
+  if (storeKey && storeKey !== STORE_SIGNED_OUT) {
+    try {
+      localStorage.removeItem(storeKey);
+    } catch {}
+  }
+  storeKey = null;
+  state.messages = [];
+  if (els && state.open) drawLog();
 }
 
 /** Settings were saved: the key or the model may have changed. */

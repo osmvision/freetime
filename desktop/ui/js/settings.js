@@ -344,19 +344,15 @@ function steamSection(s, form, ctx, root) {
 }
 
 function youtubeSection(s, form) {
-  const channelCount = s.channels.length;
-  const status = s.youtube_key_set
-    ? 'API connected'
-    : channelCount
-      ? `${channelCount} channel${channelCount > 1 ? 's' : ''}`
-      : 'Not connected';
+  // Searches on your interests work without a key, through freetime's shared search.
   return section(
     'circle-play',
     'YouTube',
     'Real videos that fit your free time, from your interests and the channels you follow.',
-    pill(s.youtube_key_set || channelCount > 0, status),
+    pill(true, s.youtube_key_set ? 'Your own key' : 'Connected'),
+    h('span', { class: 'hint' }, 'Nothing to set up: videos for your interests come from freetime’s shared search, refreshed every few hours.'),
     keyField({
-      label: 'Data API key',
+      label: 'Your own Data API key (optional)',
       isSet: s.youtube_key_set,
       fromEnv: s.youtube_key_from_env,
       envName: 'YOUTUBE_API_KEY',
@@ -364,6 +360,7 @@ function youtubeSection(s, form) {
       onInput: (v) => (form.youtube_key = v),
       onClear: (v) => (form.clear_youtube_key = v),
     }),
+    h('span', { class: 'hint' }, 'Only useful if the shared search runs out for the day: your key searches with your own quota.'),
     labeled(
       'Channels you follow (no key needed)',
       tagInput(form.channels, 'Channel ID (starts with UC…), press Enter'),

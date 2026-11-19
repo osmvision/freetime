@@ -660,3 +660,39 @@ test('ranked: export includes points and stats; deleting the account deletes the
     assert.equal((await db.query('select count(*)::int as n from public.player_stats where user_id = $1', [ALICE])).rows[0].n, 0);
   });
 });
+
+test('YouTube search cache and quota: only the Edge Function (service role) reaches them', async () => {
+  await withPeople(async ({ step }) => {
+    for (const user of [null, ALICE]) {
+      await step(user, async (q) => {
+        await fails(q.rows('select * from public.youtube_cache_get($1)', ['chess']), /permission denied/);
+      });
+      await step(user, async (q) => {
+        await fails(q.one("select public.youtube_cache_put($1, '[]'::jsonb)", ['chess']), /permission denied/);
+      });
+      await step(user, async (q) => {
+        await fails(q.one('select public.youtube_take_search(1000)'), /permission denied/);
+      });
+      await step(user, async (q) => {
+        await fails(q.rows('select * from private.youtube_searches'), /permission denied/);
+      });
+    }
+  });
+});
+
+test('YouTube search quota: stops at the daily cap; the cache keeps the latest results', async () => {
+  await db.exec('begin');
+  try {
+    await db.exec('set local role service_role');
+    const take = async () => (await db.query('select public.youtube_take_search(2) as ok')).rows[0].ok;
+    assert.deepEqual([await take(), await take(), await take()], [true, true, false]);
+
+    await db.query(`select public.youtube_cache_put('chess', '[{"id":"a"}]'::jsonb)`);
+    await db.query(`select public.youtube_cache_put('chess', '[{"id":"b"}]'::jsonb)`);
+    const rows = (await db.query(`select items from public.youtube_cache_get('chess')`)).rows;
+    assert.deepEqual(rows.map((r) => r.items), [[{ id: 'b' }]]);
+    assert.equal((await db.query(`select * from public.youtube_cache_get('go')`)).rows.length, 0);
+  } finally {
+    await db.exec('rollback');
+  }
+});

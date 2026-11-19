@@ -25,7 +25,8 @@ To work, the app contacts these services, and only for what you see on screen:
 | Steam store | Store picks and prices | Your country code |
 | Epic Games Store | This week's free games | Your country code |
 | Open Trivia Database | The bonus quiz (English), only when you open it | Nothing about you: a plain request for 5 questions |
-| YouTube (RSS) | Video picks | The channels and topics in your settings |
+| YouTube (RSS) | Video picks | The channels in your settings |
+| freetime's YouTube search (Supabase) | Videos for your interests | Your interests, one at a time, with no account or ID. Results are shared by everyone who likes the same topic |
 | GitHub | Checking for a new version (Settings → Updates, can be turned off) | Nothing about you: a plain download of the version list |
 | Steam on your PC | "Import my games", only when you click it | Read locally: your game list and playtime. No login data |
 | Mistral AI | The assistant with your own API key, only when you write to it | Your messages and a short context: the date, the weather, what you set on Discover, your interests, the ideas on screen and your last few picks |

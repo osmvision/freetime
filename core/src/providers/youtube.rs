@@ -1,6 +1,8 @@
 //! YouTube, best source first:
-//! 1. with a YOUTUBE_API_KEY: Data API search on your interests (videos that fit your time),
-//! 2. without a key: the latest uploads of channels picked per idea category (public RSS feeds),
+//! 1. a search on your interests (videos that fit your time): through freetime's search proxy
+//!    (the `youtube-search` Edge Function, which holds the key), or straight to the Data API
+//!    with your own YOUTUBE_API_KEY if you set one,
+//! 2. the latest uploads of channels picked per idea category (public RSS feeds, no key),
 //! 3. offline: search links, as a last resort (see `crate::candidates`).
 
 use super::Note;
@@ -26,11 +28,12 @@ const DEFAULT_CHANNELS: &str = include_str!("../../data/youtube_channels.toml");
 
 pub fn suggestions(net: &dyn Net, cfg: &Config, keys: &Keys, notes: &mut Vec<Note>) -> Vec<Suggestion> {
     let mut out = Vec::new();
-    if let Some(key) = &keys.youtube {
-        match api_cached(net, key.value(), &cfg.interests) {
-            Ok(v) => out.extend(v),
-            Err(e) => notes.push(Note::problem(format!("YouTube API unavailable ({e})."))),
-        }
+    let own_key = keys.youtube.as_ref().map(|k| k.value());
+    match search_cached(net, own_key, &cfg.interests) {
+        Ok(v) => out.extend(v),
+        Err(e) if own_key.is_some() => notes.push(Note::problem(format!("YouTube API unavailable ({e})."))),
+        // The shared search is a bonus (it may be out of quota for today): the channel feeds still fill in.
+        Err(_) => {}
     }
 
     let mut channels = channel_config();
@@ -301,38 +304,99 @@ fn channel_video(v: &FeedVideo, category: Category, now: i64) -> Suggestion {
     }
 }
 
-// ---------------------------------------------------------------- Data API (with a key)
+// ---------------------------------------------------------------- search on your interests
+
+/// freetime's search proxy: one topic per call, results shared by everyone (see
+/// `supabase/functions/youtube-search`).
+pub fn proxy_url() -> String {
+    format!("{}/functions/v1/youtube-search", crate::account::PROJECT_URL)
+}
+
+/// A search result, before it becomes a suggestion. Also the proxy's reply format.
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+struct Found {
+    id: String,
+    title: String,
+    channel: String,
+    seconds: u32,
+    views: u64,
+    likes: u64,
+}
 
 #[derive(Serialize, Deserialize)]
 struct ApiCache {
     ts: i64,
     interests: Vec<String>,
+    /// Results from your own key or from the proxy: switching source starts over.
+    #[serde(default)]
+    own_key: bool,
     items: Vec<Suggestion>,
 }
 
-fn api_cached(net: &dyn Net, key: &str, interests: &[String]) -> Result<Vec<Suggestion>> {
+fn search_cached(net: &dyn Net, own_key: Option<&str>, interests: &[String]) -> Result<Vec<Suggestion>> {
     let path = config::data_dir().join("youtube_cache.json");
     let now = Utc::now().timestamp();
     let cached: Option<ApiCache> = fs::read_to_string(&path).ok().and_then(|s| serde_json::from_str(&s).ok());
     if let Some(c) = cached {
-        if c.interests == interests && now - c.ts < API_CACHE_SECS {
+        if c.interests == interests && c.own_key == own_key.is_some() && now - c.ts < API_CACHE_SECS {
             return Ok(c.items);
         }
     }
-    let items = api(net, key, interests)?;
-    let _ = fs::create_dir_all(config::data_dir());
-    let cache = ApiCache { ts: now, interests: interests.to_vec(), items: items.clone() };
-    if let Ok(json) = serde_json::to_string(&cache) {
-        let _ = fs::write(&path, json);
+    let (items, complete) = search(net, own_key, interests)?;
+    // A topic that failed (proxy out of quota for today) is tried again next time, not in 6 hours.
+    if complete {
+        let _ = fs::create_dir_all(config::data_dir());
+        let cache = ApiCache { ts: now, interests: interests.to_vec(), own_key: own_key.is_some(), items: items.clone() };
+        if let Ok(json) = serde_json::to_string(&cache) {
+            let _ = fs::write(&path, json);
+        }
     }
     Ok(items)
 }
 
-fn api(net: &dyn Net, key: &str, interests: &[String]) -> Result<Vec<Suggestion>> {
+/// Videos for your first interests, and whether every topic answered.
+fn search(net: &dyn Net, own_key: Option<&str>, interests: &[String]) -> Result<(Vec<Suggestion>, bool)> {
+    let topics: Vec<&String> = interests.iter().filter(|i| !i.trim().is_empty()).take(MAX_INTERESTS).collect();
+    let (found, complete) = match own_key {
+        Some(key) => (api(net, key, &topics)?, true),
+        None => proxy(net, &topics)?,
+    };
+    Ok((to_suggestions(found), complete))
+}
+
+/// Each topic through the proxy. Fails only if no topic answered.
+fn proxy(net: &dyn Net, topics: &[&String]) -> Result<(Vec<(Found, String)>, bool)> {
+    #[derive(Deserialize)]
+    struct Reply {
+        items: Vec<Found>,
+    }
+    let url = proxy_url();
+    let mut found: Vec<(Found, String)> = Vec::new();
+    let mut last_error = None;
+    for topic in topics {
+        match net::get_json::<Reply>(net, &url, &[("q", topic.as_str())]) {
+            Ok(reply) => {
+                for f in reply.items {
+                    if !found.iter().any(|(g, _)| g.id == f.id) {
+                        found.push((f, (*topic).clone()));
+                    }
+                }
+            }
+            Err(e) => last_error = Some(e),
+        }
+    }
+    match last_error {
+        Some(e) if found.is_empty() => Err(e),
+        e => Ok((found, e.is_none())),
+    }
+}
+
+/// Straight to the YouTube Data API with your own key.
+fn api(net: &dyn Net, key: &str, topics: &[&String]) -> Result<Vec<(Found, String)>> {
     let after = (Utc::now() - chrono::Duration::days(365)).to_rfc3339_opts(SecondsFormat::Secs, true);
     // (video id, title, channel, interest)
     let mut found: Vec<(String, String, String, String)> = Vec::new();
-    for interest in interests.iter().take(MAX_INTERESTS) {
+    for interest in topics.iter().copied() {
         let v: Value = net::get_json(
             net,
             "https://www.googleapis.com/youtube/v3/search",
@@ -380,29 +444,38 @@ fn api(net: &dyn Net, key: &str, interests: &[String]) -> Result<Vec<Suggestion>
     Ok(found
         .into_iter()
         .filter_map(|(id, title, channel, interest)| {
-            let &(secs, views, likes) = stats.get(&id)?;
-            if secs < 120 {
+            let &(seconds, views, likes) = stats.get(&id)?;
+            Some((Found { id, title, channel, seconds, views, likes }, interest))
+        })
+        .collect())
+}
+
+fn to_suggestions(found: Vec<(Found, String)>) -> Vec<Suggestion> {
+    found
+        .into_iter()
+        .filter_map(|(f, interest)| {
+            if f.seconds < 120 {
                 return None; // Shorts and live streams
             }
-            let minutes = secs.div_ceil(60);
+            let minutes = f.seconds.div_ceil(60);
             Some(Suggestion {
-                id: format!("yt:{id}"),
+                id: format!("yt:{}", f.id),
                 category: Category::Video,
-                title,
-                detail: format!("{channel} · {} views · for “{interest}”", compact(views)),
-                link: Some(format!("https://youtu.be/{id}")),
-                image: thumbnail(&id),
+                detail: format!("{} · {} views · for “{interest}”", f.channel, compact(f.views)),
+                link: Some(format!("https://youtu.be/{}", f.id)),
+                image: thumbnail(&f.id),
+                title: f.title,
                 min_minutes: minutes,
                 max_minutes: minutes + 5,
                 energy: Energy::Low,
                 outdoor: false,
                 social: Social::Either,
                 cost: Cost::Free,
-                quality: video_quality(views, likes),
+                quality: video_quality(f.views, f.likes),
                 tags: vec!["youtube".into(), interest.to_lowercase()],
             })
         })
-        .collect())
+        .collect()
 }
 
 fn video_quality(views: u64, likes: u64) -> f64 {
@@ -562,6 +635,53 @@ mod tests {
         let (feeds, failed) = fetch_feeds(&dead, &[FIRESHIP.to_string()]);
         assert!(feeds.is_empty());
         assert_eq!(failed, vec![FIRESHIP.to_string()]);
+    }
+
+    const PROXY_CHESS: &str = r#"{"items":[
+        {"id":"chess000001","title":"Learn chess &amp; win","channel":"GothamChess","seconds":1260,"views":250000,"likes":9000},
+        {"id":"chessShort1","title":"Mate in 1","channel":"GothamChess","seconds":45,"views":900000,"likes":1000}
+    ],"cached":true}"#;
+
+    fn topics(list: &[&str]) -> Vec<String> {
+        list.iter().map(|s| s.to_string()).collect()
+    }
+
+    #[test]
+    fn without_a_key_searches_go_through_the_proxy() {
+        let net = FakeNet::new().on(&proxy_url(), PROXY_CHESS);
+        let (items, complete) = search(&net, None, &topics(&["Chess", " ", "Chess"])).unwrap();
+        assert!(complete);
+        assert_eq!(items.len(), 1, "Shorts are dropped, duplicates kept once");
+        let v = &items[0];
+        assert_eq!(v.id, "yt:chess000001");
+        assert_eq!(v.title, "Learn chess &amp; win", "the proxy already unescapes titles");
+        assert_eq!(v.detail, "GothamChess · 250k views · for “Chess”");
+        assert_eq!((v.min_minutes, v.max_minutes), (21, 26));
+        assert_eq!(v.tags, vec!["youtube".to_string(), "chess".to_string()]);
+        let calls = net.calls();
+        assert_eq!(calls.len(), 2, "blank topics are skipped");
+        assert!(calls[0].starts_with("https://tgvphbmbxfembnsfdxlp.supabase.co/functions/v1/youtube-search?q=Chess"));
+        assert!(calls.iter().all(|c| !c.contains("key=")), "no key ever goes to the proxy");
+    }
+
+    #[test]
+    fn proxy_failures_are_partial_or_errors() {
+        let dead = FakeNet::new().fail(&proxy_url());
+        assert!(search(&dead, None, &topics(&["chess"])).is_err());
+        let (items, complete) = search(&dead, None, &[]).unwrap();
+        assert!(items.is_empty() && complete, "no interests, no calls");
+    }
+
+    #[test]
+    fn your_own_key_goes_straight_to_youtube() {
+        let net = FakeNet::new()
+            .on("https://www.googleapis.com/youtube/v3/search", r#"{"items":[{"id":{"videoId":"own00000001"},"snippet":{"title":"Knots &#39;n&#39; ropes","channelTitle":"Sailor"}}]}"#)
+            .on("https://www.googleapis.com/youtube/v3/videos", r#"{"items":[{"id":"own00000001","contentDetails":{"duration":"PT10M"},"statistics":{"viewCount":"1200","likeCount":"50"}}]}"#);
+        let (items, complete) = search(&net, Some("my-key"), &topics(&["knots"])).unwrap();
+        assert!(complete);
+        assert_eq!(items[0].title, "Knots 'n' ropes");
+        assert_eq!(items[0].min_minutes, 10);
+        assert!(net.calls().iter().all(|c| !c.contains("supabase.co")));
     }
 
     #[test]

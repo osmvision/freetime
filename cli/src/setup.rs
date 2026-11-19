@@ -159,7 +159,7 @@ pub fn run() -> Result<()> {
         }
         println!("  YouTube: {}", style("https://console.cloud.google.com/apis/library/youtube.googleapis.com").cyan());
         let youtube_key = Password::with_theme(&theme)
-            .with_prompt("YouTube Data API key (Enter to keep)")
+            .with_prompt("Your own YouTube Data API key, optional: searches work without it (Enter to keep)")
             .allow_empty_password(true)
             .interact()?;
         if !youtube_key.trim().is_empty() {
