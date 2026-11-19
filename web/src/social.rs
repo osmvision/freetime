@@ -1,19 +1,49 @@
 use crate::engine::arg;
 use anyhow::{bail, Context, Result};
+use chrono::{DateTime, Local};
 use freetime_core::{
     account::{Client, NewInvite, ProfileEdit},
-    duel, history, quiz,
+    duel,
+    history::History,
+    quiz::{self, QuizLog},
+    ranked, streaks,
 };
 use serde_json::{json, Value};
 
-pub fn invoke(cmd: &str, args: &Value, token: Option<&str>) -> Result<Value> {
+pub fn invoke(
+    cmd: &str,
+    args: &Value,
+    token: Option<&str>,
+    history: &History,
+    quizzes: &QuizLog,
+    now: DateTime<Local>,
+) -> Result<Value> {
+    if cmd == "sync_points" && token.is_none() {
+        return Ok(Value::Null);
+    }
+    let token = token.context("Sign in to use this feature")?;
     let client = Client::new()?;
-    let session = client.browser_session(
-        token.context("Sign in to use this feature")?,
-        history::now(),
-    )?;
+    let session = client.browser_session(token, now.timestamp())?;
     let text = |name| arg::<String>(args, name);
     let value = match cmd {
+        "ranked_overview" => {
+            let scope = text("scope")?;
+            if !matches!(scope.as_str(), "friends" | "global") {
+                bail!("unknown leaderboard");
+            }
+            let today = ranked::sync_points(&client, &session, history, quizzes, now)?;
+            json!(ranked::overview(&client, &session, scope, today, now.date_naive())?)
+        }
+        "sync_points" => {
+            ranked::sync_points(&client, &session, history, quizzes, now)?;
+            Value::Null
+        }
+        "player_card" => json!(ranked::card(&client, &session, &text("userId")?)?),
+        "together_streaks" => json!(streaks::by_friend(client.together_weeks(&session)?, now.date_naive())),
+        "set_global_ranking" => {
+            client.set_show_in_global(&session, arg(args, "enabled")?)?;
+            Value::Null
+        }
         "get_account" => {
             json!({"id":session.user_id,"email":session.email,"profile":client.profile(&session)?})
         }

@@ -710,7 +710,7 @@ pub fn invoke(call: Call, token: Option<&str>) -> Result<Value> {
             });
             json!(admin.unwrap_or(false))
         }
-        _ => super::social::invoke(&cmd, &args, token)?,
+        _ => super::social::invoke(&cmd, &args, token, &state.history, &state.quiz, now)?,
     };
     Ok(json!({
         "value": value,

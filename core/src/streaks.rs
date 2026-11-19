@@ -5,7 +5,7 @@
 
 use chrono::{Datelike, Duration, NaiveDate};
 use serde::Serialize;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 #[derive(Debug, Clone, Default, Serialize, PartialEq)]
 pub struct Streak {
@@ -64,6 +64,18 @@ pub fn streak(weeks: &[NaiveDate], today: NaiveDate) -> Streak {
         wildcard_left: !used.contains(&month(this_monday)),
         saved_week: if current > 0 { saved.first().map(|d| d.to_string()) } else { None },
     }
+}
+
+pub fn by_friend(weeks: Vec<(String, NaiveDate)>, today: NaiveDate) -> HashMap<String, Streak> {
+    let mut by_friend: HashMap<String, Vec<NaiveDate>> = HashMap::new();
+    for (friend, week) in weeks {
+        by_friend.entry(friend).or_default().push(week);
+    }
+    by_friend
+        .into_iter()
+        .map(|(friend, weeks)| (friend, streak(&weeks, today)))
+        .filter(|(_, result)| result.best > 0)
+        .collect()
 }
 
 #[cfg(test)]
