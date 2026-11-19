@@ -772,3 +772,34 @@ test('feed: values are checked, posts expire, sharing is capped, export and dele
     assert.equal((await db.query('select count(*)::int as n from public.posts')).rows[0].n, 0, 'deleting the account deletes its posts');
   });
 });
+
+// ---------------------------------------------------------------- streaks together
+
+test('streaks together: only accepted, past invites between friends count', async () => {
+  await withPeople(async ({ step }) => {
+    await befriend(ALICE, BOB);
+    await befriend(ALICE, CAROL);
+    const invite = (from, to, status, daysAgo) =>
+      db.query("insert into public.invites (from_user, to_user, idea_id, title, category, starts_at, status) values ($1, $2, 'idea:hike', 'Hike', 'sport', now() - make_interval(days => $3), $4)", [from, to, daysAgo, status]);
+    // Past dates: the invite rules only allow upcoming times, so they're switched off to set up history.
+    await db.query("set local session_replication_role = 'replica'");
+    await invite(ALICE, BOB, 'accepted', 1);
+    await invite(BOB, ALICE, 'accepted', 8);
+    await invite(ALICE, BOB, 'declined', 15);
+    await invite(ALICE, CAROL, 'pending', 2);
+    await invite(ALICE, BOB, 'accepted', -2); // in the future: not done yet
+    await db.query("set local session_replication_role = 'origin'");
+    const weeks = await step(ALICE, (q) => q.rows('select friend, week::text from public.together_weeks() order by week'));
+    assert.equal(weeks.length, 2, 'two different weeks with Bob, nothing with Carol');
+    assert.ok(weeks.every((w) => w.friend === BOB));
+    // Bob sees the same weeks with Alice; Carol sees nothing.
+    assert.equal((await step(BOB, (q) => q.rows('select * from public.together_weeks()'))).length, 2);
+    assert.equal((await step(CAROL, (q) => q.rows('select * from public.together_weeks()'))).length, 0);
+    // Unfriending stops counting.
+    await db.query('delete from public.friendships where (requester = $1 and addressee = $2) or (requester = $2 and addressee = $1)', [ALICE, BOB]);
+    assert.equal((await step(ALICE, (q) => q.rows('select * from public.together_weeks()'))).length, 0);
+    await step(null, async (q) => {
+      await fails(q.rows('select * from public.together_weeks()'), /permission denied/);
+    });
+  });
+});
