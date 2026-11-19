@@ -1,0 +1,13 @@
+# Render Blueprint: the phone/web version of freetime (see Dockerfile).
+# On render.com: New -> Blueprint -> pick this repository -> Apply. Free plan, no card needed.
+# The free plan puts the service to sleep after 15 minutes without a visit; the first visit
+# then takes up to a minute (docs/web-hosting.md explains how to avoid that for free).
+services:
+  - type: web
+    name: freetime
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: free
+    region: frankfurt
+    healthCheckPath: /
+    autoDeploy: true

@@ -1,0 +1,36 @@
+name: Web image
+
+# Builds the web version's container and checks that it answers, so a change that would break the
+# deployment (a missing library, a moved file) shows up here and not on the host.
+
+on:
+  push:
+    branches: [main, web-hosting]
+    paths: [Dockerfile, .dockerignore, render.yaml, web/**, core/**, desktop/ui/**, Cargo.toml, Cargo.lock, .github/workflows/docker.yml]
+  pull_request:
+    paths: [Dockerfile, .dockerignore, render.yaml, web/**, core/**, desktop/ui/**, Cargo.toml, Cargo.lock, .github/workflows/docker.yml]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build the image
+        run: docker build -t freetime-web .
+
+      - name: Run it and look at what it serves
+        run: |
+          docker run -d --name web -p 10000:10000 freetime-web
+          for i in $(seq 1 30); do curl -fs -o /dev/null http://localhost:10000/ && break; sleep 1; done
+          for path in / /manifest.webmanifest /sw.js /precache.json /offline.html /icon-192.png /js/main.js /styles.css; do
+            code=$(curl -s -o /dev/null -w '%{http_code}' "http://localhost:10000$path")
+            echo "$path -> $code"
+            [ "$code" = "200" ] || { docker logs web; exit 1; }
+          done
+          curl -fs http://localhost:10000/api/config | head -c 200; echo
+          docker exec web id -un

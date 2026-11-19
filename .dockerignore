@@ -1,0 +1,17 @@
+# Keeps the build context small and out of anything private or generated.
+.git
+.github
+.worktrees
+.claude
+.agents
+.impeccable
+graphify-out
+target
+**/node_modules
+web/dist
+site
+supabase
+docs
+.env
+.env.*
+!.env.example

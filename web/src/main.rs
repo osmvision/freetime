@@ -31,7 +31,7 @@ fn respond(request: Request, code: u16, mime: &str, bytes: Vec<u8>) {
         .with_header(header("Cache-Control", cache_policy))
         .with_header(header("X-Content-Type-Options", "nosniff"))
         .with_header(header("Referrer-Policy", "same-origin"))
-        .with_header(header("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self'; connect-src 'self' https://tgvphbmbxfembnsfdxlp.supabase.co wss://tgvphbmbxfembnsfdxlp.supabase.co; frame-ancestors 'none'; base-uri 'self'; object-src 'none'"));
+        .with_header(header("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://i.ytimg.com https://*.steamstatic.com https://*.epicgames.com https://*.unrealengine.com; font-src 'self'; connect-src 'self' https://tgvphbmbxfembnsfdxlp.supabase.co wss://tgvphbmbxfembnsfdxlp.supabase.co; frame-ancestors 'none'; base-uri 'self'; object-src 'none'"));
     let _ = request.respond(response);
 }
 
