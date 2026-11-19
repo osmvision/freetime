@@ -616,7 +616,10 @@ mod tests {
             budget: Cost::Free,
             categories: Category::ALL.to_vec(),
         };
-        let mut ranked = crate::scoring::rank(&items, &req, None, &Default::default(), &HashSet::new(), &mut rand::thread_rng());
+        // A fixed seed: the ranking's jitter (±12%) is wider than the gap between the co-op and
+        // versus bonuses, so a random one would make this test fail now and then.
+        let mut rng = <rand::rngs::StdRng as rand::SeedableRng>::seed_from_u64(7);
+        let mut ranked = crate::scoring::rank(&items, &req, None, &Default::default(), &HashSet::new(), &mut rng);
         party.adjust(&mut ranked);
         assert_eq!(ranked[0].s.id, "steam:10");
         assert_eq!(ranked[0].reasons[0], "co-op: play it together");
