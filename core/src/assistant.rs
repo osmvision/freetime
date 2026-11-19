@@ -119,7 +119,9 @@ pub fn system_prompt(ctx: &Context) -> String {
         p.push_str(
             "\nIdeas freetime has for them right now, best first. Prefer these when they fit: they are real \
              (games they own, real videos, curated ideas). To recommend one, write its marker exactly as shown, \
-             e.g. [[idea:run-5k]], on its own line after a short sentence: the app turns it into a Start button. \
+             e.g. [[idea:run-5k]]. Put each marker alone on its own line, right after a short sentence about it: \
+             never inside a sentence, a title or a list item's text, and never as a link. The app turns each marker \
+             into a card with a Start button, so don't repeat the idea's title or details yourself. \
              Never invent a marker that isn't in this list.\n",
         );
         for s in &ctx.ideas {

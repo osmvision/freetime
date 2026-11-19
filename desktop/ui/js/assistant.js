@@ -118,6 +118,25 @@ function inline(text, ideas) {
 }
 
 /** Text as blocks: paragraphs, bullet and numbered lists, code blocks, and idea cards. */
+/**
+ * Pulls the idea markers out of a line: what is left of the text, and the ids of the ideas they
+ * named. A marker for an idea we don't know stays in the text (it is hidden there). This is what
+ * turns "Try [[idea:run-5k]], it's easy" into a sentence followed by a card, whatever the model does.
+ */
+function splitMarkers(text, ideas) {
+  const ids = [];
+  let rest = '';
+  let last = 0;
+  for (const m of text.matchAll(/\[\[([^\]\s]+)\]\]/g)) {
+    if (!findIdea(m[1], ideas)) continue;
+    rest += `${text.slice(last, m.index)} `;
+    ids.push(m[1]);
+    last = m.index + m[0].length;
+  }
+  rest += text.slice(last);
+  return { text: rest.replace(/\s+/g, ' ').replace(/\s+([,.;:!?])/g, '$1').trim(), ids };
+}
+
 export function renderRich(text, ideas = []) {
   const blocks = [];
   const lines = text.replace(/\r/g, '').split('\n');
@@ -173,12 +192,23 @@ export function renderRich(text, ideas = []) {
         list = { kind, el: h(kind, { start: number && number[1] !== '1' ? number[1] : null }) };
       }
       const body = bullet ? bullet[1] : number[2];
-      // A marker alone in a list item still becomes a card.
-      const only = body.trim().match(/^\[\[([^\]\s]+)\]\]$/);
-      list.el.append(h('li', {}, only ? ideaCard(only[1], ideas) ?? '' : inline(body, ideas)));
+      // A marker in a list item becomes a card under the item's text.
+      const found = splitMarkers(body, ideas);
+      list.el.append(h('li', {}, found.text ? inline(found.text, ideas) : null, found.ids.map((id) => ideaCard(id, ideas))));
       continue;
     }
     flushList();
+    // A marker in the middle of a sentence still becomes a card, after the sentence.
+    const found = splitMarkers(trimmed, ideas);
+    if (found.ids.length) {
+      if (found.text) para.push(found.text);
+      flushPara();
+      for (const id of found.ids) {
+        const el = ideaCard(id, ideas);
+        if (el) blocks.push(el);
+      }
+      continue;
+    }
     para.push(trimmed);
   }
   flushPara();
