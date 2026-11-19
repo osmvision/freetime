@@ -13,6 +13,7 @@ const PROTECTED = [
   '.me-name', '.friend .entry-title', '.friend .entry-sub', '.chat-head .entry-title', '.chat-head .entry-sub',
   '.coupon-title', '.coupon-detail', '.leaf-title', '.leaf-detail', '.entry .entry-title', '.friend-tag',
   '.code', '.credits', '.credit', '.chip-tag', '.paths', '.suggest', '[translate="no"]',
+  '.book-title', '.mini-ticket.daily strong',
 ].join(', ');
 const ATTRIBUTES = ['placeholder', 'title', 'aria-label'];
 

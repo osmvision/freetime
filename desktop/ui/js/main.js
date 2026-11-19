@@ -33,6 +33,8 @@ let city = null;
 
 const ctx = {
   goto,
+  // Start an idea from outside Discover (the ticket book's ticket of the day).
+  startIdea: (c) => discover.startIdea(c),
   friendsChanged: () => discover.friendsChanged(),
   accountChanged: () => renderMe(),
   isLive: () => live,
@@ -70,7 +72,7 @@ function goto(view, options = {}) {
   main.scrollTop = 0;
   if (view === 'friends') friendsView.render(views.friends, ctx);
   if (view === 'messages') messagesView.render(views.messages, ctx, options);
-  if (view === 'history') historyView.render(views.history, ctx);
+  if (view === 'history') historyView.render(views.history, ctx, options);
   if (view === 'settings') settingsView.render(views.settings, ctx, options);
 }
 

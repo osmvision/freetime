@@ -2,6 +2,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod assistant;
+mod book;
 mod commands;
 mod updates;
 
@@ -52,6 +53,8 @@ fn main() {
             commands::reset_friend_tag,
             commands::live_status,
             commands::get_recap,
+            book::get_book,
+            book::get_today,
             commands::get_share_library,
             commands::set_share_library,
             commands::set_free,

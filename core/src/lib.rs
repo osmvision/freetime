@@ -5,6 +5,7 @@ pub mod account;
 pub mod assistant;
 pub mod catalog;
 pub mod config;
+pub mod book;
 pub mod history;
 pub mod keys;
 pub mod location;

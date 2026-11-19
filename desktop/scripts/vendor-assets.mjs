@@ -31,6 +31,8 @@ const ICONS = [
   // context
   'clock', 'zap', 'battery-low', 'battery-medium', 'battery-full', 'user', 'users', 'sun', 'house',
   'wallet', 'heart', 'tree-pine',
+  // ticket book (see ui/js/book.js)
+  'stamp', 'award', 'calendar-check', 'book-open', 'target',
   // weather
   'cloud-sun', 'cloud', 'cloud-rain', 'cloud-fog', 'cloud-lightning', 'snowflake', 'moon', 'wind',
   // categories
