@@ -10,8 +10,9 @@ use crate::{config::{self, Config}, keys::Keys, model::*, net::{self, Net}};
 use anyhow::Result;
 use chrono::{DateTime, SecondsFormat, Utc};
 use quick_xml::{
+    escape::resolve_xml_entity,
     events::{BytesStart, Event},
-    Reader,
+    Reader, XmlVersion,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -117,48 +118,60 @@ pub struct FeedVideo {
 /// Parses a channel's Atom feed (`youtube.com/feeds/videos.xml?channel_id=…`).
 pub fn parse_feed(xml: &str) -> Result<Vec<FeedVideo>> {
     let mut reader = Reader::from_str(xml);
-    reader.config_mut().trim_text(true);
     let mut out = Vec::new();
     let mut current: Option<FeedVideo> = None;
-    let mut path: Vec<Vec<u8>> = Vec::new();
+    let mut path: Vec<String> = Vec::new();
+    // The text of the element being read. The reader gives text and entities (`&amp;`, `&#39;`)
+    // as separate events: they are put back together here, and trimmed once the element ends.
+    let mut text = String::new();
     loop {
         match reader.read_event()? {
             Event::Start(e) => {
-                if e.name().as_ref() == b"entry" {
+                if e.name().as_ref() == "entry" {
                     current = Some(FeedVideo::default());
                 }
                 if let Some(video) = current.as_mut() {
                     read_attributes(&e, video);
                 }
-                path.push(e.name().as_ref().to_vec());
+                path.push(e.name().as_ref().to_string());
+                text.clear();
             }
             Event::Empty(e) => {
                 if let Some(video) = current.as_mut() {
                     read_attributes(&e, video);
                 }
             }
-            Event::Text(t) => {
-                let (Some(video), Some(element)) = (current.as_mut(), path.last()) else { continue };
-                let parent = path.len().checked_sub(2).map(|i| path[i].as_slice());
-                let text = t.unescape()?.into_owned();
-                match element.as_slice() {
-                    b"yt:videoId" => video.id = text,
-                    // entry/title, not media:group/media:title
-                    b"title" if parent == Some(b"entry") => video.title = text,
-                    b"name" if parent == Some(b"author") => video.channel = text,
-                    b"published" if parent == Some(b"entry") => {
-                        video.published = DateTime::parse_from_rfc3339(&text).map(|d| d.timestamp()).unwrap_or(0)
-                    }
-                    _ => {}
+            Event::Text(t) => text.push_str(&t.xml10_content()),
+            Event::GeneralRef(r) => {
+                // A character reference (`&#39;`) or one of the five XML entities; anything else is dropped.
+                if let Some(c) = r.resolve_char_ref()? {
+                    text.push(c);
+                } else if let Some(entity) = resolve_xml_entity(&r) {
+                    text.push_str(entity);
                 }
             }
             Event::End(e) => {
-                if e.name().as_ref() == b"entry" {
+                if let (Some(video), Some(element)) = (current.as_mut(), path.last()) {
+                    let parent = path.len().checked_sub(2).map(|i| path[i].as_str());
+                    let value = text.trim();
+                    match element.as_str() {
+                        "yt:videoId" => video.id = value.to_string(),
+                        // entry/title, not media:group/media:title
+                        "title" if parent == Some("entry") => video.title = value.to_string(),
+                        "name" if parent == Some("author") => video.channel = value.to_string(),
+                        "published" if parent == Some("entry") => {
+                            video.published = DateTime::parse_from_rfc3339(value).map(|d| d.timestamp()).unwrap_or(0)
+                        }
+                        _ => {}
+                    }
+                }
+                if e.name().as_ref() == "entry" {
                     if let Some(video) = current.take().filter(|v| !v.id.is_empty() && !v.title.is_empty()) {
                         out.push(video);
                     }
                 }
                 path.pop();
+                text.clear();
             }
             Event::Eof => break,
             _ => {}
@@ -168,17 +181,17 @@ pub fn parse_feed(xml: &str) -> Result<Vec<FeedVideo>> {
 }
 
 fn read_attributes(e: &BytesStart, video: &mut FeedVideo) {
-    let attr = |key: &[u8]| {
+    let attr = |key: &str| {
         e.attributes()
             .flatten()
             .find(|a| a.key.as_ref() == key)
-            .and_then(|a| a.unescape_value().ok().map(|v| v.into_owned()))
+            .and_then(|a| a.normalized_value(XmlVersion::Implicit1_0).ok().map(|v| v.into_owned()))
     };
     match e.name().as_ref() {
-        b"link" if attr(b"rel").as_deref() == Some("alternate") => {
-            video.short |= attr(b"href").is_some_and(|h| h.contains("/shorts/"));
+        "link" if attr("rel").as_deref() == Some("alternate") => {
+            video.short |= attr("href").is_some_and(|h| h.contains("/shorts/"));
         }
-        b"media:statistics" => video.views = attr(b"views").and_then(|v| v.parse().ok()).unwrap_or(0),
+        "media:statistics" => video.views = attr("views").and_then(|v| v.parse().ok()).unwrap_or(0),
         _ => {}
     }
 }
@@ -582,6 +595,41 @@ mod tests {
         assert_eq!(parse_iso_duration("PT12M"), Some(720));
         assert_eq!(parse_iso_duration("P0D"), Some(0));
         assert_eq!(parse_iso_duration("nope"), None);
+    }
+
+    /// A one-entry feed around `title` (already escaped as the feed would have it).
+    fn feed_with_title(title: &str) -> String {
+        format!(
+            r#"<feed xmlns:yt="http://www.youtube.com/xml/schemas/2015" xmlns="http://www.w3.org/2005/Atom">
+              <author><name>Chan</name></author>
+              <entry>
+                <yt:videoId>vid00000001</yt:videoId>
+                <title>{title}</title>
+                <published>2026-11-15T16:00:00+00:00</published>
+              </entry>
+            </feed>"#
+        )
+    }
+
+    #[test]
+    fn feed_titles_keep_their_entities_and_spaces() {
+        let title = |t: &str| parse_feed(&feed_with_title(t)).unwrap()[0].title.clone();
+        assert_eq!(title("Tom &amp; Jerry"), "Tom & Jerry", "spaces around an entity stay");
+        assert_eq!(title("It&#39;s &quot;fun&quot; &lt;3"), "It's \"fun\" <3");
+        assert_eq!(title("Caf&#233; &#x1F600;"), "Café 😀", "decimal and hex character references");
+        assert_eq!(title("  padded   title  "), "padded   title", "only the ends are trimmed");
+        assert_eq!(title("Odd &nbsp; one"), "Odd  one", "an unknown entity is dropped, the feed is still read");
+    }
+
+    #[test]
+    fn feeds_with_hostile_markup_do_not_hang_or_panic() {
+        // Thousands of duplicated attributes on one tag (the shape behind RUSTSEC-2026-0194).
+        let attrs = "a=\"1\" ".repeat(20_000);
+        let xml = format!("<feed><entry><yt:videoId>v1</yt:videoId><title>T</title><link rel=\"alternate\" {attrs}/></entry></feed>");
+        let started = std::time::Instant::now();
+        let _ = parse_feed(&xml); // an error is fine; a hang or a crash is not
+        assert!(started.elapsed() < std::time::Duration::from_secs(5), "took {:?}", started.elapsed());
+        assert!(parse_feed("not xml at all").is_ok(), "plain text is just no videos");
     }
 
     #[test]
