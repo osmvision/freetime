@@ -4949,9 +4949,24 @@ body[data-view="messages"] .assistant-panel {
   .head-actions { width: 100%; }
   .head-actions .btn { flex: 1 1 140px; }
   .context { gap: 6px; }
-  .context .select { flex: 1 1 120px; }
-  .select-button { width: 100%; text-align: left; padding: 8px; gap: 6px; }
-  .select-value { flex: 1; }
+  .context .select { flex: 1 1 100%; width: 100%; }
+  .select-button {
+    display: grid;
+    grid-template-columns: auto auto minmax(0, 1fr) auto;
+    width: 100%;
+    height: auto;
+    min-height: 52px;
+    padding: 8px 12px;
+    gap: 8px;
+    text-align: left;
+  }
+  .select-value {
+    min-width: 0;
+    justify-self: end;
+    text-align: right;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
   .select-name { font-size: 12px; letter-spacing: .04em; }
   .today { grid-template-columns: minmax(0, 1fr); gap: 10px; }
   .today-book { grid-auto-flow: column; justify-content: center; min-height: 60px; }
