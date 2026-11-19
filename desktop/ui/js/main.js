@@ -70,7 +70,7 @@ function goto(view, options = {}) {
     else button.removeAttribute('aria-current');
   }
   main.scrollTop = 0;
-  if (view === 'friends') friendsView.render(views.friends, ctx);
+  if (view === 'friends') friendsView.render(views.friends, ctx, options);
   if (view === 'messages') messagesView.render(views.messages, ctx, options);
   if (view === 'history') historyView.render(views.history, ctx, options);
   if (view === 'settings') settingsView.render(views.settings, ctx, options);

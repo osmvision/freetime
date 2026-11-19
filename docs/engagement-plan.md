@@ -71,8 +71,11 @@ Three rules every feature below follows:
   accepted invite together. It's computed from the `invites` table.
   - One **freeze per month** keeps a missed week from breaking it.
   - It never sends a "you'll lose everything" message.
-- **Friends leaderboard**, opt-in, friends only, monthly: hours outdoors or new ideas tried.
-  There's no global leaderboard.
+- **Ranked** (built, see `core/src/ranked.rs` and the `ranked` migration): points for what you
+  do (quiz, ticket of the day, new ideas, weekly challenge, badges), **at most 20 a day**,
+  monthly seasons with tiers (Bronze to Diamond), a friends board and a **global board that is
+  opt-in** (off by default, name, avatar, tier, points and badges only). Player cards for friends
+  and global players, with report and block.
 
 ### 7. Shareable moments (growth)
 

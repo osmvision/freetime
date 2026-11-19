@@ -569,3 +569,94 @@ test('free assistant: only the service role counts messages, up to the daily cap
     assert.equal((await db.query('select count(*)::int as n from private.assistant_usage where user_id = $1', [ALICE])).rows[0].n, 0, 'deleting the account deletes its count');
   });
 });
+
+// ---------------------------------------------------------------- ranked (seasons and boards)
+
+const today = () => new Date().toISOString().slice(0, 10);
+const daysAgo = (n) => new Date(Date.now() - n * 86400000).toISOString().slice(0, 10);
+const submit = (q, points, day = today()) => q.one('select public.submit_points($1::date, $2, 12, $3::text[], 3) as total', [day, points, ['first', 'chef']]);
+
+test('ranked: points are capped at 20 a day, only go up, and only for today', async () => {
+  await withPeople(async ({ step }) => {
+    assert.equal((await step(ALICE, (q) => submit(q, 50))).total, 20, 'capped');
+    assert.equal((await step(ALICE, (q) => submit(q, 5))).total, 20, 'never goes down within a day');
+    assert.equal((await step(ALICE, (q) => submit(q, -9, daysAgo(1)))).total >= 20, true, 'negative becomes 0');
+    await step(ALICE, async (q) => {
+      await fails(submit(q, 10, daysAgo(10)), /only be sent for today/);
+    });
+    await step(null, async (q) => {
+      await fails(submit(q, 10), /permission denied/);
+    });
+    // Nobody reads or writes the tables directly.
+    await step(ALICE, async (q) => {
+      await fails(q.rows('select * from public.daily_points'), /permission denied/);
+    });
+    await step(ALICE, async (q) => {
+      await fails(q.rows("insert into public.daily_points (user_id, day, points) values ($1, current_date, 20)", [ALICE]), /permission denied/);
+    });
+    await step(ALICE, async (q) => {
+      await fails(q.rows('select * from public.player_stats'), /permission denied/);
+    });
+    // Junk badge ids are dropped.
+    await step(ALICE, (q) => q.one("select public.submit_points(current_date, 1, 3, array['ok', 'Bad Id', '<script>'], 1)"));
+    const card = await step(ALICE, (q) => q.one('select public.player_card($1) as c', [ALICE]));
+    assert.deepEqual(card.c.badges, ['ok']);
+  });
+});
+
+test('ranked: friends see each other; the global board is opt-in; blocks hide', async () => {
+  await withPeople(async ({ tags, step }) => {
+    await befriend(ALICE, BOB);
+    await step(ALICE, (q) => submit(q, 12));
+    await step(BOB, (q) => submit(q, 7));
+    await step(CAROL, (q) => submit(q, 18));
+
+    const friends = await step(ALICE, (q) => q.rows("select user_id, points::int, rank::int, me from public.leaderboard('friends')"));
+    assert.deepEqual(friends.map((r) => [r.user_id, r.points, r.rank, r.me]), [[ALICE, 12, 1, true], [BOB, 7, 2, false]], 'Carol is not a friend');
+    assert.equal((await step(ALICE, (q) => q.rows("select * from public.leaderboard('global')"))).length, 0, 'nobody opted in');
+
+    // Carol opts in: she shows on the global board and her card is visible, without bio or status.
+    await step(CAROL, (q) => q.rows('update public.profiles set show_in_global = true, bio = $2 where id = $1', [CAROL, 'secret bio']));
+    const global = await step(ALICE, (q) => q.rows("select user_id, points::int from public.leaderboard('global')"));
+    assert.deepEqual(global, [{ user_id: CAROL, points: 18 }]);
+    const carol = (await step(ALICE, (q) => q.one('select public.player_card($1) as c', [CAROL]))).c;
+    assert.equal(carol.points, 18);
+    assert.equal(carol.bio, null, 'strangers never see the bio');
+    assert.equal(carol.friend_tag, tags[CAROL], 'opted-in players can be sent a request');
+    assert.deepEqual(carol.badges, ['chef', 'first']);
+    // Bob's card: a friend sees bio and status, and no tag is needed.
+    const bob = (await step(ALICE, (q) => q.one('select public.player_card($1) as c', [BOB]))).c;
+    assert.equal(bob.friend, true);
+    assert.equal(bob.friend_tag, null);
+    assert.notEqual(bob.bio, null);
+    // Alice's own ranking: not on the global board until she opts in.
+    let mine = await step(ALICE, (q) => q.one('select points::int, show_in_global, global_rank::int, global_players::int from public.my_ranking()'));
+    assert.deepEqual(mine, { points: 12, show_in_global: false, global_rank: null, global_players: 1 });
+    await step(ALICE, (q) => q.rows('update public.profiles set show_in_global = true where id = $1', [ALICE]));
+    mine = await step(ALICE, (q) => q.one('select global_rank::int, global_players::int from public.my_ranking()'));
+    assert.deepEqual(mine, { global_rank: 2, global_players: 2 });
+
+    // A stranger who didn't opt in stays invisible: Carol can't see Bob.
+    assert.equal((await step(CAROL, (q) => q.one('select public.player_card($1) as c', [BOB]))).c, null);
+    // A block hides Carol from Alice's board and card, both ways.
+    await step(ALICE, (q) => q.rows('insert into public.blocks (blocker, blocked) values ($1, $2)', [ALICE, CAROL]));
+    assert.deepEqual((await step(ALICE, (q) => q.rows("select user_id from public.leaderboard('global')"))).map((r) => r.user_id), [ALICE]);
+    assert.equal((await step(CAROL, (q) => q.one('select public.player_card($1) as c', [ALICE]))).c, null);
+    // Signed out: nothing.
+    await step(null, async (q) => {
+      await fails(q.rows("select * from public.leaderboard('global')"), /permission denied/);
+    });
+  });
+});
+
+test('ranked: export includes points and stats; deleting the account deletes them', async () => {
+  await withPeople(async ({ step }) => {
+    await step(ALICE, (q) => submit(q, 9));
+    const data = (await step(ALICE, (q) => q.one('select public.export_my_data() as d'))).d;
+    assert.equal(data.points_by_day.length, 1);
+    assert.equal(data.player_stats.stamped, 12);
+    await db.query('delete from auth.users where id = $1', [ALICE]);
+    assert.equal((await db.query('select count(*)::int as n from public.daily_points where user_id = $1', [ALICE])).rows[0].n, 0);
+    assert.equal((await db.query('select count(*)::int as n from public.player_stats where user_id = $1', [ALICE])).rows[0].n, 0);
+  });
+});

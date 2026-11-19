@@ -42,6 +42,8 @@ To work, the app contacts these services, and only for what you see on screen:
 - Reports you make.
 - If you use the free assistant: how many messages you sent today, for the daily limit. Older
   days are deleted.
+- For the ranking: your points per day (at most 20), how many tickets you stamped, the badges you
+  earned and your best weekly streak. Your history itself stays on your PC.
 
 **The free assistant**
 
@@ -53,6 +55,11 @@ on your PC.
 **Who sees what**
 
 - Your friends, and people you have a pending request with, see your name, avatar, bio and status.
+- Your friends see your ranking card: points this season, tier, tickets stamped, badges and best
+  streak.
+- **Only if you turn on "Show me on the global ranking"**, which is off by default: anyone signed in sees
+  your name, avatar, tier, points and badges, and can send you a friend request. Never your
+  email, bio or status. Turning it off removes you from the board right away.
 - Only the two people in a conversation can read it. Messages are encrypted in transit and stored
   encrypted on disk by our hosting provider, but they are **not end-to-end encrypted**: the people
   who run freetime could technically access them. We only do so to handle a report you or the other

@@ -4790,3 +4790,353 @@ body[data-view="messages"] .assistant-panel {
   color: var(--text-3);
   font-size: 13px;
 }
+
+/* ---------------------------------------------------------------- ranked (js/ranked.js) */
+
+.tier-bronze { --tier: #a0612b; }
+.tier-silver { --tier: #7d8a9c; }
+.tier-gold { --tier: #b88a00; }
+.tier-platinum { --tier: #2f8a8a; }
+.tier-diamond { --tier: #4b6fd6; }
+
+.tier {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px 4px;
+  border-radius: 999px;
+  background: var(--tier);
+  color: #fff;
+  font: 700 14px/1 var(--display);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  justify-self: start;
+}
+
+.tier .icon {
+  width: 15px;
+  height: 15px;
+}
+
+.season {
+  margin-bottom: 18px;
+  border-radius: var(--r-ticket);
+  background: var(--coupon);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+.season .coupon-head {
+  border-radius: 0;
+}
+
+.season-body {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) minmax(0, 1fr);
+  align-items: center;
+  gap: 24px;
+  padding: 22px 24px;
+}
+
+.season-medal {
+  display: grid;
+  place-items: center;
+  width: 96px;
+  height: 96px;
+  border-radius: 50%;
+  background: var(--tier);
+  color: #fff;
+  box-shadow: 0 0 0 6px color-mix(in srgb, var(--tier) 25%, transparent), var(--shadow);
+}
+
+.season-medal .icon {
+  width: 46px;
+  height: 46px;
+}
+
+.season-main {
+  display: grid;
+  gap: 6px;
+}
+
+.season-points {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.season-points .book-big {
+  font-size: 64px;
+}
+
+.season-rank {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--purple);
+  font: 700 16px/1 var(--display);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.season-rank .icon {
+  width: 16px;
+  height: 16px;
+}
+
+.today-points {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  align-content: center;
+  gap: 8px;
+  padding: 14px 16px;
+  border: 1px dashed var(--line);
+  border-radius: 10px;
+}
+
+.today-points > .mini-k {
+  flex-basis: 100%;
+}
+
+.chip-points {
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: var(--lavender);
+  font-size: 14px;
+}
+
+.chip-points b {
+  color: var(--purple);
+}
+
+.today-total {
+  margin-left: auto;
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.global-switch .check strong {
+  font: 700 19px/1.2 var(--display);
+  text-transform: uppercase;
+}
+
+.board-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.board {
+  display: grid;
+  gap: 6px;
+  margin: 0 0 14px;
+  padding: 0;
+  list-style: none;
+}
+
+.board-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  padding: 10px 14px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.board-row:hover {
+  background: var(--hover);
+}
+
+.board-row.me {
+  background: var(--lavender);
+}
+
+.place {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  font: 700 16px/1 var(--figures);
+  color: var(--text-2);
+}
+
+.place-1 { background: #b88a00; color: #fff; }
+.place-2 { background: #7d8a9c; color: #fff; }
+.place-3 { background: #a0612b; color: #fff; }
+
+.place .icon {
+  width: 18px;
+  height: 18px;
+}
+
+.board-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  font: 700 19px/1.1 var(--display);
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.board-you {
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: var(--purple);
+  color: var(--on-purple);
+  font: 700 12px/1 var(--display);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.board-points {
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.top-one {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  width: 100%;
+  margin-bottom: 16px;
+  padding: 26px 16px 20px;
+  border: 0;
+  border-radius: var(--r-ticket);
+  background: linear-gradient(160deg, #2a1d57, var(--navy));
+  color: #fff;
+  cursor: pointer;
+}
+
+.top-one .mini-k {
+  color: #f0c63c;
+}
+
+.top-one strong {
+  font: 800 30px/1 var(--display);
+  text-transform: uppercase;
+}
+
+.top-one .figures {
+  color: #cdbff0;
+  font-size: 18px;
+}
+
+.top-crown {
+  color: #f0c63c;
+}
+
+.top-crown .icon {
+  width: 30px;
+  height: 30px;
+}
+
+/* the player card (reuses the quiz window) */
+.player-card .card-top {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  margin-bottom: 12px;
+}
+
+.card-who {
+  display: grid;
+  gap: 8px;
+}
+
+.card-who .quiz-question {
+  margin: 0;
+}
+
+.card-status {
+  margin: 0;
+  color: var(--text-2);
+}
+
+.card-bio {
+  margin: 0 0 14px;
+  color: var(--text-2);
+}
+
+.card-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 8px 0 16px;
+  border: 1px solid var(--line-soft);
+  border-radius: 10px;
+}
+
+.card-stats > div {
+  display: grid;
+  gap: 6px;
+  padding: 12px 14px;
+  border-right: 1px dashed var(--line);
+}
+
+.card-stats > div:last-child {
+  border-right: 0;
+}
+
+.card-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 8px;
+  padding: 0;
+  list-style: none;
+}
+
+.card-badges li {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 12px 4px 4px;
+  border-radius: 999px;
+  background: var(--lavender);
+  font: 700 14px/1 var(--display);
+  text-transform: uppercase;
+}
+
+.card-badges .badge-medal {
+  width: 28px;
+  height: 28px;
+  margin: 0;
+  border: 0;
+  background: var(--purple);
+  color: var(--on-purple);
+}
+
+.card-badges .badge-medal .icon {
+  width: 15px;
+  height: 15px;
+}
+
+.card-actions {
+  justify-content: flex-start;
+}
+
+@media (max-width: 1100px) {
+  .season-body {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+  .today-points {
+    grid-column: 1 / -1;
+  }
+}
+
+.global-switch .strip-text .check {
+  display: flex;
+  margin-bottom: 4px;
+}
