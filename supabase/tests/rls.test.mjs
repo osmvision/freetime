@@ -696,3 +696,79 @@ test('YouTube search quota: stops at the daily cap; the cache keeps the latest r
     await db.exec('rollback');
   }
 });
+
+// ---------------------------------------------------------------- friends' feed and reactions
+
+const share = (q, title, detail = '') => q.one("select public.share_post('pick', 'idea:run-5k', $1, 'sport', $2) as id", [title, detail]);
+
+test('feed: friends see what you share, strangers never; reactions are friends-only', async () => {
+  await withPeople(async ({ step }) => {
+    await befriend(ALICE, BOB);
+    const post = (await step(ALICE, (q) => share(q, 'Easy 5 km run'))).id;
+    // Sharing the same thing again soon returns the same post.
+    assert.equal((await step(ALICE, (q) => share(q, 'Easy 5 km run'))).id, post);
+
+    const bobFeed = await step(BOB, (q) => q.rows('select id, author, own, counts from public.friend_feed()'));
+    assert.deepEqual(bobFeed.map((r) => [r.id, r.author, r.own, r.counts]), [[post, ALICE, false, null]], 'counts are for the author only');
+    assert.equal((await step(CAROL, (q) => q.rows('select * from public.friend_feed()'))).length, 0, 'a stranger sees nothing');
+
+    // Bob reacts; toggling twice turns it off; Alice sees the count, Bob sees his own reaction.
+    assert.equal((await step(BOB, (q) => q.one("select public.toggle_reaction($1, 'fire') as on", [post]))).on, true);
+    assert.equal((await step(BOB, (q) => q.one("select public.toggle_reaction($1, 'laugh') as on", [post]))).on, true);
+    assert.equal((await step(BOB, (q) => q.one("select public.toggle_reaction($1, 'laugh') as on", [post]))).on, false);
+    assert.deepEqual((await step(BOB, (q) => q.one('select mine from public.friend_feed()'))).mine, ['fire']);
+    assert.deepEqual((await step(ALICE, (q) => q.one('select own, counts from public.friend_feed()'))), { own: true, counts: { fire: 1 } });
+
+    // No reacting to your own post, to a stranger's, or with an unknown emoji.
+    await step(ALICE, async (q) => {
+      await fails(q.one("select public.toggle_reaction($1, 'fire')", [post]), /friends' posts/);
+    });
+    await step(CAROL, async (q) => {
+      await fails(q.one("select public.toggle_reaction($1, 'fire')", [post]), /friends' posts/);
+    });
+    await step(BOB, async (q) => {
+      await fails(q.one("select public.toggle_reaction($1, 'poop')", [post]), /unknown reaction/);
+    });
+    // Nobody reads or writes the tables directly.
+    await step(BOB, async (q) => {
+      await fails(q.rows('select * from public.posts'), /permission denied/);
+    });
+    await step(BOB, async (q) => {
+      await fails(q.rows("insert into public.reactions (post_id, user_id, emoji) values ($1, $2, 'fire')", [post, BOB]), /permission denied/);
+    });
+    await step(null, async (q) => {
+      await fails(q.rows('select * from public.friend_feed()'), /permission denied/);
+    });
+
+    // A block hides the feed both ways; only the author can delete a post.
+    await step(BOB, (q) => q.one('select public.delete_post($1)', [post]));
+    assert.equal((await step(ALICE, (q) => q.rows('select id from public.friend_feed()'))).length, 1, "Bob can't delete Alice's post");
+    await step(BOB, (q) => q.rows('insert into public.blocks (blocker, blocked) values ($1, $2)', [BOB, ALICE]));
+    assert.equal((await step(BOB, (q) => q.rows('select * from public.friend_feed() where author = $1', [ALICE]))).length, 0);
+    await step(ALICE, (q) => q.one('select public.delete_post($1)', [post]));
+    assert.equal((await step(ALICE, (q) => q.rows('select * from public.friend_feed()'))).length, 0);
+  });
+});
+
+test('feed: values are checked, posts expire, sharing is capped, export and deletion include it', async () => {
+  await withPeople(async ({ step }) => {
+    await step(ALICE, async (q) => {
+      await fails(q.one("select public.share_post('selfie', null, 'x', '', '')"), /violates check constraint/);
+    });
+    await step(ALICE, async (q) => {
+      await fails(q.one("select public.share_post('pick', 'javascript:alert(1)', 'x', '', '')"), /violates check constraint/);
+    });
+    for (let i = 0; i < 20; i++) await step(ALICE, (q) => share(q, `Idea ${i}`, String(i)));
+    await step(ALICE, async (q) => {
+      await fails(share(q, 'One too many', 'x'), /shared a lot today/);
+    });
+    // Expired posts disappear from the feed.
+    await db.query("update public.posts set expires_at = now() - interval '1 minute' where author = $1", [ALICE]);
+    assert.equal((await step(ALICE, (q) => q.rows('select * from public.friend_feed()'))).length, 0);
+    await db.query("update public.posts set expires_at = now() + interval '1 day' where author = $1", [ALICE]);
+    const data = (await step(ALICE, (q) => q.one('select public.export_my_data() as d'))).d;
+    assert.equal(data.posts_you_shared.length, 20);
+    await db.query('delete from auth.users where id = $1', [ALICE]);
+    assert.equal((await db.query('select count(*)::int as n from public.posts')).rows[0].n, 0, 'deleting the account deletes its posts');
+  });
+});

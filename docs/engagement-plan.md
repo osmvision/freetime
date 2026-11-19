@@ -44,7 +44,7 @@ Three rules every feature below follows:
 - It gets its own stamp in the ticket book. Friends see "Julien did today's ticket" if he shares
   activity. That gives people something to talk about.
 
-### 4. Friends' activity feed — server, opt-in
+### 4. Friends' activity feed — server, opt-in (built)
 
 - After a pick is rated 👍, one tap: "Share with your friends?" There's also a setting to always
   share or never share. The default is to ask.
@@ -55,7 +55,7 @@ Three rules every feature below follows:
 - The feed **ends**: the last 7 days, then "You're up to date". It's not infinite.
 - Posts are deleted automatically after 30 days.
 
-### 5. "Free at the same time" — server
+### 5. "Free at the same time" — server (built)
 
 - When you mark yourself free and a friend is free too, or becomes free, you both get a
   notification with an idea for the two of you: "Julien is free for 1h30. Hades in co-op?"

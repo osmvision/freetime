@@ -23,6 +23,7 @@ import { creditLine, photo, photoFor } from './photos.js';
 import { freeStrip, invitable, invitePanel } from './together.js';
 import { streakChip, weekStrip } from './recap.js';
 import { todayStrip } from './book.js';
+import { offerShare } from './feed.js';
 
 const TIMES = [15, 30, 45, 60, 90, 120, 180, 240];
 const ENERGY = [
@@ -552,6 +553,7 @@ function renderRate() {
       state.pending = await api.rate(p.id, p.ts, rating);
       toast(rating > 0 ? 'Noted: more ideas like that' : rating < 0 ? 'Noted: fewer ideas like that' : 'Skipped', 'ok');
       renderRate();
+      if (rating > 0) offerShare({ kind: 'pick', idea_id: p.id, title: p.title, category: p.category ?? '', detail: '' });
     } catch (e) {
       toast(errText(e), 'error');
     }
@@ -819,6 +821,11 @@ async function voidCoupon(c, el) {
     await wait(420);
   }
   runSuggest({ keepShuffle: true, quiet: true });
+}
+
+/** A friend's "free now" changed (live): refresh the strip right away. */
+export function friendFreeChanged() {
+  state.together?.refresh();
 }
 
 /** Ticket of the day, weekly challenge and the door to the ticket book. */

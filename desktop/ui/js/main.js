@@ -226,6 +226,7 @@ async function start() {
     if (!views.friends.hidden) friendsView.render(views.friends, ctx);
   });
   await listen('invites-updated', (n) => ctx.setInvites(n));
+  await listen('friend-free-changed', () => discover.friendFreeChanged());
   await watchUpdates();
   await listen('online-updated', (online) => {
     renderTags(online);

@@ -2,6 +2,7 @@
 // Signing in is the only thing here that touches the network, and only when clicked.
 
 import { api } from './api.js';
+import { invalidatePrefs } from './feed.js';
 import { forgetAssistantChat } from './assistant.js';
 import { AVATAR_COLORS, AVATAR_ICONS, avatar } from './avatars.js';
 import { btn, errText, fill, h, icon, toast } from './dom.js';
@@ -191,23 +192,53 @@ function shareGames() {
 }
 
 /** The new-message notifications switch. */
+/** Notifications, quiet hours and sharing: all in config.toml on this PC. */
 function notifications() {
-  const box = h('input', { type: 'checkbox' });
-  api.getNotifyMessages().then((on) => (box.checked = on)).catch(() => {});
-  box.addEventListener('change', async () => {
+  const boxes = {
+    notify_messages: ['Messages from friends'],
+    notify_invites: ['Invites from friends'],
+    notify_free_together: ['A friend is free at the same time as you (at most 3 a day)'],
+    quiet_hours: ['Quiet hours: no friend notifications from 22:00 to 09:00 (messages and invites still come)'],
+  };
+  const inputs = Object.fromEntries(Object.keys(boxes).map((k) => [k, h('input', { type: 'checkbox' })]));
+  const share = h(
+    'select',
+    { class: 'input share-select', 'aria-label': 'After a 👍' },
+    h('option', { value: 'ask' }, 'Ask me each time'),
+    h('option', { value: 'always' }, 'Always share with my friends'),
+    h('option', { value: 'never' }, 'Never share'),
+  );
+  let prefs = null;
+  api
+    .socialPrefs()
+    .then((p) => {
+      prefs = p;
+      for (const [k, el] of Object.entries(inputs)) el.checked = Boolean(p[k]);
+      share.value = p.share_activity;
+    })
+    .catch(() => {});
+  const save = async (undo) => {
+    if (!prefs) return;
+    const next = { ...prefs, share_activity: share.value };
+    for (const [k, el] of Object.entries(inputs)) next[k] = el.checked;
     try {
-      await api.setNotifyMessages(box.checked);
-      toast(box.checked ? 'Notifications on' : 'Notifications off', 'ok');
+      prefs = await api.setSocialPrefs(next);
+      invalidatePrefs();
+      toast('Saved', 'ok');
     } catch (e) {
-      box.checked = !box.checked;
+      undo();
       toast(errText(e), 'error');
     }
-  });
+  };
+  for (const el of Object.values(inputs)) el.addEventListener('change', () => save(() => (el.checked = !el.checked)));
+  share.addEventListener('change', () => save(() => (share.value = prefs.share_activity)));
   return h(
     'div',
     { class: 'field' },
     h('span', { class: 'field-label' }, 'Notifications'),
-    h('label', { class: 'check' }, box, 'Notify me when a friend messages me (freetime checks once a minute while it’s open)'),
+    Object.entries(boxes).map(([k, [label]]) => h('label', { class: 'check' }, inputs[k], label)),
+    h('span', { class: 'field-label' }, 'After a 👍, share it with my friends'),
+    share,
   );
 }
 

@@ -415,6 +415,49 @@ impl Client {
         Ok(if v.is_null() { None } else { Some(v) })
     }
 
+    // ---------------------------------------------------------------- friends' feed
+
+    /// Shares something you did with your friends ("pick", "quiz" or "badge"). Returns its id.
+    pub fn share_post(&self, s: &Session, kind: &str, idea_id: Option<&str>, title: &str, category: &str, detail: &str) -> Result<i64> {
+        if !matches!(kind, "pick" | "quiz" | "badge") {
+            bail!("unknown kind of post");
+        }
+        let clean = |t: &str, n: usize| t.chars().filter(|c| !c.is_control()).take(n).collect::<String>().trim().to_string();
+        let v = self.call(
+            "POST",
+            "/rest/v1/rpc/share_post",
+            Some(&s.access_token),
+            Some(&json!({
+                "p_kind": kind,
+                "p_idea_id": idea_id,
+                "p_title": clean(title, 120),
+                "p_category": clean(category, 12),
+                "p_detail": clean(detail, 40),
+            })),
+            None,
+        )?;
+        Ok(v.as_i64().unwrap_or(0))
+    }
+
+    pub fn delete_post(&self, s: &Session, id: i64) -> Result<()> {
+        self.call("POST", "/rest/v1/rpc/delete_post", Some(&s.access_token), Some(&json!({ "p_id": id })), None)?;
+        Ok(())
+    }
+
+    /// Turns a reaction on or off; returns whether it's on now.
+    pub fn toggle_reaction(&self, s: &Session, post: i64, emoji: &str) -> Result<bool> {
+        if !matches!(emoji, "fire" | "laugh" | "eyes" | "clap") {
+            bail!("unknown reaction");
+        }
+        let v = self.call("POST", "/rest/v1/rpc/toggle_reaction", Some(&s.access_token), Some(&json!({ "p_post": post, "p_emoji": emoji })), None)?;
+        Ok(v.as_bool().unwrap_or(false))
+    }
+
+    /// The last 7 days of you and your friends, newest first.
+    pub fn friend_feed(&self, s: &Session) -> Result<Value> {
+        self.call("POST", "/rest/v1/rpc/friend_feed", Some(&s.access_token), Some(&json!({})), None)
+    }
+
     /// Show or hide yourself on the global board.
     pub fn set_show_in_global(&self, s: &Session, enabled: bool) -> Result<()> {
         ensure_uuid(&s.user_id)?;

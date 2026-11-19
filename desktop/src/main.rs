@@ -4,6 +4,7 @@
 mod assistant;
 mod book;
 mod commands;
+mod feed;
 mod quiz;
 mod ranked;
 mod updates;
@@ -64,6 +65,12 @@ fn main() {
             ranked::ranked_overview,
             ranked::player_card,
             ranked::set_global_ranking,
+            feed::friend_feed,
+            feed::share_post,
+            feed::delete_post,
+            feed::toggle_reaction,
+            feed::get_social_prefs,
+            feed::set_social_prefs,
             commands::get_share_library,
             commands::set_share_library,
             commands::set_free,

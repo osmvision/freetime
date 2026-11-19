@@ -5,6 +5,7 @@ import { btn, categoryIcon, emptyState, errText, h, icon, pageHead, toast } from
 import { photo } from './photos.js';
 import { recapPanel } from './recap.js';
 import { renderBook } from './book.js';
+import { offerShare } from './feed.js';
 
 let tab = 'trips';
 
@@ -134,6 +135,7 @@ function entryRow(e, root, ctx) {
   const rate = async (rating) => {
     try {
       await api.rate(e.id, e.ts, e.rating === rating ? 0 : rating);
+      if (rating > 0 && e.rating !== rating) offerShare({ kind: 'pick', idea_id: e.id, title: e.title, category: e.category ?? '', detail: '' });
       const main = document.getElementById('main');
       const y = main.scrollTop;
       await render(root, ctx, { quiet: true });

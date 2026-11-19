@@ -6,8 +6,9 @@ import { invitesPanel } from './together.js';
 import { AVATAR_COLORS, AVATAR_ICONS, avatar } from './avatars.js';
 import { btn, emptyState, errText, fill, h, icon, pageHead, toast } from './dom.js';
 import { openCard, renderRanked } from './ranked.js';
+import { renderFeed } from './feed.js';
 
-let tab = 'friends';
+let tab = 'feed';
 
 /** "Friends" or "Ranking". */
 function tabs(root, ctx) {
@@ -15,6 +16,7 @@ function tabs(root, ctx) {
     'div',
     { class: 'seg', role: 'tablist', 'aria-label': 'Friends' },
     [
+      ['feed', 'Feed', 'sparkles'],
       ['friends', 'Friends', 'users'],
       ['ranked', 'Ranking', 'trophy'],
     ].map(([id, label, name]) =>
@@ -28,19 +30,23 @@ export async function render(root, ctx, { tab: wanted } = {}) {
   const head = () =>
     tab === 'ranked'
       ? pageHead('Ranking', 'Earn points by doing things, climb a tier each month, and see who’s on top.', tabs(root, ctx))
-      : pageHead('Friends', 'Add friends by their tag, answer requests, and message them.', tabs(root, ctx));
-  if (tab === 'ranked') {
+      : tab === 'feed'
+        ? pageHead('Feed', 'What you and your friends did lately. React with a tap.', tabs(root, ctx))
+        : pageHead('Friends', 'Add friends by their tag, answer requests, and message them.', tabs(root, ctx));
+  if (tab === 'ranked' || tab === 'feed') {
     const box = h('div');
     root.replaceChildren(head(), box);
     const status = await api.accountStatus().catch(() => ({ signed_in: false }));
-    if (status.signed_in) return renderRanked(box, ctx);
+    if (status.signed_in) return tab === 'feed' ? renderFeed(box, ctx) : renderRanked(box, ctx);
     return fill(
       box,
       h(
         'div',
         { class: 'strip' },
         icon('trophy'),
-        h('div', { class: 'strip-text' }, h('strong', {}, 'Sign in to join the ranking'), h('span', {}, 'Your points stay on this PC until you sign in.')),
+        tab === 'feed'
+          ? h('div', { class: 'strip-text' }, h('strong', {}, 'Sign in to see what your friends are up to'), h('span', {}, 'Optional: your profile lives in Settings.'))
+          : h('div', { class: 'strip-text' }, h('strong', {}, 'Sign in to join the ranking'), h('span', {}, 'Your points stay on this PC until you sign in.')),
         btn({ label: 'Go to profile', icon: 'log-in', small: true, onclick: () => ctx.goto('settings', { focus: 'profile' }) }),
       ),
     );

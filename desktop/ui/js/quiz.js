@@ -152,6 +152,19 @@ export function openQuiz(data, onDone = () => {}, { bonus = false } = {}) {
           { class: 'quiz-end-actions' },
           btn({ label: 'Close', kind: 'primary', onclick: close }),
           btn({ label: 'Bonus quiz (in English)', icon: 'sparkles', onclick: () => { close(); openBonus(); } }),
+          btn({
+            label: 'Share my score',
+            icon: 'send',
+            onclick: async (e) => {
+              e.currentTarget.disabled = true;
+              try {
+                await api.sharePost({ kind: 'quiz', idea_id: `quiz:${data.date}`, title: "Today's quiz", category: 'learn', detail: `${r.score}/${r.total}` });
+                toast('Shared with your friends', 'ok');
+              } catch (err) {
+                toast(errText(err), 'error');
+              }
+            },
+          }),
         ),
         h('div', { class: `stamp validated${reducedMotion() ? ' still' : ''}`, 'aria-hidden': 'true' }, 'Stamped'),
       ),
