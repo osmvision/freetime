@@ -20,6 +20,8 @@ pub const PER_DAY: usize = 5;
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Question {
+    /// Permanent, like "q042" (quiz duels refer to it on the server).
+    pub id: String,
     pub topic: String,
     pub answer: usize,
     pub fr: String,
@@ -40,12 +42,17 @@ pub fn load() -> Vec<Question> {
 }
 
 /// A small seeded generator (SplitMix64): stable on every platform and version.
-struct Seq(u64);
+pub(crate) struct Seq(u64);
 
 impl Seq {
     fn for_day(day: NaiveDate) -> Seq {
+        Seq::for_text(&format!("freetime-quiz-{day}"))
+    }
+
+    /// Seeded from any text (FNV-1a).
+    pub(crate) fn for_text(text: &str) -> Seq {
         let mut h: u64 = 0xcbf2_9ce4_8422_2325;
-        for b in format!("freetime-quiz-{day}").bytes() {
+        for b in text.bytes() {
             h ^= u64::from(b);
             h = h.wrapping_mul(0x0100_0000_01b3);
         }
@@ -60,7 +67,7 @@ impl Seq {
         z ^ (z >> 31)
     }
 
-    fn below(&mut self, n: usize) -> usize {
+    pub(crate) fn below(&mut self, n: usize) -> usize {
         (self.next() % n as u64) as usize
     }
 }
@@ -87,18 +94,21 @@ pub fn daily(bank: &[Question], day: NaiveDate) -> Vec<Question> {
     }
     picked
         .into_iter()
-        .map(|i| {
-            let mut q = bank[i].clone();
-            let mut perm: Vec<usize> = (0..q.fr_choices.len()).collect();
-            for k in (1..perm.len()).rev() {
-                perm.swap(k, seq.below(k + 1));
-            }
-            q.fr_choices = perm.iter().map(|&k| bank[i].fr_choices[k].clone()).collect();
-            q.en_choices = perm.iter().map(|&k| bank[i].en_choices[k].clone()).collect();
-            q.answer = perm.iter().position(|&k| k == bank[i].answer).unwrap_or(0);
-            q
-        })
+        .map(|i| shuffled(&bank[i], &mut seq).0)
         .collect()
+}
+
+/// The question with its choices in a new order, and that order (`perm[shown] = original`).
+pub(crate) fn shuffled(original: &Question, seq: &mut Seq) -> (Question, Vec<usize>) {
+    let mut q = original.clone();
+    let mut perm: Vec<usize> = (0..q.fr_choices.len()).collect();
+    for k in (1..perm.len()).rev() {
+        perm.swap(k, seq.below(k + 1));
+    }
+    q.fr_choices = perm.iter().map(|&k| original.fr_choices[k].clone()).collect();
+    q.en_choices = perm.iter().map(|&k| original.en_choices[k].clone()).collect();
+    q.answer = perm.iter().position(|&k| k == original.answer).unwrap_or(0);
+    (q, perm)
 }
 
 // ---------------------------------------------------------------- results
@@ -274,8 +284,13 @@ mod tests {
         let bank = load();
         assert!(bank.len() >= 60, "{} questions", bank.len());
         let mut seen = HashSet::new();
+        let mut ids = HashSet::new();
         for q in &bank {
             assert!(seen.insert(&q.fr), "duplicate question: {}", q.fr);
+            let digits = q.id.strip_prefix('q').unwrap_or("");
+            assert!((3..=4).contains(&digits.len()) && digits.bytes().all(|b| b.is_ascii_digit()), "bad id {:?}", q.id);
+            assert!(ids.insert(&q.id), "duplicate id {}", q.id);
+            assert!(q.topic.len() <= 16 && q.topic.bytes().all(|b| b.is_ascii_lowercase()), "bad topic {:?}", q.topic);
             assert_eq!(q.fr_choices.len(), 4, "{}", q.fr);
             assert_eq!(q.en_choices.len(), 4, "{}", q.en);
             assert!(q.answer < 4, "{}", q.fr);

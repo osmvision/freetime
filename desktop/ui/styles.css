@@ -5827,3 +5827,386 @@ body[data-view="messages"] .assistant-panel {
     animation: none;
   }
 }
+
+/* ---------------------------------------------------------------- games: quiz duels (js/games.js) */
+
+.games-quiz {
+  margin-bottom: 22px;
+}
+
+.games-today {
+  grid-template-columns: minmax(0, 1fr);
+  margin-bottom: 0;
+}
+
+.duels {
+  margin-bottom: 22px;
+}
+
+.duels-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px 20px;
+  margin-bottom: 8px;
+}
+
+.duels-head .hint {
+  margin-bottom: 0;
+}
+
+.duel-group + .duel-group {
+  margin-top: 14px;
+}
+
+.duel-group-title {
+  margin: 12px 0 2px;
+  color: var(--purple);
+  font: 700 12px/1.2 var(--figures);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.duel-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.duel {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 0;
+  border-bottom: 1px dashed var(--line-soft);
+}
+
+.duel:last-child {
+  border-bottom: 0;
+}
+
+.duel-who {
+  overflow-wrap: anywhere;
+}
+
+.duel-who strong {
+  font-weight: 700;
+}
+
+.duel-your_turn {
+  margin: 0 -12px;
+  padding-inline: 12px;
+  border-radius: 10px;
+  background: var(--lavender);
+}
+
+.duel-declined,
+.duel-cancelled,
+.duel-expired {
+  opacity: 0.7;
+}
+
+.duel-when {
+  color: var(--text-3);
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.duel-verdict {
+  padding: 4px 10px 3px;
+  border-radius: 999px;
+  font: 700 13px/1.2 var(--display);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.duel-verdict.won {
+  background: var(--purple);
+  color: var(--on-purple);
+}
+
+.duel-verdict.lost {
+  background: var(--red-wash);
+  color: var(--red);
+}
+
+.duel-verdict.draw,
+.duel-verdict.off {
+  background: var(--wash);
+  color: var(--text-2);
+}
+
+.duels-empty {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  padding: 26px 12px 10px;
+  color: var(--text-2);
+  text-align: center;
+}
+
+.duels-empty > .icon {
+  width: 34px;
+  height: 34px;
+  color: var(--purple);
+}
+
+.duels-empty strong {
+  color: var(--text);
+  font: 800 22px/1.1 var(--display);
+  text-transform: uppercase;
+}
+
+.duels-empty .btn {
+  margin-top: 8px;
+}
+
+/* the duel window: a pick is marked, the answer stays secret until the end */
+.quiz-choice.picked {
+  border-color: var(--navy);
+  background: var(--wash);
+}
+
+.quiz-choice.picked .quiz-letter {
+  background: var(--navy);
+  color: #fff;
+}
+
+.quiz-choice.picked:disabled {
+  opacity: 1;
+}
+
+.quiz-dot.done {
+  background: var(--navy);
+}
+
+.duel-vs {
+  display: inline-flex;
+  gap: 8px;
+  margin: 0;
+  color: var(--text-2);
+  font-weight: 600;
+}
+
+.duel-review {
+  display: grid;
+  gap: 8px;
+  margin: 18px 0 4px;
+  padding: 0;
+  list-style: none;
+  text-align: left;
+}
+
+.duel-review li {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr);
+  gap: 2px 10px;
+  font-size: 15px;
+}
+
+.duel-review .icon {
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+}
+
+.duel-review .right .icon {
+  color: var(--purple);
+}
+
+.duel-review .wrong .icon {
+  color: var(--red);
+}
+
+.duel-answer {
+  grid-column: 2;
+  color: var(--text-3);
+  font-size: 14px;
+}
+
+.pick-friend .quiz-body {
+  max-height: min(60vh, 520px);
+  overflow-y: auto;
+}
+
+/* what comes next */
+.soon {
+  padding: 18px 22px;
+  border: 2px dashed var(--lavender-line);
+  border-radius: var(--r-ticket);
+}
+
+.soon h2 {
+  margin: 0 0 4px;
+  font: 800 22px/1 var(--display);
+  text-transform: uppercase;
+}
+
+.soon .hint {
+  margin: 0 0 12px;
+}
+
+.soon-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.soon-list li {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 12px;
+  border-radius: 999px;
+  background: var(--lavender);
+  color: var(--purple);
+  font: 700 14px/1.2 var(--display);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.soon-list .icon {
+  width: 16px;
+  height: 16px;
+}
+
+/* ---------------------------------------------------------------- meet (js/meet.js) */
+
+.meet-hidden {
+  border: 2px solid var(--purple);
+}
+
+.meet-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 14px;
+  margin: 14px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.meet-card {
+  display: grid;
+  grid-template-rows: 1fr auto;
+  gap: 12px;
+  padding: 16px 14px 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--coupon);
+  text-align: center;
+}
+
+.meet-who {
+  display: grid;
+  justify-items: center;
+  align-content: start;
+  gap: 6px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.meet-who .avatar.lg {
+  margin-bottom: 4px;
+}
+
+.meet-who strong {
+  max-width: 100%;
+  overflow: hidden;
+  font: 800 20px/1.1 var(--display);
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.meet-who:hover strong {
+  color: var(--purple);
+}
+
+.meet-facts {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px 10px;
+  color: var(--text-2);
+  font-size: 13px;
+}
+
+.meet-new {
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--red);
+  color: var(--on-red);
+  font: 700 11px/1.5 var(--figures);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.meet-asked {
+  color: var(--purple);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.meet-action {
+  display: flex;
+  justify-content: center;
+}
+
+.meet-sent {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  color: var(--text-3);
+  font: 700 14px/1.2 var(--display);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.meet-sent .icon {
+  width: 16px;
+  height: 16px;
+}
+
+.no-friends {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 16px;
+}
+
+.no-friends .hint {
+  flex: 1 1 260px;
+  margin: 0;
+}
+
+@container app-viewport (max-width: 600px) {
+  .duel {
+    grid-template-columns: 44px minmax(0, 1fr);
+  }
+
+  .duel > .duel-when,
+  .duel > .duel-verdict {
+    grid-column: 2;
+    justify-self: start;
+  }
+
+  .duel > .person-actions {
+    grid-column: 1 / -1;
+    justify-content: flex-end;
+  }
+
+  .meet-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+}

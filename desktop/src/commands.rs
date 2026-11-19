@@ -1162,6 +1162,18 @@ fn on_live_event(app: &AppHandle, event: realtime::Event) {
             // Discover's "free now" strip refreshes right away.
             let _ = app.emit("friend-free-changed", ());
         }
+        realtime::Event::Duel { challenger, opponent, status, inserted, .. } => {
+            // A friend challenged you, or played their side of your duel.
+            if notify_invites() {
+                if inserted && opponent == me {
+                    let _ = app.notification().builder().title(format!("{} challenges you", friend_name(&state, &challenger))).body("A quiz duel: 5 questions, your turn").show();
+                } else if !inserted && status == "done" {
+                    let other = if challenger == me { &opponent } else { &challenger };
+                    let _ = app.notification().builder().title("Quiz duel finished").body(format!("See who won against {}", friend_name(&state, other))).show();
+                }
+            }
+            let _ = app.emit("duels-changed", ());
+        }
     }
 }
 

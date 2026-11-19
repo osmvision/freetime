@@ -803,3 +803,208 @@ test('streaks together: only accepted, past invites between friends count', asyn
     });
   });
 });
+
+// ---------------------------------------------------------------- meet
+
+test('meet: only people who chose to be visible, never friends, yourself or blocked people', async () => {
+  await withPeople(async ({ step }) => {
+    await befriend(ALICE, BOB);
+    assert.equal((await step(ALICE, (q) => q.rows('select * from public.meet_people()'))).length, 0, 'nobody opted in');
+    for (const who of [BOB, CAROL]) await step(who, (q) => q.rows('update public.profiles set show_in_global = true where id = $1', [who]));
+    const list = await step(ALICE, (q) => q.rows('select user_id, new, request from public.meet_people()'));
+    assert.deepEqual(list.map((r) => r.user_id), [CAROL], 'Bob is already a friend');
+    assert.equal(list[0].new, true);
+    assert.equal(list[0].request, 'none');
+    // The list never carries email, bio or status: only these columns.
+    const cols = Object.keys(await step(ALICE, (q) => q.one('select * from public.meet_people()')));
+    assert.deepEqual(cols.sort(), ['avatar_color', 'avatar_icon', 'badges', 'display_name', 'new', 'points', 'request', 'user_id']);
+    // Carol never sees herself; hidden Alice doesn't show, visible Bob does.
+    assert.deepEqual((await step(CAROL, (q) => q.rows('select user_id from public.meet_people()'))).map((r) => r.user_id), [BOB]);
+    // A block hides both ways.
+    await step(CAROL, (q) => q.rows('insert into public.blocks (blocker, blocked) values ($1, $2)', [CAROL, ALICE]));
+    assert.equal((await step(ALICE, (q) => q.rows('select * from public.meet_people()'))).length, 0);
+    await step(null, async (q) => {
+      await fails(q.rows('select * from public.meet_people()'), /permission denied/);
+    });
+  });
+});
+
+test('meet: a one-tap request only reaches visible people, and is capped', async () => {
+  await withPeople(async ({ step }) => {
+    // Carol is hidden: no request by id (same answer as for an unknown id).
+    await step(ALICE, async (q) => {
+      await fails(q.one('select public.request_friend($1)', [CAROL]), /can't be added from here/);
+    });
+    await step(ALICE, async (q) => {
+      await fails(q.one('select public.request_friend($1)', ['00000000-0000-4000-8000-0000000000ff']), /can't be added from here/);
+    });
+    await step(CAROL, (q) => q.rows('update public.profiles set show_in_global = true where id = $1', [CAROL]));
+    assert.equal((await step(ALICE, (q) => q.one('select public.request_friend($1) as r', [CAROL]))).r, 'pending');
+    assert.equal((await step(ALICE, (q) => q.one('select public.request_friend($1) as r', [CAROL]))).r, 'pending', 'asking twice changes nothing');
+    assert.equal((await step(ALICE, (q) => q.one('select request from public.meet_people()'))).request, 'sent');
+    // Hidden Alice asked visible Carol: Carol can answer by id, even though Alice is hidden.
+    assert.equal((await step(CAROL, (q) => q.one('select public.request_friend($1) as r', [ALICE]))).r, 'accepted');
+    assert.equal((await step(ALICE, (q) => q.rows('select * from public.meet_people()'))).length, 0, 'friends leave the list');
+    // Not to yourself; a block refuses.
+    await step(BOB, (q) => q.rows('update public.profiles set show_in_global = true where id = $1', [BOB]));
+    await step(ALICE, async (q) => {
+      await fails(q.one('select public.request_friend($1)', [ALICE]), /can't be added from here/);
+    });
+    await step(BOB, (q) => q.rows('insert into public.blocks (blocker, blocked) values ($1, $2)', [BOB, ALICE]));
+    await step(ALICE, async (q) => {
+      await fails(q.one('select public.request_friend($1)', [BOB]), /can't be added from here/);
+    });
+  });
+});
+
+test('meet: at most 20 requests sent a day', async () => {
+  await withPeople(async ({ step }) => {
+    await step(BOB, (q) => q.rows('update public.profiles set show_in_global = true where id = $1', [BOB]));
+    // 20 requests made today to other people (inserted directly, then answered so they don't stay pending).
+    for (let i = 0; i < 20; i++) {
+      const id = `00000000-0000-4000-9000-${String(i).padStart(12, '0')}`;
+      await db.query('insert into auth.users (id, email) values ($1, $2)', [id, `x${i}@test`]);
+      await db.query("insert into public.friendships (requester, addressee, status) values ($1, $2, 'accepted')", [ALICE, id]);
+    }
+    await step(ALICE, async (q) => {
+      await fails(q.one('select public.request_friend($1)', [BOB]), /a lot of friend requests/);
+    });
+  });
+});
+
+// ---------------------------------------------------------------- quiz duels
+
+/** The right answers of a duel, read as the database owner. */
+async function duelKey(id) {
+  return (await db.query('select array_agg(k.answer order by q.n) as key from public.duels d, unnest(d.questions) with ordinality q(id, n) join public.quiz_keys k on k.id = q.id where d.id = $1', [id])).rows[0].key;
+}
+
+test('duels: only between friends, 5 questions from 5 topics, one at a time per pair', async () => {
+  await withPeople(async ({ step }) => {
+    await step(ALICE, async (q) => {
+      await fails(q.one('select public.create_duel($1)', [BOB]), /only challenge your friends/);
+    });
+    await befriend(ALICE, BOB);
+    const id = (await step(ALICE, (q) => q.one('select public.create_duel($1) as id', [BOB]))).id;
+    const d = (await db.query('select questions from public.duels where id = $1', [id])).rows[0];
+    assert.equal(d.questions.length, 5);
+    const topics = (await db.query('select count(distinct topic)::int as n from public.quiz_keys where id = any($1)', [d.questions])).rows[0].n;
+    assert.equal(topics, 5, 'five different topics');
+    await step(ALICE, async (q) => {
+      await fails(q.one('select public.create_duel($1)', [BOB]), /already have a duel going/);
+    });
+    await step(BOB, async (q) => {
+      await fails(q.one('select public.create_duel($1)', [ALICE]), /already have a duel going/);
+    });
+    // Bob sees it as his turn, with the questions; Alice waits and doesn't get them.
+    const bob = (await step(BOB, (q) => q.one('select public.my_duels() as d'))).d;
+    assert.equal(bob.length, 1);
+    assert.equal(bob[0].state, 'your_turn');
+    assert.equal(bob[0].questions.length, 5);
+    assert.equal(bob[0].challenger, false);
+    // Carol, a stranger, sees nothing and can't read the table or the answer key.
+    assert.equal((await step(CAROL, (q) => q.one('select public.my_duels() as d'))).d.length, 0);
+    assert.equal((await step(CAROL, (q) => q.rows('select * from public.duels'))).length, 0);
+    await step(BOB, async (q) => {
+      await fails(q.rows('select * from public.quiz_keys'), /permission denied/);
+    });
+    await step(BOB, async (q) => {
+      await fails(q.rows('select * from public.duel_answers'), /permission denied/);
+    });
+  });
+});
+
+test('duels: the server scores the answers; nobody plays twice, for someone else, or writes directly', async () => {
+  await withPeople(async ({ step }) => {
+    await befriend(ALICE, BOB);
+    const id = (await step(ALICE, (q) => q.one('select public.create_duel($1) as id', [BOB]))).id;
+    const key = await duelKey(id);
+    // Alice gets 4 right (the 3rd is wrong).
+    const mine = key.map((k, i) => (i === 2 ? (k + 1) % 4 : k));
+    const r = (await step(ALICE, (q) => q.one('select public.play_duel($1, $2) as r', [id, mine]))).r;
+    assert.equal(r.score, 4);
+    assert.deepEqual(r.key, key);
+    assert.equal(r.other_score, null);
+    assert.equal(r.status, 'open');
+    await step(ALICE, async (q) => {
+      await fails(q.one('select public.play_duel($1, $2)', [id, key]), /already played/);
+    });
+    // Carol isn't in it; bad answers are refused.
+    await step(CAROL, async (q) => {
+      await fails(q.one('select public.play_duel($1, $2)', [id, key]), /no such duel/);
+    });
+    await step(BOB, async (q) => {
+      await fails(q.one('select public.play_duel($1, $2)', [id, [0, 1, 2]]), /5 answers/);
+    });
+    await step(BOB, async (q) => {
+      await fails(q.one('select public.play_duel($1, $2)', [id, [0, 1, 2, 3, 9]]), /5 answers/);
+    });
+    // No direct writes, even to your own duel.
+    await step(ALICE, async (q) => {
+      await fails(q.rows('update public.duels set challenger_score = 5 where id = $1', [id]), /permission denied/);
+    });
+    await step(ALICE, async (q) => {
+      await fails(q.rows("insert into public.duels (challenger, opponent, questions) values ($1, $2, '{q001,q002,q003,q004,q005}')", [ALICE, BOB]), /permission denied/);
+    });
+    // Bob plays everything right: the duel is done and both see both scores.
+    const b = (await step(BOB, (q) => q.one('select public.play_duel($1, $2) as r', [id, key]))).r;
+    assert.equal(b.score, 5);
+    assert.equal(b.other_score, 4);
+    assert.equal(b.status, 'done');
+    const seen = (await step(ALICE, (q) => q.one('select public.my_duels() as d'))).d[0];
+    assert.deepEqual([seen.state, seen.my_score, seen.their_score, seen.questions], ['done', 4, 5, null]);
+    // A finished duel frees the pair for a new one; it shows in the export.
+    await step(BOB, (q) => q.one('select public.create_duel($1)', [ALICE]));
+    const data = (await step(ALICE, (q) => q.one('select public.export_my_data() as d'))).d;
+    assert.equal(data.quiz_duels.length, 2);
+    assert.equal(data.quiz_duels[0].your_score, 4);
+  });
+});
+
+test('duels: declined, cancelled and expired duels are over; at most 5 waiting; blocks hide them', async () => {
+  await withPeople(async ({ step }) => {
+    await befriend(ALICE, BOB);
+    await befriend(ALICE, CAROL);
+    let id = (await step(ALICE, (q) => q.one('select public.create_duel($1) as id', [BOB]))).id;
+    await step(BOB, (q) => q.one('select public.drop_duel($1)', [id]));
+    assert.equal((await db.query('select status from public.duels where id = $1', [id])).rows[0].status, 'declined');
+    await step(BOB, async (q) => {
+      await fails(q.one('select public.play_duel($1, $2)', [id, [0, 0, 0, 0, 0]]), /over/);
+    });
+    id = (await step(ALICE, (q) => q.one('select public.create_duel($1) as id', [CAROL]))).id;
+    await step(ALICE, (q) => q.one('select public.drop_duel($1)', [id]));
+    assert.equal((await db.query('select status from public.duels where id = $1', [id])).rows[0].status, 'cancelled');
+    // Older than 7 days: expired, can't be played, and the pair can start again.
+    id = (await step(ALICE, (q) => q.one('select public.create_duel($1) as id', [BOB]))).id;
+    await db.query("update public.duels set created_at = now() - interval '8 days' where id = $1", [id]);
+    await step(BOB, async (q) => {
+      await fails(q.one('select public.play_duel($1, $2)', [id, [0, 0, 0, 0, 0]]), /over/);
+    });
+    assert.equal((await step(BOB, (q) => q.one('select public.my_duels() as d'))).d.find((d) => d.id === id).state, 'expired');
+    await step(ALICE, (q) => q.one('select public.create_duel($1)', [BOB]));
+    // At most 5 waiting per challenger.
+    for (let i = 0; i < 4; i++) {
+      const id2 = `00000000-0000-4000-9000-${String(i).padStart(12, '0')}`;
+      await db.query('insert into auth.users (id, email) values ($1, $2)', [id2, `d${i}@test`]);
+      await befriend(ALICE, id2);
+      await step(ALICE, (q) => q.one('select public.create_duel($1)', [id2]));
+    }
+    await step(ALICE, async (q) => {
+      await fails(q.one('select public.create_duel($1)', [CAROL]), /5 duels waiting/);
+    });
+    // Blocking hides the duels with that person.
+    await step(BOB, (q) => q.rows('insert into public.blocks (blocker, blocked) values ($1, $2)', [BOB, ALICE]));
+    const left = (await step(ALICE, (q) => q.one('select public.my_duels() as d'))).d;
+    assert.ok(left.every((d) => d.other.id !== BOB));
+    await step(null, async (q) => {
+      await fails(q.one('select public.my_duels()'), /permission denied/);
+    });
+  });
+});
+
+test('duels: the answer key covers the questions with valid values', async () => {
+  const r = (await db.query("select count(*)::int as n, count(distinct topic)::int as topics, min(answer)::int as lo, max(answer)::int as hi from public.quiz_keys")).rows[0];
+  assert.ok(r.n >= 100);
+  assert.ok(r.topics >= 5, 'enough topics for 5 different ones');
+  assert.ok(r.lo >= 0 && r.hi <= 3);
+});
