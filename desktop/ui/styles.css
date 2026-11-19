@@ -3994,6 +3994,8 @@ body[data-view="messages"] .assistant-panel {
 
 .seg {
   display: inline-flex;
+  flex-wrap: wrap;
+  max-width: 100%;
   padding: 4px;
   gap: 4px;
   border-radius: 10px;

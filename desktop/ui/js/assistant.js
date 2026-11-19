@@ -424,8 +424,8 @@ function drawCompose() {
   els.input.placeholder = ready
     ? 'Ask about your free time…'
     : state.status?.signed_in
-      ? 'The free assistant is unavailable right now'
-      : 'Sign in or add a Mistral key first';
+      ? 'Assistant unavailable right now'
+      : 'Sign in to start chatting';
   fill(els.send, icon(state.busy ? 'square' : 'send'));
   els.send.setAttribute('aria-label', state.busy ? 'Stop' : 'Send');
   els.send.title = state.busy ? 'Stop' : 'Send (Enter)';
