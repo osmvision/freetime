@@ -464,7 +464,6 @@ function dataSection(s) {
   );
 }
 
-/** Donations: shown only once a Ko-fi or GitHub Sponsors page is set in support.json. */
 /** "Report a problem": a short form to the freetime team, signed in or not. */
 function problemSection() {
   return section(
@@ -476,6 +475,7 @@ function problemSection() {
   );
 }
 
+/** Donations: shown only once a Ko-fi or GitHub Sponsors page is set in support.json. */
 function supportSection() {
   const body = supportBody();
   if (!body) return null;
