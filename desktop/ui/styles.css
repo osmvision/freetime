@@ -4168,6 +4168,13 @@ body[data-view="messages"] .assistant-panel {
   background: var(--lavender);
 }
 
+/* Small thumbnails hold a poster's big icon and label inside them (they are placed absolutely). */
+.mini-photo,
+.book-photo,
+.feed-photo {
+  position: relative;
+}
+
 .mini-photo {
   flex: 0 0 auto;
   width: 64px;
@@ -4183,8 +4190,10 @@ body[data-view="messages"] .assistant-panel {
   object-fit: cover;
 }
 
-.mini-photo .poster-label,
-.book-photo .poster-label {
+/* Small thumbnails: the poster keeps its color and icon, not its label (as specific as the
+   rule that shows it, so it wins). */
+.mini-photo .fallback.poster .poster-label,
+.book-photo .fallback.poster .poster-label {
   display: none;
 }
 
@@ -5302,7 +5311,7 @@ body[data-view="messages"] .assistant-panel {
   object-fit: cover;
 }
 
-.feed-photo .poster-label {
+.feed-photo .fallback.poster .poster-label {
   display: none;
 }
 
