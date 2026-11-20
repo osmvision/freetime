@@ -1978,6 +1978,25 @@ button.tag:hover {
   margin-top: 4px;
 }
 
+.welcome-account {
+  display: grid;
+  gap: 8px;
+  margin-top: 8px;
+  padding-top: 16px;
+  border-top: 1px dashed var(--line);
+}
+
+.welcome-account p {
+  margin: 0;
+}
+
+.welcome-account.done {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+}
+
 .welcome-nav {
   display: flex;
   align-items: center;

@@ -29,13 +29,18 @@ function panel(...children) {
   return h('section', { class: 'panel section profile', id: 'profile' }, h('div', { class: 'section-top' }, icon('user'), h('h2', {}, 'Profile')), children);
 }
 
-function signedOut(box, onChange, problem = null) {
+/**
+ * "Continue with Google", with the age and privacy tick that must come first, and a line for how it
+ * goes. Returns the three elements to place. `before()` runs once the tick is given, just before the
+ * browser opens (on the web, the page itself leaves); `onSignedIn(account)` runs once it worked.
+ */
+export function googleSignIn({ problem = null, kind = 'primary', before = null, onSignedIn }) {
   const status = h('div', { class: 'city-status' + (problem ? ' warn' : ''), 'aria-live': 'polite' }, problem ?? '');
   const age = h('input', { type: 'checkbox' });
   const go = btn({
     label: 'Continue with Google',
     icon: 'log-in',
-    kind: 'primary',
+    kind,
     onclick: async () => {
       if (!age.checked) {
         status.className = 'city-status warn';
@@ -46,10 +51,10 @@ function signedOut(box, onChange, problem = null) {
       status.className = 'city-status';
       status.textContent = 'Finish signing in in your browser. This page updates by itself.';
       try {
+        await before?.();
         const acc = await api.signIn('google');
         toast(`Signed in as ${acc.profile?.display_name ?? 'you'}`, 'ok');
-        card(box, acc, onChange);
-        onChange();
+        onSignedIn(acc);
       } catch (e) {
         status.className = 'city-status warn';
         status.textContent = errText(e);
@@ -57,6 +62,20 @@ function signedOut(box, onChange, problem = null) {
       }
     },
   });
+  return [
+    h(
+      'label',
+      { class: 'check' },
+      age,
+      'I’m 15 or older and I accept the ',
+      h('button', { type: 'button', class: 'link', onclick: () => api.open(PRIVACY_URL).catch(() => {}) }, 'privacy policy'),
+    ),
+    h('div', { class: 'row' }, go),
+    status,
+  ];
+}
+
+function signedOut(box, onChange, problem = null) {
   fill(
     box,
     panel(
@@ -68,15 +87,13 @@ function signedOut(box, onChange, problem = null) {
         h('li', {}, icon('check'), 'Your email stays private; others see only the name and avatar you choose'),
         h('li', {}, icon('check'), 'Nothing is sent until you click; signing out removes the session from this PC'),
       ),
-      h(
-        'label',
-        { class: 'check' },
-        age,
-        'I’m 15 or older and I accept the ',
-        h('button', { type: 'button', class: 'link', onclick: () => api.open(PRIVACY_URL).catch(() => {}) }, 'privacy policy'),
-      ),
-      h('div', { class: 'row' }, go),
-      status,
+      googleSignIn({
+        problem,
+        onSignedIn: (acc) => {
+          card(box, acc, onChange);
+          onChange();
+        },
+      }),
     ),
   );
 }

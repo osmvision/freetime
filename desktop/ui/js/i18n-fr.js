@@ -908,6 +908,8 @@ export const exact = {
   'You’re all set': 'Tout est prêt',
   'Your first ticket is waiting. Rate what you do, and freetime learns what you like.': 'Ton premier ticket t’attend. Note ce que tu fais, et freetime apprend ce que tu aimes.',
   'Show my first ticket': 'Voir mon premier ticket',
+  'Create your account': 'Crée ton compte',
+  'Optional: with a Google account, add friends by tag, send them messages and play games together. Your email stays private.': 'Facultatif : avec un compte Google, ajoute des amis avec leur tag, écris-leur et jouez ensemble. Ton e-mail reste privé.',
   'Sign in to add friends': 'Se connecter pour ajouter des amis',
   'Signing in is optional: it gives you a profile, friends and messages.': 'Se connecter est facultatif : ça te donne un profil, des amis et des messages.',
 
