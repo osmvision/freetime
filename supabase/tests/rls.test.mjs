@@ -1315,11 +1315,44 @@ test('games: clearing finished games hides them for you only', async () => {
 
 test('games: bad requests are refused before anything is saved', async () => {
   await withPeople(async () => {
-    assert.equal((await games(ALICE, { action: 'start', game: 'chess', opponent: BOB })).code, 'bad_request');
+    assert.equal((await games(ALICE, { action: 'start', game: 'checkers', opponent: BOB })).code, 'bad_request');
     assert.equal((await games(ALICE, { action: 'start', game: 'four', opponent: 'not-a-uuid' })).code, 'bad_request');
     assert.equal((await games(ALICE, { action: 'move', match: BOB, version: 'x' })).code, 'bad_request');
     assert.equal((await games(ALICE, { action: 'dance' })).code, 'bad_request');
     assert.equal((await games(ALICE, { action: 'move', match: '00000000-0000-4000-8000-0000000000ff', version: 0, move: {} })).code, 'not_found');
     assert.equal((await db.query('select count(*)::int as n from public.matches')).rows[0].n, 0);
+  });
+});
+
+test('games: chess online — moves are checked by the real rules, and mate ends the game for both', async () => {
+  await withPeople(async ({ step }) => {
+    // Player 0 (Alice, who started it) has white. Squares: e2 = 52, e4 = 36...
+    const sq = (name) => (8 - Number(name[1])) * 8 + (name.charCodeAt(0) - 97);
+    const move = (text) => ({ from: sq(text.slice(0, 2)), to: sq(text.slice(2, 4)) });
+    await befriend(ALICE, BOB);
+    const g = await games(ALICE, { action: 'start', game: 'chess', opponent: BOB }, 0);
+    assert.ok(g.id, g.message);
+    assert.equal(g.state.game, 'chess');
+    assert.equal(g.state.white, 0);
+    let version = 0;
+    const play = async (who, text) => {
+      const r = await games(who, { action: 'move', match: g.id, version, move: move(text) });
+      if (r.state) version = r.version;
+      return r;
+    };
+    // Not Bob's turn, not a legal move, not a piece of yours: refused, and nothing changes.
+    assert.equal((await play(BOB, 'e7e5')).code, 'illegal');
+    assert.equal((await play(ALICE, 'e2e5')).code, 'illegal');
+    assert.equal((await play(ALICE, 'e7e5')).code, 'illegal');
+    assert.equal((await play(ALICE, 'f2f3')).state.turn, 1);
+    assert.equal((await play(BOB, 'e7e5')).state.turn, 0);
+    assert.equal((await play(ALICE, 'g2g4')).state.winner, null);
+    const end = await play(BOB, 'd8h4');
+    assert.equal(end.state.winner, 1, 'fool’s mate: black wins');
+    assert.equal((await play(ALICE, 'a2a3')).code, 'over');
+    assert.equal((await myMatches(step, BOB)).find((m) => m.id === g.id).outcome, 'won');
+    assert.equal((await myMatches(step, ALICE)).find((m) => m.id === g.id).outcome, 'lost');
+    const saved = (await db.query('select pg_column_size(state) as size from public.matches where id = $1', [g.id])).rows[0].size;
+    assert.ok(saved < 4000, `the state takes ${saved} bytes`);
   });
 });
