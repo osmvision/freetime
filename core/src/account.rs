@@ -606,6 +606,19 @@ impl Client {
         v.as_str().map(str::to_string).ok_or_else(|| anyhow!("unexpected response"))
     }
 
+    /// Clears one finished game from your list (the other player keeps theirs).
+    pub fn hide_match(&self, s: &Session, id: &str) -> Result<()> {
+        ensure_uuid(id)?;
+        self.call("POST", "/rest/v1/rpc/hide_match", Some(&s.access_token), Some(&json!({ "p_match": id })), None)?;
+        Ok(())
+    }
+
+    /// Clears every finished game from your list. Returns how many.
+    pub fn hide_finished_matches(&self, s: &Session) -> Result<u32> {
+        let v = self.call("POST", "/rest/v1/rpc/hide_finished_matches", Some(&s.access_token), Some(&json!({})), None)?;
+        Ok(v.as_u64().unwrap_or(0) as u32)
+    }
+
     /// Deletes your shared list from the server.
     pub fn stop_sharing_library(&self, s: &Session) -> Result<()> {
         self.call("POST", "/rest/v1/rpc/stop_sharing_library", Some(&s.access_token), Some(&json!({})), None)?;

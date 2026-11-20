@@ -53,7 +53,8 @@ To work, the app contacts these services, and only for what you see on screen:
   deleted with your account.
 - Games you play with friends (Four in a row, Draughts, Torpedoes...): the board, whose turn it
   is and the result, and for Torpedoes where you placed your ships. Games against the computer
-  stay on your PC.
+  stay on your PC. You can clear a finished game, or all of them, from your list: that hides them
+  for you only (the other player keeps theirs); they are deleted with your account.
 
 **The free assistant**
 

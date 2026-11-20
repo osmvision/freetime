@@ -78,6 +78,8 @@ fn main() {
             duels::game_action,
             duels::my_matches,
             duels::leave_match,
+            duels::hide_match,
+            duels::hide_finished_matches,
             feed::friend_feed,
             feed::share_post,
             feed::delete_post,

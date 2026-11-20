@@ -5871,6 +5871,22 @@ body[data-view="messages"] .assistant-panel {
   text-transform: uppercase;
 }
 
+.duel-group-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.duel-group-head .btn {
+  margin-top: 8px;
+}
+
+.duel-group > .btn {
+  margin-top: 6px;
+}
+
 .duel-list {
   margin: 0;
   padding: 0;

@@ -1268,6 +1268,51 @@ test('games: declining, cancelling, resigning, expiry, blocks and the limit of 5
   });
 });
 
+test('games: clearing finished games hides them for you only', async () => {
+  await withPeople(async ({ step }) => {
+    await befriend(ALICE, BOB);
+    const hide = (who, id) => step(who, (q) => q.rows('select public.hide_match($1)', [id]));
+    const ids = (who) => myMatches(step, who).then((l) => l.map((m) => m.id));
+    // Two finished games (declined, resigned) and one still going.
+    const declined = await games(ALICE, { action: 'start', game: 'dots', opponent: BOB }, 1);
+    await step(BOB, (q) => q.one('select public.leave_match($1)', [declined.id]));
+    const resigned = await games(ALICE, { action: 'start', game: 'gomoku', opponent: BOB }, 1);
+    assert.ok((await games(BOB, { action: 'move', match: resigned.id, version: 0, move: { cell: 60 } })).state);
+    await step(BOB, (q) => q.one('select public.leave_match($1)', [resigned.id]));
+    const going = await games(ALICE, { action: 'start', game: 'four', opponent: BOB }, 0);
+    assert.equal((await ids(ALICE)).length, 3);
+
+    // A game still going can't be cleared; nor one that isn't yours.
+    await step(ALICE, async (q) => {
+      await fails(q.one('select public.hide_match($1)', [going.id]), /not over/);
+    });
+    await step(CAROL, async (q) => {
+      await fails(q.one('select public.hide_match($1)', [declined.id]), /no such game/);
+    });
+
+    // One game: gone for Alice, still there for Bob; the game itself is untouched.
+    await hide(ALICE, declined.id);
+    assert.deepEqual((await ids(ALICE)).sort(), [resigned.id, going.id].sort());
+    assert.equal((await ids(BOB)).length, 3);
+    assert.equal((await db.query('select count(*)::int as n from public.matches')).rows[0].n, 3);
+    await hide(ALICE, declined.id); // again: harmless
+
+    // All at once: only finished ones, and only for the one who asks.
+    assert.equal((await step(ALICE, (q) => q.one('select public.hide_finished_matches() as n'))).n, 1);
+    assert.deepEqual(await ids(ALICE), [going.id]);
+    assert.equal((await ids(BOB)).length, 3);
+    assert.equal((await step(BOB, (q) => q.one('select public.hide_finished_matches() as n'))).n, 2);
+    assert.deepEqual(await ids(BOB), [going.id]);
+    assert.equal((await step(BOB, (q) => q.one('select public.hide_finished_matches() as n'))).n, 0);
+
+    // An expired game counts as finished.
+    await db.query("update public.matches set updated_at = now() - interval '8 days' where id = $1", [going.id]);
+    assert.equal((await step(ALICE, (q) => q.one('select public.hide_finished_matches() as n'))).n, 1);
+    assert.deepEqual(await ids(ALICE), []);
+    assert.equal((await ids(BOB)).length, 1);
+  });
+});
+
 test('games: bad requests are refused before anything is saved', async () => {
   await withPeople(async () => {
     assert.equal((await games(ALICE, { action: 'start', game: 'chess', opponent: BOB })).code, 'bad_request');

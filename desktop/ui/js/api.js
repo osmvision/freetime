@@ -66,6 +66,8 @@ export const api = {
   gameAction: (request) => invoke('game_action', { request }),
   myMatches: () => invoke('my_matches'),
   leaveMatch: (id) => invoke('leave_match', { id }),
+  hideMatch: (id) => invoke('hide_match', { id }),
+  hideFinishedMatches: () => invoke('hide_finished_matches'),
   // Friends' feed and social settings.
   friendFeed: () => invoke('friend_feed'),
   sharePost: (post) => invoke('share_post', { post }),
