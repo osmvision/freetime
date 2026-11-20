@@ -362,6 +362,7 @@ function editor(box, acc, onChange) {
   const name = h('input', { class: 'input', type: 'text', value: p.display_name, maxlength: 24, spellcheck: 'false', autocomplete: 'off', 'aria-label': 'Display name' });
   const bio = h('input', { class: 'input', type: 'text', value: p.bio, maxlength: 160, placeholder: 'A line about you (optional)', 'aria-label': 'Bio' });
   const statusText = h('input', { class: 'input', type: 'text', value: p.status_text, maxlength: 60, placeholder: 'e.g. Free tonight', 'aria-label': 'Status' });
+  const publicBox = h('input', { type: 'checkbox', checked: !!p.show_in_global, 'aria-label': 'Public profile' });
   const preview = h('div', { class: 'look-preview' });
   const icons = h('div', { class: 'look-icons', role: 'group', 'aria-label': 'Avatar icon' });
   const colors = h('div', { class: 'look-colors', role: 'group', 'aria-label': 'Avatar color' });
@@ -394,6 +395,7 @@ function editor(box, acc, onChange) {
           display_name: name.value, avatar_icon: look.icon, avatar_color: look.color, bio: bio.value, status_text: statusText.value,
           ...(photoEdit === undefined ? {} : { photo: { image: photoEdit } }),
         });
+        if (publicBox.checked !== !!p.show_in_global) await api.setGlobalRanking(publicBox.checked);
         toast('Profile saved', 'ok');
         card(box, { ...acc, profile }, onChange);
         onChange();
@@ -437,6 +439,10 @@ function editor(box, acc, onChange) {
       h('div', { class: 'field' }, h('span', { class: 'field-label' }, 'Color'), colors),
       h('label', { class: 'field' }, h('span', { class: 'field-label' }, 'Bio'), bio),
       h('label', { class: 'field' }, h('span', { class: 'field-label' }, 'Status'), statusText),
+      h('div', { class: 'field' },
+        h('label', { class: 'check' }, publicBox, h('span', { class: 'field-label' }, 'Public profile')),
+        h('span', { class: 'hint' }, 'Public: anyone on freetime can see your card and find you in the Discover list to add you in one tap. Private: only your friends see your profile.'),
+      ),
       h('div', { class: 'row' }, save, btn({ label: 'Cancel', kind: 'quiet', onclick: () => card(box, acc, onChange) })),
     ),
   );

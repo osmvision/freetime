@@ -301,6 +301,79 @@ test('members read and post; nobody else can read, post or pose as someone', asy
   });
 });
 
+test('friend groups enforce membership, history, blocking and owner transfer', async () => {
+  const outsider = '00000000-0000-4000-8000-00000000000d';
+  await withPeople(async ({ step }) => {
+    await db.query('insert into auth.users (id, email) values ($1, $2)', [outsider, 'outsider@test']);
+    await befriend(ALICE, BOB);
+    const manage = (q, action, id, name, add = [], remove = []) =>
+      q.one('select public.manage_friend_group($1,$2,$3,$4,$5) as id', [action, id, name, add, remove]);
+    const groups = (who) => step(who, async (q) => (await q.one('select public.my_friend_groups() as groups')).groups);
+    const messages = (who, id) =>
+      step(who, (q) => q.rows('select body from public.messages where conversation_id = $1 order by id', [id]));
+    const send = (who, id, body) => step(who, (q) =>
+      q.one('insert into public.messages (conversation_id, body) values ($1, $2) returning id', [id, body]));
+
+    await step(ALICE, async (q) => {
+      await fails(manage(q, 'create', null, 'Friday', [BOB, CAROL]), /only add your friends/);
+    });
+    await befriend(ALICE, CAROL);
+    await step(ALICE, async (q) => {
+      await fails(manage(q, 'create', null, 'Friday', [BOB, BOB]), /at least two friends/);
+    });
+    const { id } = await step(ALICE, (q) => manage(q, 'create', null, 'Friday', [BOB, CAROL]));
+    assert.equal((await groups(ALICE))[0].owned, true);
+    assert.deepEqual(new Set((await groups(BOB))[0].members.map((member) => member.user_id)), new Set([ALICE, BOB, CAROL]));
+    assert.deepEqual(await groups(outsider), []);
+    await step(outsider, async (q) => {
+      await fails(q.rows("insert into public.messages (conversation_id, body) values ($1, 'outside')", [id]), /row-level security/);
+    });
+    await step(BOB, async (q) => {
+      await fails(manage(q, 'update', id, 'Hijacked'), /only the group owner/);
+    });
+    assert.equal((await step(BOB, (q) => q.rows('select * from public.my_conversations()'))).length, 0);
+
+    const first = await send(BOB, id, 'Before the block');
+    assert.equal((await groups(CAROL))[0].unread, 1);
+    assert.deepEqual(await messages(outsider, id), []);
+    await step(CAROL, (q) => q.rows('update public.conversation_members set last_read_id = $1 where conversation_id = $2 and user_id = $3', [first.id, id, CAROL]));
+    assert.equal((await groups(CAROL))[0].unread, 0);
+    await step(BOB, (q) => q.rows('insert into public.blocks (blocker, blocked) values ($1,$2)', [BOB, CAROL]));
+    await send(CAROL, id, 'From Carol');
+    assert.deepEqual(await messages(BOB, id), [{ body: 'Before the block' }]);
+    assert.deepEqual(await messages(CAROL, id), [{ body: 'From Carol' }]);
+    assert.deepEqual(await messages(ALICE, id), [{ body: 'Before the block' }, { body: 'From Carol' }]);
+
+    await step(ALICE, (q) => manage(q, 'update', id, 'Game night', [], [CAROL]));
+    assert.deepEqual(await groups(CAROL), []);
+    assert.deepEqual(await messages(CAROL, id), []);
+    await step(CAROL, async (q) => {
+      await fails(q.rows("insert into public.messages (conversation_id, body) values ($1, 'removed')", [id]), /row-level security/);
+    });
+    const hidden = await send(ALICE, id, 'While Carol was away');
+    await step(ALICE, (q) => manage(q, 'update', id, null, [CAROL]));
+    assert.equal((await groups(CAROL))[0].name, 'Game night');
+    assert.deepEqual(await messages(CAROL, id), []);
+    await step(CAROL, async (q) => {
+      await fails(q.rows("insert into public.reports (target, reason, message_ids) values ($1, 'spam', array[$2]::bigint[])", [ALICE, hidden.id]), /messages can.t be attached/);
+    });
+    await send(ALICE, id, 'After Carol returned');
+    assert.deepEqual(await messages(CAROL, id), [{ body: 'After Carol returned' }]);
+    assert.equal((await groups(CAROL))[0].unread, 1);
+    const data = await step(CAROL, async (q) => (await q.one('select public.export_my_data() as data')).data);
+    assert.equal(data.groups[0].name, 'Game night');
+    assert.ok(!JSON.stringify(data).includes('After Carol returned'));
+
+    await step(ALICE, (q) => manage(q, 'leave', id, null));
+    assert.deepEqual(await groups(ALICE), []);
+    assert.equal((await groups(BOB))[0].owned, true);
+    await step(BOB, (q) => manage(q, 'leave', id, null));
+    assert.equal((await groups(CAROL))[0].owned, true);
+    await step(CAROL, (q) => manage(q, 'leave', id, null));
+    assert.equal((await db.query('select count(*)::int as n from public.conversations where id = $1', [id])).rows[0].n, 0);
+  });
+});
+
 test('unfriending or blocking stops new messages; the history stays readable', async () => {
   await withPeople(async ({ step }) => {
     await befriend(ALICE, BOB);

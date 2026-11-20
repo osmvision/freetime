@@ -818,6 +818,29 @@ impl Client {
         serde_json::from_value(v).context("unexpected conversations response")
     }
 
+    pub fn friend_groups(&self, s: &Session) -> Result<Vec<FriendGroup>> {
+        let groups = self.call("POST", "/rest/v1/rpc/my_friend_groups", Some(&s.access_token), Some(&json!({})), None)?;
+        serde_json::from_value(groups).context("unexpected friend groups response")
+    }
+
+    pub fn manage_friend_group(&self, s: &Session, edit: &GroupEdit) -> Result<String> {
+        if let Some(id) = &edit.id {
+            ensure_uuid(id)?;
+        }
+        if edit.add.len() > 19 || edit.remove.len() > 19 {
+            bail!("a group can have up to 20 members");
+        }
+        for id in edit.add.iter().chain(&edit.remove) {
+            ensure_uuid(id)?;
+        }
+        let body = json!({
+            "p_action": edit.action, "p_id": edit.id, "p_name": edit.name,
+            "p_add": edit.add, "p_remove": edit.remove,
+        });
+        let value = self.call("POST", "/rest/v1/rpc/manage_friend_group", Some(&s.access_token), Some(&body), None)?;
+        value.as_str().map(str::to_string).ok_or_else(|| anyhow!("unexpected friend group response"))
+    }
+
     /// Messages after `after` (an id), oldest first; with `after` = 0, the latest 100.
     pub fn messages(&self, s: &Session, conversation: &str, after: i64) -> Result<Vec<Message>> {
         ensure_uuid(conversation)?;
@@ -957,6 +980,37 @@ pub struct ConversationEntry {
     pub unread: i64,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+pub struct GroupEdit {
+    pub action: String,
+    pub id: Option<String>,
+    pub name: Option<String>,
+    #[serde(default)]
+    pub add: Vec<String>,
+    #[serde(default)]
+    pub remove: Vec<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct GroupMember {
+    pub user_id: String,
+    pub display_name: String,
+    pub avatar_icon: i16,
+    pub avatar_color: i16,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct FriendGroup {
+    pub conversation_id: String,
+    pub name: String,
+    pub owned: bool,
+    pub last_body: Option<String>,
+    pub last_sender: Option<String>,
+    pub last_at: Option<String>,
+    pub unread: i64,
+    pub members: Vec<GroupMember>,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Message {
     pub id: i64,
@@ -992,7 +1046,7 @@ fn ensure_uuid(id: &str) -> Result<()> {
 
 // ---------------------------------------------------------------- the online profile
 
-const PROFILE_COLUMNS: &str = "id,display_name,avatar_icon,avatar_color,bio,status_text,friend_tag,free_until";
+const PROFILE_COLUMNS: &str = "id,display_name,avatar_icon,avatar_color,bio,status_text,friend_tag,free_until,show_in_global";
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct OnlineProfile {
@@ -1006,6 +1060,9 @@ pub struct OnlineProfile {
     /// While you've said you're free.
     #[serde(default)]
     pub free_until: Option<String>,
+    /// Public profile: anyone signed in can see your card and find you in the Discover list.
+    #[serde(default)]
+    pub show_in_global: bool,
 }
 
 #[derive(Debug, Serialize, Deserialize)]

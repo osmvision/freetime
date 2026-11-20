@@ -114,15 +114,15 @@ let streaks = {};
 
 async function onlineSection(box, ctx, inviteId) {
   fill(box, h('div', { class: 'ghost', style: 'height:200px;margin-bottom:18px' }));
-  let data;
+  let data, groups;
   try {
-    data = await api.socialOverview();
+    [data, groups] = await Promise.all([api.socialOverview(), api.friendGroups().catch(() => [])]);
     streaks = await api.togetherStreaks().catch(() => ({}));
   } catch (e) {
     fill(box, h('div', { class: 'strip' }, icon('triangle-alert'), h('div', { class: 'strip-text' }, h('strong', {}, 'Could not load your friends'), h('span', {}, errText(e))), btn({ label: 'Try again', small: true, onclick: () => onlineSection(box, ctx) })));
     return;
   }
-  ctx.setUnread?.(data.conversations.reduce((n, c) => n + c.unread, 0));
+  ctx.setUnread?.([...data.conversations, ...groups].reduce((n, c) => n + c.unread, 0));
   const reload = () => onlineSection(box, ctx);
   const friends = data.friends.filter((f) => f.state === 'friend');
   const incoming = data.friends.filter((f) => f.state === 'incoming');
@@ -130,10 +130,13 @@ async function onlineSection(box, ctx, inviteId) {
 
   const invitesBox = h('div', { class: 'friend-invites' });
   invitesPanel(invitesBox, ctx, inviteId);
+  const discover = h('section', { class: 'panel people discover' });
+  discoverPanel(discover, reload, ctx);
   fill(
     box,
     invitesBox,
     addByTag(reload),
+    discover,
     incoming.length || outgoing.length
       ? h(
           'section',
@@ -165,7 +168,7 @@ async function onlineSection(box, ctx, inviteId) {
         : h(
             'div',
             { class: 'no-friends' },
-            h('p', { class: 'hint' }, 'No friends yet. Find people who use freetime in Meet, or send your tag (Settings → Profile) to a friend.'),
+            h('p', { class: 'hint' }, 'No friends yet. Add someone from Discover above, or send your tag (Settings → Profile) to a friend.'),
             btn({ label: 'Meet people', icon: 'user-plus', small: true, onclick: () => ctx.goto('friends', { tab: 'meet' }) }),
           ),
     ),
@@ -193,6 +196,58 @@ function addByTag(reload) {
     if (e.key === 'Enter') send();
   });
   return h('section', { class: 'panel section add-tag' }, h('div', { class: 'section-top' }, icon('user-plus'), h('h2', {}, 'Add a friend')), h('div', { class: 'row' }, input, send.button), status);
+}
+
+// ---------------------------------------------------------------- discover: public profiles, one-tap add
+
+const DISCOVER_SHOWN = 8;
+
+/** People whose profile is public, right where you add friends by tag. */
+function discoverPanel(box, reload, ctx) {
+  fill(box, h('div', { class: 'ghost', style: 'height:90px' }));
+  api
+    .meetPeople()
+    .then((v) => {
+      if (!box.isConnected) return;
+      const people = (v.people ?? []).slice(0, DISCOVER_SHOWN);
+      fill(
+        box,
+        h('div', { class: 'section-top' },
+          icon('users'),
+          h('h2', {}, 'Discover people'),
+          btn({ label: 'See all in Meet', icon: 'arrow-right', kind: 'quiet', small: true, onclick: () => ctx.goto('friends', { tab: 'meet' }) }),
+        ),
+        people.length
+          ? people.map((p) => person(p, p.new ? 'New on freetime' : `${p.points} pts`, [quickAdd(p, reload)]))
+          : h('p', { class: 'hint' }, 'Nobody is public yet. Turn on “Public profile” in Settings → Profile to appear here for others.'),
+      );
+    })
+    .catch((e) => {
+      if (!box.isConnected) return;
+      fill(box, h('div', { class: 'strip' }, icon('triangle-alert'), h('div', { class: 'strip-text' }, h('strong', {}, 'Could not load people'), h('span', {}, errText(e)))));
+    });
+}
+
+/** One-tap friend request to a public profile. */
+function quickAdd(p, reload) {
+  if (p.request === 'sent') return h('span', { class: 'meet-sent' }, icon('check'), 'Request sent');
+  return btn({
+    label: p.request === 'received' ? 'Accept' : 'Add',
+    icon: p.request === 'received' ? 'user-check' : 'user-plus',
+    kind: 'primary',
+    small: true,
+    onclick: async (e) => {
+      e.currentTarget.disabled = true;
+      try {
+        const r = await api.requestFriend(p.user_id);
+        toast(r === 'accepted' ? `You and ${p.display_name} are friends` : `Request sent to ${p.display_name}`, 'ok');
+        reload();
+      } catch (err) {
+        toast(errText(err), 'error', 5000);
+        e.currentTarget.disabled = false;
+      }
+    },
+  });
 }
 
 function person(f, sub, extra, actions) {

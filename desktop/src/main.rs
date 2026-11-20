@@ -109,6 +109,8 @@ fn main() {
             commands::unfriend,
             commands::block_user,
             commands::open_chat,
+            commands::friend_groups,
+            commands::manage_friend_group,
             commands::chat_messages,
             commands::send_message,
             commands::mark_read,

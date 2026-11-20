@@ -2789,6 +2789,19 @@ body:has(> .quiz-backdrop) .game-invite-toast {
   text-transform: uppercase;
 }
 
+.chat-list-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px 8px;
+  padding: 0 6px 8px;
+}
+
+.chat-list-head .chat-list-title {
+  margin: 0;
+}
+
 .chat-row {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
@@ -2862,6 +2875,62 @@ body:has(> .quiz-backdrop) .game-invite-toast {
 
 .chat-pane > .chat-compose {
   grid-row: 4;
+}
+
+.group-editor {
+  grid-row: 1 / -1;
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  min-width: 0;
+  min-height: 0;
+  padding: 18px;
+  overflow-y: auto;
+}
+
+.group-editor h2,
+.group-editor p {
+  margin: 0;
+}
+
+.group-editor [role="status"]:empty {
+  display: none;
+}
+
+.group-picker,
+.group-member-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr));
+  gap: 6px;
+  max-height: 35vh;
+  margin: 0;
+  padding: 2px;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.group-member-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  min-width: 0;
+  padding: 4px 8px;
+  border: 1px solid var(--rule-soft);
+  border-radius: var(--r-control);
+}
+
+.group-member-name {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.bubble-author {
+  margin-bottom: 3px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--purple);
 }
 
 .chat-pane > .empty,

@@ -1335,7 +1335,9 @@ pub fn watch_messages(app: AppHandle) {
                     }
                 }
                 if let Some(convs) = messages_enabled.then(|| client.conversations(&s).ok()).flatten() {
-                    let _ = app.emit("unread-updated", convs.iter().map(|c| c.unread).sum::<i64>());
+                    let groups = client.friend_groups(&s).unwrap_or_default();
+                    let unread = convs.iter().map(|c| c.unread).chain(groups.iter().map(|g| g.unread)).sum::<i64>();
+                    let _ = app.emit("unread-updated", unread);
                     // Quiet while the window is in front, or while the live connection already notified.
                     let focused = main_focused(&app)
                         || state.live.load(std::sync::atomic::Ordering::Relaxed);
@@ -1356,6 +1358,20 @@ pub fn watch_messages(app: AppHandle) {
                             let preview: String = c.last_body.clone().unwrap_or_default().split_whitespace().collect::<Vec<_>>().join(" ");
                             let preview: String = if preview.chars().count() > 120 { preview.chars().take(117).collect::<String>() + "…" } else { preview };
                             let _ = app.notification().builder().title(format!("{who} on freetime")).body(preview).show();
+                        }
+                    }
+                    let mut group_budget = 3usize.saturating_sub(fresh.len());
+                    for group in groups {
+                        let last = group.last_at.unwrap_or_default();
+                        let before = seen.insert(group.conversation_id, last.clone());
+                        if !baseline && !focused && group.unread > 0 && group_budget > 0
+                            && group.last_sender.as_deref().is_some_and(|who| who != s.user_id)
+                            && before.as_deref() != Some(last.as_str())
+                        {
+                            let preview = group.last_body.unwrap_or_default().split_whitespace().collect::<Vec<_>>().join(" ");
+                            let preview = if preview.chars().count() > 120 { preview.chars().take(117).collect::<String>() + "…" } else { preview };
+                            let _ = app.notification().builder().title(group.name).body(preview).show();
+                            group_budget -= 1;
                         }
                     }
                     baseline = false;
@@ -1495,6 +1511,18 @@ pub fn block_user(state: State<'_, AppState>, user_id: String) -> Res<()> {
 pub fn open_chat(state: State<'_, AppState>, friend: String) -> Res<String> {
     let s = live_session(&state)?;
     Client::new().map_err(err)?.open_direct(&s, &friend).map_err(err)
+}
+
+#[tauri::command(async)]
+pub fn friend_groups(state: State<'_, AppState>) -> Res<Vec<account::FriendGroup>> {
+    let s = live_session(&state)?;
+    Client::new().map_err(err)?.friend_groups(&s).map_err(err)
+}
+
+#[tauri::command(async)]
+pub fn manage_friend_group(state: State<'_, AppState>, edit: account::GroupEdit) -> Res<String> {
+    let s = live_session(&state)?;
+    Client::new().map_err(err)?.manage_friend_group(&s, &edit).map_err(err)
 }
 
 #[tauri::command(async)]

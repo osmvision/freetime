@@ -87,7 +87,7 @@ function seasonCard(v) {
   );
 }
 
-export function globalSwitch(v, reload, detail = 'Others can see your name, avatar, activity ranking and game results, and send you a friend request.') {
+export function globalSwitch(v, reload, detail = 'Public profile: anyone can see your card and ranking, and add you from the Discover list in Friends.') {
   const box = h('input', { type: 'checkbox', checked: v.show_in_global });
   box.addEventListener('change', async () => {
     box.disabled = true;

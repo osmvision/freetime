@@ -41,7 +41,8 @@ To work, the app contacts these services, and only for what you see on screen:
   status, and your friend tag. A profile photo is stored as a resized square image. You can replace
   or remove it in your profile settings.
 - Your friend requests, friendships and blocks.
-- Your messages and the conversations you are part of.
+- Your messages and the conversations you are part of, including the names and memberships of
+  private groups.
 - Reports you make.
 - If you use the free assistant: how many messages you sent today, for the daily limit. Older
   days are deleted.
@@ -91,7 +92,8 @@ Closed reports and their photos are deleted after one year. Deleting your accoun
   other player.
 - In a game with a friend, you both see the board. In Torpedoes, the other player never sees your
   ships, only where their own shots landed.
-- Only the two people in a conversation can read it. Messages are encrypted in transit and stored
+- Only participants can read a conversation. In groups, members receive messages from the time
+  they join. Messages are encrypted in transit and stored
   encrypted on disk by our hosting provider, but they are **not end-to-end encrypted**: the people
   who run freetime could technically access them. We only do so to handle a report you or the other
   person made, or when the law requires it.

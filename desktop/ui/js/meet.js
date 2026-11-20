@@ -63,8 +63,8 @@ function visibility(visible, reload) {
     h(
       'div',
       { class: 'strip-text' },
-      h('label', { class: 'check' }, box, h('strong', {}, 'Let others find me (here and on the global ranking)')),
-      h('span', {}, 'Others can see your name, avatar, activity ranking and game results, and send you a friend request.'),
+      h('label', { class: 'check' }, box, h('strong', {}, 'Let others find me (in Discover, here and on the global ranking)')),
+      h('span', {}, 'Anyone can see your card, find you in Discover and add you in one tap. Only your friends see your bio and status.'),
     ),
   );
 }

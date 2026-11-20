@@ -112,6 +112,8 @@ export const api = {
   unfriend: (userId) => invoke('unfriend', { userId }),
   blockUser: (userId) => invoke('block_user', { userId }),
   openChat: (friend) => invoke('open_chat', { friend }),
+  friendGroups: () => invoke('friend_groups'),
+  manageFriendGroup: (edit) => invoke('manage_friend_group', { edit }),
   chatMessages: (conversation, after = 0) => invoke('chat_messages', { conversation, after }),
   sendMessage: (conversation, body) => invoke('send_message', { conversation, body }),
   markRead: (conversation, upTo) => invoke('mark_read', { conversation, upTo }),
