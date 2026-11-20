@@ -83,6 +83,7 @@ fn main() {
             duels::leave_match,
             duels::hide_match,
             duels::hide_finished_matches,
+            plans::play_now,
             plans::head_to_head,
             plans::create_evening,
             plans::answer_evening,

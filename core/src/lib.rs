@@ -71,6 +71,20 @@ pub fn rank_together(
     ranked
 }
 
+/// "Shall we play now?": the Steam games you and these friends all own, best first for this
+/// request (games only, together), and how many you share in all.
+pub struct PlayNow {
+    pub common: usize,
+    pub picks: Vec<Ranked>,
+}
+
+pub fn play_now(cfg: &Config, req: &Request, online: &Online, prefs: &Prefs, party: &party::Party) -> PlayNow {
+    let req = Request { categories: vec![model::Category::Game], with_friends: true, can_go_out: false, ..req.clone() };
+    let ranked = rank_together(cfg, &req, online, prefs, &HashSet::new(), Some(party));
+    let picks = ranked.into_iter().filter(|r| party.is_common(&r.s.id)).take(3).collect();
+    PlayNow { common: party.common_games(), picks }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

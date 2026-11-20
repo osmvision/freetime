@@ -3,16 +3,41 @@
 //! all your devices (only when you ask). The rules live in the database
 //! (supabase/migrations/*_game_rematch.sql, *_evenings.sql, *_synced_preferences.sql).
 
-use crate::commands::{err, live_session, lock, AppState};
+use crate::commands::{card, current_online, err, live_session, lock, party_for, remember, AppState, Card, OnlineMate, ONLINE_WAIT};
 use freetime_core::{
     account::{Client, NewEvening},
+    config::Config,
     history::{self, History, NotNow, Tuning},
+    model::Request,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use tauri::{AppHandle, State};
 
 type Res<T> = Result<T, String>;
+
+// ---------------------------------------------------------------- "shall we play now?"
+
+#[derive(Serialize)]
+pub struct PlayNowView {
+    /// Steam games you both own.
+    common: usize,
+    /// The best of those for right now (at most three).
+    picks: Vec<Card>,
+}
+
+/// A friend is free: the Steam games you both own, best first for the time you both have.
+#[tauri::command(async)]
+pub fn play_now(state: State<'_, AppState>, req: Request, mate: OnlineMate) -> Res<PlayNowView> {
+    let cfg = Config::load().map_err(err)?;
+    let (online, _) = current_online(&state, ONLINE_WAIT);
+    let together = party_for(&state, &[], std::slice::from_ref(&mate));
+    let prefs = History::load().prefs(history::now());
+    let found = freetime_core::play_now(&cfg, &req, &online, &prefs, &together);
+    let picks: Vec<Card> = found.picks.iter().map(card).collect();
+    remember(&state, picks.iter());
+    Ok(PlayNowView { common: found.common, picks })
+}
 
 // ---------------------------------------------------------------- end of a game
 

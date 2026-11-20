@@ -674,6 +674,27 @@ pub fn invoke(call: Call, token: Option<&str>) -> Result<Value> {
                 "games": state.library.as_ref().map_or(0, |l|l.games.len())
             })
         }
+        // "Shall we play now?": the Steam games you and a free friend both own.
+        "play_now" => {
+            let mate = args.get("mate").cloned().context("Pick a friend")?;
+            args["mates"] = json!([mate]);
+            args["party"] = json!([]);
+            add_online_party(&mut state, &mut args, token.context("Sign in first")?)?;
+            let names: Vec<String> = arg(&args, "party")?;
+            let together = Party::new(state.friends.iter().filter(|f| names.contains(&f.name)).cloned().collect(), state.library.as_ref());
+            let online = Online { items: state.online.clone(), weather: state.weather.clone(), ..Default::default() };
+            let found = freetime_core::play_now(&state.config, &request(&args)?, &online, &state.history.prefs(history::now()), &together);
+            for r in &found.picks {
+                if !state.shown.iter().any(|s| s.id == r.s.id) {
+                    state.shown.push(r.s.clone());
+                }
+            }
+            if state.shown.len() > 400 {
+                state.shown.drain(..state.shown.len() - 400);
+            }
+            patch["shown"] = json!(state.shown);
+            json!({ "common": found.common, "picks": found.picks.iter().map(|r| card(&r.s, &r.reasons)).collect::<Vec<_>>() })
+        }
         // "Too long", "already done", "another time" about an idea on screen.
         "not_now" => {
             let id: String = arg(&args, "id")?;

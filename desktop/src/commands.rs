@@ -263,8 +263,8 @@ pub(crate) fn remember<'a>(state: &AppState, cards: impl Iterator<Item = &'a Car
 /// An online friend picked in "Playing with": their id, and the name to show in reasons.
 #[derive(Deserialize, Clone)]
 pub struct OnlineMate {
-    id: String,
-    name: String,
+    pub(crate) id: String,
+    pub(crate) name: String,
 }
 
 /// Shared game lists of online friends, kept 10 minutes so re-ranking doesn't refetch them.
@@ -313,6 +313,13 @@ pub(crate) fn rank(state: &AppState, cfg: &Config, req: &Request, online: &Onlin
     if !req.with_friends || (party.is_empty() && mates.is_empty()) {
         return freetime_core::rank(cfg, req, online, &prefs, &exclude);
     }
+    let together = party_for(state, party, mates);
+    freetime_core::rank_together(cfg, req, online, &prefs, &exclude, Some(&together))
+}
+
+/// The friends you're with (by code and online), the games you all own, and how those can be
+/// played together (looked up on the Steam store, cached).
+pub(crate) fn party_for(state: &AppState, party: &[String], mates: &[OnlineMate]) -> party::Party {
     let mut chosen: Vec<Friend> = party::load_friends()
         .into_iter()
         .filter(|f| party.iter().any(|n| n.eq_ignore_ascii_case(&f.name)))
@@ -340,7 +347,7 @@ pub(crate) fn rank(state: &AppState, cfg: &Config, req: &Request, online: &Onlin
             together.set_modes(steam::together_modes(&net, &shared, 24));
         }
     }
-    freetime_core::rank_together(cfg, req, online, &prefs, &exclude, Some(&together))
+    together
 }
 
 // ---------------------------------------------------------------- sharing your game list (opt-in)
