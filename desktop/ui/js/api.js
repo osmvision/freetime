@@ -130,6 +130,9 @@ export const api = {
   openChat: (friend) => invoke('open_chat', { friend }),
   chatMessages: (conversation, after = 0) => invoke('chat_messages', { conversation, after }),
   sendMessage: (conversation, body) => invoke('send_message', { conversation, body }),
+  changedMessages: (conversation, since) => invoke('changed_messages', { conversation, since }),
+  reactToMessage: (id, emoji) => invoke('react_to_message', { id, emoji }),
+  editMessage: (id, body) => invoke('edit_message', { id, body }),
   markRead: (conversation, upTo) => invoke('mark_read', { conversation, upTo }),
   // The chat assistant (Mistral, opt-in). The key never comes back to the UI.
   assistantStatus: () => invoke('assistant_status'),

@@ -1128,6 +1128,26 @@ export const exact = {
   'too many evenings in an hour': 'trop de soirées en une heure',
   'pick times between now and two weeks from now': 'choisis des horaires entre maintenant et dans deux semaines',
   'your preferences are too big to save: clear some history first': 'tes préférences sont trop lourdes : efface d’abord une partie de l’historique',
+  // Message reactions and edits.
+  'You': 'Toi',
+  'Edit': 'Modifier',
+  'Edit your message': 'Modifier ton message',
+  'Love': 'J’adore',
+  'Funny': 'Drôle',
+  'Like': 'J’aime',
+  'Wow': 'Waouh',
+  'Sad': 'Triste',
+  'Fire': 'Génial',
+  'edited': 'modifié',
+  'Save': 'Enregistrer',
+  'Enter to save · Esc to cancel': 'Entrée pour enregistrer · Échap pour annuler',
+  'The message is empty': 'Le message est vide',
+  'A message can only be edited in the 15 minutes after sending it': 'Un message ne peut être modifié que dans les 15 minutes qui suivent son envoi',
+  'a message can only be edited in the 15 minutes after sending it': 'un message ne peut être modifié que dans les 15 minutes qui suivent son envoi',
+  'this message was edited too many times': 'ce message a été modifié trop de fois',
+  'you can\'t react in this chat any more': 'tu ne peux plus réagir dans cette conversation',
+  'you can\'t write in this chat any more': 'tu ne peux plus écrire dans cette conversation',
+  'a message has 1 to 2,000 characters': 'un message fait de 1 à 2 000 caractères',
 };
 
 export const patterns = [
@@ -1299,6 +1319,12 @@ export const patterns = [
   ['Last saved to your account: {0}', 'Dernier enregistrement dans ton compte : {0}'],
   ['Brought here, with {n0} new things learned about your tastes', 'Récupéré ici, avec {0} nouvelles choses apprises sur tes goûts'],
   ['Remove the shortcut {0}', 'Retirer le raccourci {0}'],
+  ['Love · {n0}', 'J’adore · {0}'],
+  ['Funny · {n0}', 'Drôle · {0}'],
+  ['Like · {n0}', 'J’aime · {0}'],
+  ['Wow · {n0}', 'Waouh · {0}'],
+  ['Sad · {n0}', 'Triste · {0}'],
+  ['Fire · {n0}', 'Génial · {0}'],
 ];
 
 /** Game and video details: also safe inside titles and descriptions. */

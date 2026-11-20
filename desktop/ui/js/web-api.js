@@ -74,6 +74,9 @@ async function connectRealtime(session) {
     .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, ({ new: message }) => {
       emit('message-new', { message, mine: message.sender === session.user.id });
     })
+    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'messages' }, ({ new: message }) => {
+      emit('message-changed', { message, mine: message.sender === session.user.id });
+    })
     .on('postgres_changes', { event: '*', schema: 'public', table: 'invites' }, (change) => {
       invite('pick', change, (row) => row.to_user === me && row.status === 'pending' && row.category === 'game');
       emit('invites-changed', null);

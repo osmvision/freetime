@@ -7670,3 +7670,158 @@ body[data-view="messages"] .assistant-panel {
     grid-template-columns: auto minmax(0, 1fr) auto;
   }
 }
+
+/* ---------------------------------------------------------------- reactions and edits on messages */
+
+.msg {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  align-self: flex-start;
+  max-width: min(78%, 640px);
+}
+
+.msg.mine {
+  flex-direction: row-reverse;
+  align-self: flex-end;
+}
+
+.msg-col {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-width: 0;
+}
+
+.msg.mine .msg-col {
+  align-items: flex-end;
+}
+
+.msg .bubble {
+  max-width: 100%;
+}
+
+.msg-editing {
+  width: min(560px, 70vw);
+  gap: 8px;
+}
+
+.msg-editing .row {
+  flex-wrap: wrap;
+}
+
+.msg-editing .msg-edit-input {
+  width: 100%;
+}
+
+.bubble-edited {
+  margin-right: 6px;
+  font-style: italic;
+}
+
+.msg-reactions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: -6px;
+  padding: 0 6px;
+}
+
+.msg-reaction {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  min-height: 28px;
+  padding: 0 8px;
+  border: 1.5px solid var(--rule-soft);
+  border-radius: 14px;
+  background: var(--coupon);
+  color: var(--text);
+  font-size: 14px;
+}
+
+.msg-reaction b {
+  font-size: 12px;
+}
+
+.msg-reaction[aria-pressed="true"] {
+  border-color: var(--purple);
+  background: var(--lavender);
+  color: var(--purple);
+}
+
+.msg-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  margin-top: 4px;
+  padding: 4px;
+  border: 1.5px solid var(--rule-soft);
+  border-radius: 20px;
+  background: var(--coupon);
+  box-shadow: var(--shadow);
+}
+
+.msg-picker[hidden] {
+  display: none;
+}
+
+.msg-pick {
+  width: 36px;
+  height: 36px;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  font-size: 20px;
+  line-height: 1;
+}
+
+.msg-pick:hover,
+.msg-pick[aria-pressed="true"] {
+  background: var(--lavender);
+}
+
+.msg-tools {
+  display: flex;
+  gap: 2px;
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+
+.msg:hover .msg-tools,
+.msg:focus-within .msg-tools {
+  opacity: 1;
+}
+
+.msg-tool {
+  display: inline-grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: var(--text-3);
+}
+
+.msg-tool:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+
+.msg-tool .icon {
+  width: 18px;
+  height: 18px;
+}
+
+/* Touch screens have no hover: the buttons stay visible. */
+@media (hover: none) {
+  .msg-tools {
+    opacity: 1;
+  }
+
+  .msg-tool {
+    width: 40px;
+    height: 40px;
+  }
+}

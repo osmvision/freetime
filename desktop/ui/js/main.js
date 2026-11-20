@@ -265,6 +265,8 @@ async function start() {
   // The live connection: messages and invites as soon as they're saved.
   await listen('live-status', (on) => (live = on));
   api.liveStatus().then((on) => (live = on)).catch(() => {});
+  // A message was edited or got a reaction.
+  await listen('message-changed', (e) => messagesView.onChanged(e));
   await listen('message-new', (e) => {
     if (messagesView.onLive(e)) return;
     if (!e.mine) {
