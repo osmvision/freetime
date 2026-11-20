@@ -85,6 +85,12 @@ pub fn my_matches(state: State<'_, AppState>) -> Res<serde_json::Value> {
 }
 
 #[tauri::command(async)]
+pub fn game_leaderboard(state: State<'_, AppState>, game: String, scope: String) -> Res<serde_json::Value> {
+    let s = live_session(&state)?;
+    Client::new().map_err(err)?.game_leaderboard(&s, &game, &scope).map_err(err)
+}
+
+#[tauri::command(async)]
 pub fn leave_match(state: State<'_, AppState>, id: String) -> Res<String> {
     let s = live_session(&state)?;
     Client::new().map_err(err)?.leave_match(&s, &id).map_err(err)

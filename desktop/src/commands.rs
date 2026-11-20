@@ -60,6 +60,8 @@ pub struct AppState {
     live: std::sync::atomic::AtomicBool,
     /// Friends' display names by id, for notifications from the live connection.
     names: Mutex<HashMap<String, String>>,
+    /// Invitations recently announced, keyed by their kind and id.
+    announced_invites: Mutex<HashMap<(&'static str, String), Instant>>,
     /// Your own "free until" (RFC 3339), as last set or seen live. None = not free / unknown.
     my_free_until: Mutex<Option<String>>,
     /// Social notifications sent today: (day, how many, friends already told about).
@@ -992,6 +994,7 @@ pub fn sign_in(state: State<'_, AppState>, provider: String) -> Res<AccountView>
             avatar_color: cfg.avatar.color as i16,
             bio: String::new(),
             status_text: String::new(),
+            photo: None,
         };
         if let Ok(p) = client.update_profile(&session, &edit) {
             profile = p;
@@ -1012,6 +1015,12 @@ pub fn get_account(state: State<'_, AppState>) -> Res<AccountView> {
     let session = live_session(&state)?;
     let profile = Client::new().map_err(err)?.profile(&session).map_err(err)?;
     Ok(AccountView { signed_in: true, email: session.email.clone(), profile: Some(profile) })
+}
+
+#[tauri::command(async)]
+pub fn profile_photos(state: State<'_, AppState>, ids: Vec<String>) -> Res<Vec<account::ProfilePhoto>> {
+    let session = live_session(&state)?;
+    Client::new().map_err(err)?.profile_photos(&session, &ids).map_err(err)
 }
 
 /// Saves the online profile, and keeps the friend code's name and avatar in step with it.
@@ -1117,6 +1126,46 @@ fn friend_name(state: &AppState, id: &str) -> String {
     lock(&state.names).get(id).cloned().unwrap_or_else(|| "A friend".to_string())
 }
 
+fn main_focused(app: &AppHandle) -> bool {
+    app.get_webview_window("main").and_then(|w| w.is_focused().ok()).unwrap_or(false)
+}
+
+const INVITE_REMINDER_DELAY: Duration = Duration::from_secs(120);
+
+fn remember_invite(state: &AppState, kind: &'static str, id: &str) -> bool {
+    let mut recent = lock(&state.announced_invites);
+    recent.retain(|_, sent| sent.elapsed() < INVITE_REMINDER_DELAY);
+    recent.insert((kind, id.to_owned()), Instant::now()).is_none()
+}
+
+fn show_game_invite(app: &AppHandle, kind: &str, id: &str, native: impl FnOnce()) {
+    if main_focused(app) {
+        let _ = app.emit("game-invite-new", serde_json::json!({ "kind": kind, "id": id }));
+    } else {
+        native();
+    }
+}
+
+fn show_pick_invite(app: &AppHandle, id: i64, category: &str, title: &str, starts_at: &str, who: impl FnOnce() -> String) {
+    use tauri_plugin_notification::NotificationExt;
+    let state = app.state::<AppState>();
+    let id = id.to_string();
+    if !remember_invite(&state, "pick", &id) {
+        return;
+    }
+    let native = || {
+        let at = chrono::DateTime::parse_from_rfc3339(starts_at)
+            .map(|t| t.with_timezone(&chrono::Local).format("%H:%M").to_string())
+            .unwrap_or_default();
+        let _ = app.notification().builder().title(format!("{} invites you", who())).body(format!("{title} · {at}")).show();
+    };
+    if category == "game" {
+        show_game_invite(app, "pick", &id, native);
+    } else if !main_focused(app) {
+        native();
+    }
+}
+
 fn on_live_event(app: &AppHandle, event: realtime::Event) {
     use std::sync::atomic::Ordering;
     use tauri_plugin_notification::NotificationExt;
@@ -1124,11 +1173,10 @@ fn on_live_event(app: &AppHandle, event: realtime::Event) {
     let me = lock(&state.account).as_ref().map(|s| s.user_id.clone()).unwrap_or_default();
     let notify = || {
         Config::load().map(|c| c.notify_messages).unwrap_or(false)
-            && !app.get_webview_window("main").and_then(|w| w.is_focused().ok()).unwrap_or(false)
+            && !main_focused(app)
     };
     let notify_invites = || {
         Config::load().map(|c| c.notify_invites).unwrap_or(false)
-            && !app.get_webview_window("main").and_then(|w| w.is_focused().ok()).unwrap_or(false)
     };
     match event {
         realtime::Event::Live => {
@@ -1148,12 +1196,9 @@ fn on_live_event(app: &AppHandle, event: realtime::Event) {
             }
             let _ = app.emit("message-new", LiveMessage { message: m, mine });
         }
-        realtime::Event::Invite { from_user, to_user, title, starts_at, inserted, status, .. } => {
+        realtime::Event::Invite { id, from_user, to_user, title, category, starts_at, inserted, status } => {
             if inserted && to_user == me && status == "pending" && notify_invites() {
-                let at = chrono::DateTime::parse_from_rfc3339(&starts_at)
-                    .map(|t| t.with_timezone(&chrono::Local).format("%H:%M").to_string())
-                    .unwrap_or_default();
-                let _ = app.notification().builder().title(format!("{} invites you", friend_name(&state, &from_user))).body(format!("{title} · {at}")).show();
+                show_pick_invite(app, id, &category, &title, &starts_at, || friend_name(&state, &from_user));
             }
             let _ = app.emit("invites-changed", ());
         }
@@ -1162,19 +1207,24 @@ fn on_live_event(app: &AppHandle, event: realtime::Event) {
             // Discover's "free now" strip refreshes right away.
             let _ = app.emit("friend-free-changed", ());
         }
-        realtime::Event::Duel { challenger, opponent, status, inserted, .. } => {
+        realtime::Event::Duel { id, challenger, opponent, status, inserted } => {
             // A friend challenged you, or played their side of your duel.
             if notify_invites() {
-                if inserted && opponent == me {
-                    let _ = app.notification().builder().title(format!("{} challenges you", friend_name(&state, &challenger))).body("A quiz duel: 5 questions, your turn").show();
-                } else if !inserted && status == "done" {
+                if inserted && opponent == me && status == "open" && remember_invite(&state, "duel", &id) {
+                    show_game_invite(app, "duel", &id, || {
+                        let _ = app.notification().builder().title(format!("{} challenges you", friend_name(&state, &challenger))).body("A quiz duel: 5 questions, your turn").show();
+                    });
+                } else if !inserted && status == "done" && !main_focused(app) {
                     let other = if challenger == me { &opponent } else { &challenger };
                     let _ = app.notification().builder().title("Quiz duel finished").body(format!("See who won against {}", friend_name(&state, other))).show();
                 }
             }
             let _ = app.emit("duels-changed", ());
+            if !inserted && status == "done" {
+                let _ = app.emit("game-ranking-changed", "quiz-duel");
+            }
         }
-        realtime::Event::Match { game, player_a, player_b, turn, status, inserted, .. } => {
+        realtime::Event::Match { id, game, player_a, player_b, turn, status, b_moved, inserted } => {
             // A friend started a game with you, or played: your turn.
             let mine = if player_a == me { Some(0) } else if player_b == me { Some(1) } else { None };
             if let Some(me_idx) = mine {
@@ -1187,12 +1237,26 @@ fn on_live_event(app: &AppHandle, event: realtime::Event) {
                     "torpedoes" => "Torpedoes",
                     _ => "A game",
                 };
-                if status == "active" && turn == Some(me_idx) && notify_invites() {
-                    let title = if inserted { format!("{} challenges you", friend_name(&state, other)) } else { format!("Your turn against {}", friend_name(&state, other)) };
-                    let _ = app.notification().builder().title(title).body(name).show();
+                if status == "active" && notify_invites() {
+                    if inserted && me_idx == 1 && remember_invite(&state, "match", &id) {
+                        show_game_invite(app, "match", &id, || {
+                            let _ = app.notification().builder().title(format!("{} challenges you", friend_name(&state, other))).body(name).show();
+                        });
+                    } else if !inserted && turn == Some(me_idx) && !main_focused(app) {
+                        // The challenger can play immediately after inviting you.
+                        let just_invited = me_idx == 1 && !b_moved
+                            && lock(&state.announced_invites).get(&("match", id))
+                                .is_some_and(|sent| sent.elapsed() < INVITE_REMINDER_DELAY);
+                        if !just_invited {
+                            let _ = app.notification().builder().title(format!("Your turn against {}", friend_name(&state, other))).body(name).show();
+                        }
+                    }
                 }
             }
             let _ = app.emit("matches-changed", ());
+            if !inserted && status == "done" {
+                let _ = app.emit("game-ranking-changed", game);
+            }
         }
     }
 }
@@ -1235,36 +1299,44 @@ pub fn watch_messages(app: AppHandle) {
         let mut seen: HashMap<String, String> = HashMap::new();
         let mut seen_invites: HashSet<i64> = HashSet::new();
         let mut baseline = true;
+        let mut invite_account = None;
         thread::sleep(Duration::from_secs(8));
         loop {
-            let enabled = Config::load().map(|c| c.notify_messages).unwrap_or(false);
+            let config = Config::load().ok();
+            let messages_enabled = config.as_ref().is_some_and(|c| c.notify_messages);
+            let invites_enabled = config.as_ref().is_some_and(|c| c.notify_invites);
             let state = app.state::<AppState>();
             let signed_in = lock(&state.account).is_some() || account::has_saved_session();
-            if !enabled || !signed_in {
+            if !signed_in || !messages_enabled {
                 seen.clear();
-                seen_invites.clear();
                 baseline = true;
+            }
+            if !signed_in {
+                if invite_account.take().is_some() {
+                    let _ = app.emit("invites-updated", 0);
+                }
+                seen_invites.clear();
             } else if let (Ok(s), Ok(client)) = (live_session(&state), Client::new()) {
-                // Invites waiting for an answer: badge, and a notification for new ones.
                 if let Ok(invites) = client.invites(&s) {
+                    let first_check = invite_account.as_deref() != Some(s.user_id.as_str());
+                    if first_check {
+                        seen_invites.clear();
+                        invite_account = Some(s.user_id.clone());
+                    }
                     let waiting: Vec<&Invite> = invites.iter().filter(|i| i.direction == "incoming" && i.status == "pending").collect();
                     let _ = app.emit("invites-updated", waiting.len());
-                    // Quiet while the window is in front, or while the live connection already notified.
-                    let focused = app.get_webview_window("main").and_then(|w| w.is_focused().ok()).unwrap_or(false)
-                        || state.live.load(std::sync::atomic::Ordering::Relaxed);
+                    let announce = !first_check && invites_enabled
+                        && !state.live.load(std::sync::atomic::Ordering::Relaxed);
                     for i in waiting {
-                        if seen_invites.insert(i.id) && !baseline && !focused {
-                            let at = chrono::DateTime::parse_from_rfc3339(&i.starts_at)
-                                .map(|t| t.with_timezone(&chrono::Local).format("%H:%M").to_string())
-                                .unwrap_or_default();
-                            let _ = app.notification().builder().title(format!("{} invites you", i.other_name)).body(format!("{} · {at}", i.title)).show();
+                        if seen_invites.insert(i.id) && announce {
+                            show_pick_invite(&app, i.id, &i.category, &i.title, &i.starts_at, || i.other_name.clone());
                         }
                     }
                 }
-                if let Ok(convs) = client.conversations(&s) {
+                if let Some(convs) = messages_enabled.then(|| client.conversations(&s).ok()).flatten() {
                     let _ = app.emit("unread-updated", convs.iter().map(|c| c.unread).sum::<i64>());
                     // Quiet while the window is in front, or while the live connection already notified.
-                    let focused = app.get_webview_window("main").and_then(|w| w.is_focused().ok()).unwrap_or(false)
+                    let focused = main_focused(&app)
                         || state.live.load(std::sync::atomic::Ordering::Relaxed);
                     let mut fresh = Vec::new();
                     for c in &convs {
