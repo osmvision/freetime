@@ -1695,3 +1695,127 @@ test('synced preferences: yours only, size-limited, exported and deleted with th
     assert.equal((await db.query('select count(*)::int as n from public.synced_preferences')).rows[0].n, 0);
   });
 });
+
+// ---------------------------------------------------------------- message reactions and edits
+
+/** Alice and Bob are friends with a chat; returns the conversation and a message from Alice. */
+async function chatWithMessage(step, body = 'Salut, tu viens ce soir ?') {
+  await befriend(ALICE, BOB);
+  const conv = (await step(ALICE, (q) => q.one('select public.open_direct($1) as id', [BOB]))).id;
+  const id = (await step(ALICE, (q) => q.one('insert into public.messages (conversation_id, body) values ($1, $2) returning id', [conv, body]))).id;
+  return { conv, id };
+}
+
+test('message reactions: both people in the chat, toggled, nobody else', async () => {
+  await withPeople(async ({ step }) => {
+    const { id } = await chatWithMessage(step);
+    const react = (who, emoji) => step(who, async (q) => (await q.one('select public.toggle_message_reaction($1, $2) as r', [id, emoji])).r);
+    assert.deepEqual(await react(BOB, 'heart'), { heart: [BOB] });
+    assert.deepEqual(await react(ALICE, 'heart'), { heart: [BOB, ALICE] });
+    assert.deepEqual(await react(BOB, 'laugh'), { heart: [BOB, ALICE], laugh: [BOB] });
+    assert.deepEqual(await react(BOB, 'heart'), { heart: [ALICE], laugh: [BOB] }, 'a second click takes it back');
+    // Both see them on the message; the time of the change is there for catching up.
+    const row = await step(BOB, (q) => q.one('select reactions, changed_at from public.messages where id = $1', [id]));
+    assert.deepEqual(row.reactions, { heart: [ALICE], laugh: [BOB] });
+    assert.ok(row.changed_at);
+
+    // Unknown reactions, strangers, signed-out visitors and direct writes: refused.
+    await step(BOB, async (q) => {
+      await fails(q.one('select public.toggle_message_reaction($1, $2)', [id, 'poop']), /unknown reaction/);
+    });
+    await step(CAROL, async (q) => {
+      await fails(q.one('select public.toggle_message_reaction($1, $2)', [id, 'heart']), /no such message/);
+    });
+    await step(null, async (q) => {
+      await fails(q.one('select public.toggle_message_reaction($1, $2)', [id, 'heart']), /permission denied/);
+    });
+    await step(BOB, async (q) => {
+      await fails(q.rows(`update public.messages set reactions = '{"fire":["x"]}' where id = $1`, [id]), /permission denied/);
+    });
+
+    // The export lists the reactions you gave.
+    const data = (await step(BOB, (q) => q.one('select public.export_my_data() as d'))).d;
+    assert.deepEqual(data.message_reactions_you_gave.map((r) => r.emoji), ['laugh']);
+
+    // Blocked: no more reactions (the history stays readable).
+    await db.query('insert into public.blocks (blocker, blocked) values ($1, $2)', [ALICE, BOB]);
+    await db.query('delete from public.friendships');
+    await step(BOB, async (q) => {
+      await fails(q.one('select public.toggle_message_reaction($1, $2)', [id, 'fire']), /can't react/);
+    });
+  });
+});
+
+test('message reactions: at most 200 clicks an hour', async () => {
+  await withPeople(async ({ step }) => {
+    const { id } = await chatWithMessage(step);
+    await db.query("insert into public.message_reaction_log (user_id, at) select $1, now() from generate_series(1, 200)", [BOB]);
+    await step(BOB, async (q) => {
+      await fails(q.one('select public.toggle_message_reaction($1, $2)', [id, 'heart']), /too many reactions/);
+    });
+    // Older clicks don't count.
+    await db.query("update public.message_reaction_log set at = now() - interval '2 hours'");
+    await step(BOB, (q) => q.one('select public.toggle_message_reaction($1, $2)', [id, 'heart']));
+  });
+});
+
+test('editing a message: yours, within 15 minutes, marked edited, earlier versions kept for the team', async () => {
+  await withPeople(async ({ step }) => {
+    const { id } = await chatWithMessage(step, 'Rendez-vous a 21h');
+    const edit = (who, body) => step(who, async (q) => (await q.one('select public.edit_message($1, $2) as r', [id, body])).r);
+    const r = await edit(ALICE, '  Rendez-vous à 21h  ');
+    assert.equal(r.body, 'Rendez-vous à 21h');
+    assert.ok(r.edited_at);
+    const seen = await step(BOB, (q) => q.one('select body, edited_at, changed_at from public.messages where id = $1', [id]));
+    assert.equal(seen.body, 'Rendez-vous à 21h');
+    assert.ok(seen.edited_at && seen.changed_at);
+    // The same text again changes nothing.
+    await edit(ALICE, 'Rendez-vous à 21h');
+    assert.equal((await db.query('select count(*)::int as n from public.message_edits')).rows[0].n, 1);
+    assert.equal((await db.query('select body from public.message_edits')).rows[0].body, 'Rendez-vous a 21h', 'the earlier version is kept');
+
+    // Nobody but the team reads earlier versions; nobody else edits; nothing empty or too long.
+    await step(BOB, async (q) => {
+      await fails(q.rows('select * from public.message_edits'), /permission denied/);
+    });
+    await step(BOB, async (q) => {
+      await fails(q.one('select public.edit_message($1, $2)', [id, 'Je viens pas']), /no such message/);
+    });
+    await step(ALICE, async (q) => {
+      await fails(q.one('select public.edit_message($1, $2)', [id, ' \n ']), /1 to 2,000/);
+    });
+    await step(ALICE, async (q) => {
+      await fails(q.one('select public.edit_message($1, $2)', [id, 'x'.repeat(2001)]), /1 to 2,000/);
+    });
+    await step(null, async (q) => {
+      await fails(q.one('select public.edit_message($1, $2)', [id, 'hi']), /permission denied/);
+    });
+
+    // Ten edits at most.
+    for (let i = 0; i < 9; i++) await edit(ALICE, `Version ${i}`);
+    await step(ALICE, async (q) => {
+      await fails(q.one('select public.edit_message($1, $2)', [id, 'One more']), /too many times/);
+    });
+
+    // After 15 minutes: too late.
+    await db.query("update public.messages set created_at = now() - interval '16 minutes' where id = $1", [id]);
+    await step(ALICE, async (q) => {
+      await fails(q.one('select public.edit_message($1, $2)', [id, 'Late']), /15 minutes/);
+    });
+
+    // Deleting the message deletes its earlier versions too.
+    await step(ALICE, (q) => q.rows('delete from public.messages where id = $1', [id]));
+    assert.equal((await db.query('select count(*)::int as n from public.message_edits')).rows[0].n, 0);
+  });
+});
+
+test('editing a message: not once blocked', async () => {
+  await withPeople(async ({ step }) => {
+    const { id } = await chatWithMessage(step);
+    await db.query('insert into public.blocks (blocker, blocked) values ($1, $2)', [BOB, ALICE]);
+    await db.query('delete from public.friendships');
+    await step(ALICE, async (q) => {
+      await fails(q.one('select public.edit_message($1, $2)', [id, 'Edited']), /can't write/);
+    });
+  });
+});
