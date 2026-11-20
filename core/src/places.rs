@@ -11,8 +11,13 @@ use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, fs, path::PathBuf};
 
 pub const OVERPASS_URL: &str = "https://overpass-api.de/api/interpreter";
-/// How far to look around the city's coordinates.
-pub const RADIUS_M: u32 = 5000;
+/// A second public Overpass server, asked when the first is busy or down.
+pub const OVERPASS_MIRROR: &str = "https://overpass.kumi.systems/api/interpreter";
+/// How far to look around the city's coordinates: close first (Overpass doesn't sort by distance,
+/// so a wide circle in a big city can hide the nearest places), wider only when nothing is close.
+pub const RADII_M: [u32; 2] = [2000, 8000];
+/// At most this many raw results per question: plenty within 2 km, and a cap on the work.
+const MAX_ELEMENTS: u32 = 400;
 /// Places don't move: a month-old answer is still good.
 pub const CACHE_SECS: i64 = 30 * 86_400;
 /// The nearest few are enough to pick from.
@@ -117,10 +122,10 @@ pub struct Place {
 }
 
 /// The Overpass query: every selector around the point, with a center for ways and relations.
-pub fn query(kind: PlaceKind, lat: f64, lon: f64) -> String {
-    let around = format!("(around:{RADIUS_M},{lat:.4},{lon:.4})");
+pub fn query(kind: PlaceKind, lat: f64, lon: f64, radius_m: u32) -> String {
+    let around = format!("(around:{radius_m},{lat:.4},{lon:.4})");
     let parts: String = kind.selectors().iter().map(|s| format!("{s}{around};")).collect();
-    format!("[out:json][timeout:10];({parts});out center tags 200;")
+    format!("[out:json][timeout:10];({parts});out center tags {MAX_ELEMENTS};")
 }
 
 #[derive(Deserialize)]
@@ -190,13 +195,24 @@ pub fn parse(body: &str, kind: PlaceKind, lat: f64, lon: f64) -> Result<Vec<Plac
     Ok(places)
 }
 
-/// Asks Overpass for the nearest places of `kind` around the city.
+/// One question to Overpass, on the mirror when the main server is busy.
+fn ask(net: &dyn Net, q: &str) -> Result<String> {
+    net.get_text(OVERPASS_URL, &[("data", q)]).or_else(|_| net.get_text(OVERPASS_MIRROR, &[("data", q)]))
+}
+
+/// Asks Overpass for the nearest places of `kind` around the city: within 2 km, then 8 km.
 pub fn nearby(net: &dyn Net, kind: PlaceKind, lat: f64, lon: f64) -> Result<Vec<Place>> {
     if !(lat.is_finite() && lon.is_finite() && lat.abs() <= 90.0 && lon.abs() <= 180.0) {
         return Err(anyhow!("invalid coordinates"));
     }
-    let body = net.get_text(OVERPASS_URL, &[("data", &query(kind, lat, lon))])?;
-    parse(&body, kind, lat, lon)
+    let mut found = Vec::new();
+    for radius in RADII_M {
+        found = parse(&ask(net, &query(kind, lat, lon, radius))?, kind, lat, lon)?;
+        if !found.is_empty() {
+            break;
+        }
+    }
+    Ok(found)
 }
 
 // ---------------------------------------------------------------- cache
@@ -303,12 +319,23 @@ mod tests {
         let net = FakeNet::new().on(OVERPASS_URL, BODY);
         let p = nearby(&net, PlaceKind::Pool, LYON.0, LYON.1).unwrap();
         assert_eq!(p.len(), 3);
-        let call = &net.calls()[0];
-        assert!(call.starts_with(OVERPASS_URL));
-        assert!(call.contains("(around:5000,45.7578,4.8320)"));
-        assert!(call.contains(r#"["sport"~"swimming"]"#) && call.contains("public_bath"));
+        let calls = net.calls();
+        assert_eq!(calls.len(), 1, "found within 2 km: no wider search");
+        assert!(calls[0].starts_with(OVERPASS_URL));
+        assert!(calls[0].contains("(around:2000,45.7578,4.8320)"));
+        assert!(calls[0].contains(r#"["sport"~"swimming"]"#) && calls[0].contains("public_bath"));
         assert!(nearby(&net, PlaceKind::Park, 120.0, 0.0).is_err());
-        assert!(nearby(&FakeNet::new().fail(OVERPASS_URL), PlaceKind::Park, LYON.0, LYON.1).is_err());
+        let down = FakeNet::new().fail(OVERPASS_URL).fail(OVERPASS_MIRROR);
+        assert!(nearby(&down, PlaceKind::Park, LYON.0, LYON.1).is_err());
+    }
+
+    #[test]
+    fn widens_the_circle_and_falls_back_to_the_mirror() {
+        let net = FakeNet::new().fail(OVERPASS_URL).on(OVERPASS_MIRROR, r#"{"elements":[]}"#);
+        assert_eq!(nearby(&net, PlaceKind::Museum, LYON.0, LYON.1).unwrap(), vec![]);
+        let calls = net.calls();
+        assert_eq!(calls.len(), 4, "main then mirror, at 2 km then 8 km: {calls:?}");
+        assert!(calls[1].starts_with(OVERPASS_MIRROR) && calls[3].contains("(around:8000,"));
     }
 
     #[test]
@@ -320,8 +347,8 @@ mod tests {
             PlaceKind::Climbing, PlaceKind::Library, PlaceKind::Museum, PlaceKind::Viewpoint,
             PlaceKind::Market, PlaceKind::Bowling, PlaceKind::Minigolf,
         ] {
-            let q = query(kind, 1.0, 2.0);
-            assert!(q.starts_with("[out:json]") && q.contains("(around:5000,1.0000,2.0000)") && q.ends_with("out center tags 200;"));
+            let q = query(kind, 1.0, 2.0, 2000);
+            assert!(q.starts_with("[out:json]") && q.contains("(around:2000,1.0000,2.0000)") && q.ends_with("out center tags 400;"));
             assert!(!kind.label().is_empty());
         }
     }

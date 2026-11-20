@@ -20,6 +20,12 @@ export const api = {
   hideIdea: (id) => invoke('hide_idea', { id }),
   unhideIdea: (id) => invoke('unhide_idea', { id }),
   hiddenIdeas: () => invoke('hidden_ideas'),
+  // Your own ideas (Settings): stored with the settings, ranked with the built-in ones.
+  myIdeas: () => invoke('my_ideas'),
+  addMyIdea: (input) => invoke('add_my_idea', { input }),
+  removeMyIdea: (id) => invoke('remove_my_idea', { id }),
+  // Real places near your city for an idea (OpenStreetMap, only when asked).
+  nearbyPlaces: (id) => invoke('nearby_places', { id }),
   open: (url) => invoke('open_link', { url }),
   rate: (id, ts, rating) => invoke('rate', { id, ts, rating }),
   history: () => invoke('get_history'),

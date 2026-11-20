@@ -34,6 +34,8 @@ export async function render(root, ctx, options = {}) {
     draw(root, ctx, await api.settings());
     if (options.focus === 'profile') root.querySelector('.profile-box')?.scrollIntoView({ block: 'start' });
     if (options.focus === 'assistant') root.querySelector('.assistant-settings')?.scrollIntoView({ block: 'start' });
+    if (options.focus === 'my-ideas') root.querySelector('.my-idea-form')?.closest('section')?.scrollIntoView({ block: 'start' });
+    if (options.focus === 'location') root.querySelector('.city-picker')?.closest('section')?.scrollIntoView({ block: 'start' });
   } catch (e) {
     root.replaceChildren(head(), emptyState({ icon: 'triangle-alert', title: 'Could not load your settings', text: errText(e) }));
   }
@@ -93,6 +95,7 @@ function draw(root, ctx, s) {
         displaySection(),
         locationSection(s, ctx, root, (box) => (cityBox = box)),
         interestsSection(form),
+        myIdeasSection(ctx),
         hiddenSection(),
         steamSection(s, form, ctx, root),
         youtubeSection(s, form),
@@ -187,7 +190,7 @@ function locationSection(s, ctx, root, keep) {
   return section(
     'map-pin',
     'Location',
-    'Your city is only used to check the weather, so outdoor ideas rank high when it’s nice out.',
+    'Your city is used to check the weather, so outdoor ideas rank high when it’s nice out, and to find places nearby when you ask.',
     pill(Boolean(s.city), s.city ?? 'Not set'),
     labeled(s.city ? 'Change city' : 'City', keepBox(cityPicker({ onPick: apply, placeholder: 'e.g. Lyon, Montréal, Tokyo' }), keep)),
     s.city ? h('div', {}, h('button', { type: 'button', class: 'btn small', onclick: () => apply(null) }, 'Remove city')) : null,
@@ -462,6 +465,133 @@ function dataSection(s) {
         inTauri ? 'Open data folder' : 'Export local data',
       ),
     ),
+  );
+}
+
+const IDEA_KINDS = [
+  ['social', 'Social'], ['sport', 'Sport'], ['chill', 'Chill'], ['create', 'Create'],
+  ['learn', 'Learn something'], ['food', 'Food'], ['game', 'Games'], ['video', 'Videos'],
+];
+
+/** Your own ideas: a small form, and the list with a remove button. Kept with the settings. */
+function myIdeasSection(ctx) {
+  const list = h('div', { class: 'my-ideas' }, h('p', { class: 'hint' }, 'Loading…'));
+  const select = (label, options, value) =>
+    h(
+      'select',
+      { class: 'input', 'aria-label': label },
+      options.map(([v, text]) => h('option', { value: v, selected: v === value }, text)),
+    );
+  const title = input({ placeholder: 'e.g. Feed the ducks at the lake', maxlength: '80', spellcheck: 'true' });
+  const detail = input({ placeholder: 'A note for later (optional)', maxlength: '200', spellcheck: 'true' });
+  const link = input({ placeholder: 'https://… (optional)', maxlength: '300', inputmode: 'url' });
+  const kind = select('Kind', IDEA_KINDS, 'social');
+  const minutes = input({ type: 'number', min: '5', max: '480', step: '5', value: '30', inputmode: 'numeric', 'aria-label': 'Minutes' });
+  const energy = select('Energy', [['low', 'Low'], ['medium', 'Steady'], ['high', 'Pumped']], 'medium');
+  const social = select('With whom', [['either', 'Alone or with friends'], ['solo', 'Just me'], ['group', 'With friends']], 'either');
+  const cost = select('Budget', [['free', 'Free'], ['cheap', 'Cheap'], ['paid', 'Paid']], 'free');
+  const outdoor = h('input', { type: 'checkbox' });
+
+  const draw = (items) => {
+    list.replaceChildren();
+    if (!items.length) {
+      list.append(h('p', { class: 'hint' }, 'None yet. Your ideas join the built-in ones and learn from your ratings the same way.'));
+      return;
+    }
+    for (const it of [...items].reverse()) {
+      list.append(
+        h(
+          'div',
+          { class: 'entry' },
+          h('div', { class: 'entry-thumb' }, icon(categoryIcon(it.category))),
+          h(
+            'div',
+            { class: 'entry-main' },
+            h('div', { class: 'entry-title', title: it.title }, it.title),
+            h('div', { class: 'entry-sub' }, `${IDEA_KINDS.find(([v]) => v === it.category)?.[1] ?? it.category} · ${it.minutes} min`),
+          ),
+          btn({
+            label: `Remove: ${it.title}`,
+            icon: 'trash-2',
+            kind: 'quiet',
+            small: true,
+            square: true,
+            onclick: async () => {
+              try {
+                draw(await api.removeMyIdea(it.id));
+                ctx.settingsSaved?.();
+              } catch (e) {
+                toast(errText(e), 'error');
+              }
+            },
+          }),
+        ),
+      );
+    }
+  };
+
+  const add = async () => {
+    if (!title.value.trim()) {
+      title.focus();
+      toast('Give your idea a name.', 'error');
+      return;
+    }
+    try {
+      const items = await api.addMyIdea({
+        title: title.value,
+        detail: detail.value,
+        link: link.value.trim() || null,
+        category: kind.value,
+        minutes: Math.round(Number(minutes.value) || 30),
+        energy: energy.value,
+        social: social.value,
+        cost: cost.value,
+        outdoor: outdoor.checked,
+      });
+      title.value = detail.value = link.value = '';
+      draw(items);
+      ctx.settingsSaved?.();
+      toast('Added to your ideas', 'ok');
+      title.focus();
+    } catch (e) {
+      toast(errText(e), 'error');
+    }
+  };
+  // The settings page is a form: Enter here adds the idea instead of saving the page.
+  for (const field of [title, detail, link, minutes]) {
+    field.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        add();
+      }
+    });
+  }
+
+  api.myIdeas().then(draw, (e) => list.replaceChildren(h('p', { class: 'hint' }, errText(e))));
+  return section(
+    'pencil',
+    'Your own ideas',
+    'Things you like doing that freetime doesn’t know about. They stay on this device.',
+    null,
+    h(
+      'div',
+      { class: 'my-idea-form' },
+      labeled('Idea', title),
+      labeled('Note', detail),
+      h(
+        'div',
+        { class: 'my-idea-grid' },
+        labeled('Kind', kind),
+        labeled('Minutes', minutes),
+        labeled('Energy', energy),
+        labeled('With whom', social),
+        labeled('Budget', cost),
+      ),
+      labeled('Link', link),
+      h('label', { class: 'check' }, outdoor, 'Happens outside (follows the weather)'),
+      h('div', { class: 'row' }, btn({ label: 'Add this idea', icon: 'check', kind: 'primary', onclick: add })),
+    ),
+    list,
   );
 }
 

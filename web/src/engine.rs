@@ -4,7 +4,7 @@ use freetime_core::{
     account, assistant, book, catalog,
     config::Config,
     history::{self, History},
-    location,
+    location, mine, places,
     model::*,
     net::HttpNet,
     party::{self, Avatar, Friend, Party},
@@ -24,6 +24,9 @@ use std::sync::{
 
 type AssistantJobs = std::collections::HashMap<String, Arc<AtomicBool>>;
 static ASSISTANT_JOBS: OnceLock<Mutex<AssistantJobs>> = OnceLock::new();
+
+/// Places near a city, shared by every browser (the server keeps no per-user data).
+static PLACES_CACHE: OnceLock<Mutex<places::Cache>> = OnceLock::new();
 
 fn assistant_jobs() -> std::sync::MutexGuard<'static, AssistantJobs> {
     ASSISTANT_JOBS
@@ -75,6 +78,7 @@ fn card(s: &Suggestion, reasons: &[String]) -> Value {
     value["category_label"] = json!(s.category.label());
     value["icon"] = json!(s.category.icon());
     value["reasons"] = json!(reasons);
+    value["place"] = json!(catalog::place_of(&s.id));
     value
 }
 
@@ -343,6 +347,8 @@ pub fn invoke(call: Call, token: Option<&str>) -> Result<Value> {
     if state.history.entries.len() > 500
         || state.history.passes.len() > history::MAX_PASSES
         || state.history.never.len() > history::MAX_NEVER
+        || state.config.my_ideas.len() > mine::MAX_IDEAS
+        || state.config.my_ideas.iter().any(|i| !i.is_valid())
         || state.friends.len() > 50
         || state.online.len() > 1000
         || state.shown.len() > 1000
@@ -444,6 +450,44 @@ pub fn invoke(call: Call, token: Option<&str>) -> Result<Value> {
                 "icon": item.category.icon(),
                 "link": item.link
             })
+        }
+        "my_ideas" => json!(state.config.my_ideas),
+        "add_my_idea" => {
+            let input: mine::MyIdeaInput = arg(&args, "input")?;
+            mine::add(&mut state.config.my_ideas, input)?;
+            patch["config"] = json!(state.config);
+            json!(state.config.my_ideas)
+        }
+        "remove_my_idea" => {
+            let id: String = arg(&args, "id")?;
+            if mine::remove(&mut state.config.my_ideas, &id) {
+                patch["config"] = json!(state.config);
+            }
+            json!(state.config.my_ideas)
+        }
+        "nearby_places" => {
+            let id: String = arg(&args, "id")?;
+            let kind = catalog::place_of(&id).context("This idea doesn't happen in a particular place.")?;
+            match (state.config.latitude, state.config.longitude) {
+                (Some(lat), Some(lon)) => {
+                    let now = history::now();
+                    let cache = PLACES_CACHE.get_or_init(|| Mutex::new(places::Cache::default()));
+                    let hit = cache.lock().ok().and_then(|c| c.get(kind, lat, lon, now));
+                    let found = match hit {
+                        Some(found) => found,
+                        None => {
+                            let found = places::nearby(HttpNet::shared()?.as_ref(), kind, lat, lon)
+                                .context("Couldn't reach OpenStreetMap. Try again in a moment.")?;
+                            if let Ok(mut c) = cache.lock() {
+                                c.put(kind, lat, lon, now, found.clone());
+                            }
+                            found
+                        }
+                    };
+                    json!({ "city": state.config.city, "label": kind.label(), "places": found })
+                }
+                _ => json!({ "city": null, "label": kind.label(), "places": [] }),
+            }
         }
         "pass_idea" => {
             let id: String = arg(&args, "id")?;

@@ -532,7 +532,7 @@ function select({ name, icon: iconOf, value, options, isOn, pick, multi = false,
 
 // ---------------------------------------------------------------- first launch: where are you?
 
-/** Asked once: the city is only used for the weather, and skipping is fine. */
+/** Asked once: the city is used for the weather (and places nearby, on request); skipping is fine. */
 function renderCityPrompt() {
   if (!els.cityPrompt) return;
   if (!state.setup?.needs_city) {
@@ -676,8 +676,11 @@ function renderResults(res) {
           ? 'You have seen every idea for this context.'
           : 'Try more time, a bigger budget, more kinds of ideas, or going outside.',
         actions: seenAll
-          ? [btn({ label: 'Start over', icon: 'refresh-cw', onclick: () => { state.hidden.clear(); runSuggest(); } })]
-          : [],
+          ? [
+              btn({ label: 'Start over', icon: 'refresh-cw', onclick: () => { state.hidden.clear(); runSuggest(); } }),
+              btn({ label: 'Add your own idea', icon: 'pencil', onclick: () => ctx.goto('settings', { focus: 'my-ideas' }) }),
+            ]
+          : [btn({ label: 'Add your own idea', icon: 'pencil', onclick: () => ctx.goto('settings', { focus: 'my-ideas' }) })],
       }),
     );
     return;
@@ -808,6 +811,9 @@ function coupon(c, { label = 'Admit one' } = {}) {
           { class: 'coupon-actions' },
           btn({ label: 'Start', icon: 'play', kind: 'primary', onclick: () => start(c, el), title: 'Start (S)' }),
           link ? btn({ label: link.text, icon: link.icon, onclick: () => openLink(c.link) }) : null,
+          c.place
+            ? btn({ label: 'Nearby', icon: 'map-pin', onclick: (e) => toggleNearby(c, e.currentTarget.closest('.coupon-actions')), title: 'Real places near your city (OpenStreetMap)' })
+            : null,
           state.together?.friends().length && invitable(c)
             ? btn({
                 label: 'Invite',
@@ -841,6 +847,50 @@ function coupon(c, { label = 'Admit one' } = {}) {
     ),
   );
   return el;
+}
+
+/** "Nearby": the closest real places for this idea, under the ticket's buttons. Asked only on
+    click (OpenStreetMap, with the city's coordinates); a second click closes it. */
+async function toggleNearby(c, actions) {
+  const open = actions.nextElementSibling;
+  if (open?.classList.contains('nearby-panel')) return open.remove();
+  const panel = h('div', { class: 'invite-panel nearby-panel', 'aria-live': 'polite' }, h('p', { class: 'hint' }, icon('loader-circle', 'spin'), ' Looking around your city…'));
+  actions.after(panel);
+  let res;
+  try {
+    res = await api.nearbyPlaces(c.id);
+  } catch (e) {
+    fill(panel, h('p', { class: 'hint' }, errText(e)));
+    return;
+  }
+  if (!res.city) {
+    fill(
+      panel,
+      h('p', {}, 'Set your city to see real places nearby.'),
+      h('div', {}, btn({ label: 'Set my city', icon: 'map-pin', small: true, onclick: () => ctx.goto('settings', { focus: 'location' }) })),
+    );
+    return;
+  }
+  const km = (m) => (m < 1000 ? `${Math.round(m / 10) * 10} m` : `${(m / 1000).toFixed(1)} km`);
+  fill(
+    panel,
+    res.places.length
+      ? h(
+          'ul',
+          { class: 'nearby-list' },
+          res.places.map((p) =>
+            h(
+              'li',
+              {},
+              h('span', { class: 'nearby-name', translate: p.named ? 'no' : null }, p.name),
+              h('span', { class: 'nearby-dist figures' }, km(p.distance_m)),
+              btn({ label: `Open the map: ${p.name}`, icon: 'external-link', small: true, square: true, onclick: () => openLink(p.link) }),
+            ),
+          ),
+        )
+      : h('p', { class: 'hint' }, 'Nothing found within 8 km of your city.'),
+    h('p', { class: 'nearby-credit' }, 'Map data © OpenStreetMap contributors'),
+  );
 }
 
 function fareBox(label, value) {

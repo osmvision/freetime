@@ -45,6 +45,8 @@ deals, and new uploads from a set of YouTube channels.
 | --- | --- | --- |
 | Windows region | Steam prices in your currency | At startup, from the regional settings (no network) |
 | City | Outdoor ideas follow the live weather ([Open-Meteo](https://open-meteo.com/), no key) | Asked once on first launch (skippable), editable in Settings |
+| Places nearby | Parks, pools, courts, libraries... near your city for ideas that happen somewhere ([OpenStreetMap](https://www.openstreetmap.org/copyright) through Overpass, no key) | Only when you click **Nearby** on an idea, then cached for a month |
+| Your own ideas | Ideas you add in Settings, ranked with the built-in ones | Stored with your settings, never sent |
 | Steam games | Backlog, old favorites and comfort picks from games you own | Only when you click **Import my games from Steam on this PC**, then from freetime's own cache |
 | YouTube channels | New uploads, per idea category (`youtube_channels.toml`, editable) | At startup, public RSS feeds, cached 2 h |
 | YouTube search | Videos matching your interests and your free time | At startup, through freetime's search proxy (no key), refreshed daily |

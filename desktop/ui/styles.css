@@ -2567,6 +2567,56 @@ button.tag:hover {
   background: var(--stock);
 }
 
+.nearby-list {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.nearby-list li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 10px;
+}
+
+.nearby-name {
+  overflow: hidden;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nearby-dist {
+  color: var(--text-3);
+  font-size: 14px;
+}
+
+.nearby-credit {
+  margin: 0;
+  color: var(--text-3);
+  font-size: 12px;
+}
+
+.my-idea-form {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.my-idea-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+}
+
+select.input {
+  padding-right: 8px;
+  cursor: pointer;
+}
+
 .invite-people {
   display: flex;
   flex-wrap: wrap;

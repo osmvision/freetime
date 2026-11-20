@@ -48,6 +48,12 @@ pub fn places() -> HashMap<String, PlaceKind> {
     file().activity.into_iter().filter_map(|a| a.place.map(|p| (format!("idea:{}", a.id), p))).collect()
 }
 
+/// Same, for one idea, without parsing the catalog again (called for every card shown).
+pub fn place_of(id: &str) -> Option<PlaceKind> {
+    static PLACES: std::sync::OnceLock<HashMap<String, PlaceKind>> = std::sync::OnceLock::new();
+    PLACES.get_or_init(places).get(id).copied()
+}
+
 pub fn load() -> Vec<Suggestion> {
     file()
         .activity

@@ -23,7 +23,7 @@ pub const MAX_NEVER: usize = 1000;
 /// How much a "never" weighs on the taste of its category and tags (a 👎 weighs 1).
 const NEVER_WEIGHT: f64 = 0.5;
 /// Tags that every item of a source shares: they say nothing about taste.
-const GENERIC_TAGS: [&str; 5] = ["steam", "store", "youtube", "epic", "free-week"];
+const GENERIC_TAGS: [&str; 6] = ["steam", "store", "youtube", "epic", "free-week", crate::mine::TAG];
 
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub struct History {
