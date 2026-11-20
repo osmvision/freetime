@@ -101,6 +101,56 @@ test('you can edit your own profile, within limits, and nobody else’s', async 
   });
 });
 
+test('profile photos: upload, replace, remove, and follow profile visibility', async () => {
+  // Valid 160×160 grayscale PNGs and a 1×1 PNG used to test the size check.
+  const first = 'iVBORw0KGgoAAAANSUhEUgAAAKAAAACgCAAAAACupDjxAAAAq0lEQVR4nO3OMQEAIAzAsEnDvyok7MgBR6Mgcz43rwObgqqgKqgKqoKqoCqoCqqCqqAqqAqqgqqgKqgKqoKqoCqoCqqCqqAqqAqqgqqgKqgKqoKqoCqoCqqCqqAqqAqqgqqgKqgKqoKqoCqoCqqCqqAqqAqqgqqgKqgKqoKqoCqoCqqCqqAqqAqqgqqgKqgKqoKqoCqoCqqCqqAqqAqqgqqgKqgKqoKqoCqoLhwmAXgB4UisAAAAAElFTkSuQmCC';
+  const replacement = 'iVBORw0KGgoAAAANSUhEUgAAAKAAAACgCAAAAACupDjxAAAAqklEQVR4nO3OMQEAIAzAsElHOhJ25ICjUZA5n5vXgU1BVVAVVAVVQVVQFVQFVUFVUBVUBVVBVVAVVAVVQVVQFVQFVUFVUBVUBVVBVVAVVAVVQVVQFVQFVUFVUBVUBVVBVVAVVAVVQVVQFVQFVUFVUBVUBVVBVVAVVAVVQVVQFVQFVUFVUBVUBVVBVVAVVAVVQVVQFVQX050C76n7tDUAAAAASUVORK5CYII=';
+  const wrongSize = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAAAAAA6fptVAAAACklEQVR4nGNQAAAAIgAh4+9nCwAAAABJRU5ErkJggg==';
+  await withPeople(async ({ step }) => {
+    const photos = (who) => step(who, (q) => q.rows('select image from public.profile_photos where user_id = $1', [ALICE]));
+    const save = (q, name, image) => q.one(
+      "select public.save_profile_with_photo($1, 2::smallint, 1::smallint, '', '', $2) as profile", [name, image],
+    );
+    assert.equal((await step(ALICE, (q) => save(q, 'Alice', first))).profile.id, ALICE);
+    assert.deepEqual(await photos(ALICE), [{ image: first }]);
+    assert.deepEqual(await photos(BOB), []);
+    await step(null, async (q) => {
+      await fails(q.rows('select * from public.profile_photos'), /permission denied/);
+    });
+    await step(ALICE, async (q) => {
+      await fails(save(q, 'Invalid edit', wrongSize), /profile_photo_format/);
+    });
+    assert.equal((await step(ALICE, (q) => q.one('select display_name from public.profiles where id = $1', [ALICE]))).display_name, 'Alice');
+    assert.deepEqual(await photos(ALICE), [{ image: first }]);
+
+    await befriend(ALICE, BOB);
+    assert.deepEqual(await photos(BOB), [{ image: first }]);
+    assert.deepEqual(await step(BOB, (q) => q.rows('update public.profile_photos set image = $2 where user_id = $1 returning user_id', [ALICE, replacement])), []);
+    await step(BOB, async (q) => {
+      await fails(q.rows('insert into public.profile_photos (user_id, image) values ($1, $2)', [ALICE, replacement]), /row-level security/);
+    });
+    await step(ALICE, (q) => q.rows('update public.profiles set show_in_global = true where id = $1', [ALICE]));
+    assert.deepEqual(await photos(CAROL), [{ image: first }]);
+    await step(CAROL, (q) => q.rows('insert into public.blocks (blocker, blocked) values ($1, $2)', [CAROL, ALICE]));
+    assert.deepEqual(await photos(CAROL), []);
+
+    await step(ALICE, (q) => save(q, 'Alice', replacement));
+    assert.deepEqual(await photos(BOB), [{ image: replacement }]);
+    await step(ALICE, (q) => q.rows("update public.profiles set bio = 'Updated bio' where id = $1", [ALICE]));
+    assert.deepEqual(await photos(ALICE), [{ image: replacement }]);
+    const exported = (who) => step(who, async (q) => (await q.one('select public.export_my_data() as data')).data.profile_photo);
+    assert.equal(await exported(ALICE), `data:image/png;base64,${replacement}`);
+    assert.equal(await exported(BOB), null);
+
+    await step(ALICE, (q) => save(q, 'Alice', null));
+    assert.deepEqual(await photos(ALICE), []);
+    assert.deepEqual(await photos(BOB), []);
+    await step(ALICE, (q) => save(q, 'Alice', first));
+    await step(ALICE, (q) => q.one('select public.delete_my_account()'));
+    assert.deepEqual((await db.query('select user_id from public.profile_photos')).rows, []);
+  });
+});
+
 test('friend requests: by tag, accepted by the other person, then profiles are visible', async () => {
   await withPeople(async ({ tags, step }) => {
     assert.equal(await step(ALICE, (q) => q.one('select public.send_friend_request($1) as s', [tags[BOB].toLowerCase()])).then((r) => r.s), 'pending');
@@ -888,6 +938,39 @@ test('support tickets: values are checked, senders are rate limited, deleted acc
     assert.deepEqual([left.n, left.linked], [5, 0], 'the tickets stay, without the account');
   });
 });
+
+test('support ticket photos are private, saved atomically, and deleted with the ticket', async () => {
+  const image = readFileSync(join(here, '..', '..', 'desktop', 'ui', 'img', 'ideas', 'advent-of-code.jpg')).toString('base64');
+  const submit = (q, photos, who = ALICE) => q.one(
+    "select public.support_submit_with_photos($1, $2, 'bug', 'There is a screenshot of the problem.', null, null, null, null, null, $3) as id",
+    [who, ipHash(25), photos],
+  );
+  await withPeople(async ({ step }) => {
+    await db.query('insert into private.admins (user_id) values ($1)', [BOB]);
+    await step(ALICE, async (q) => {
+      await fails(submit(q, [image]), /permission denied/);
+    });
+    await serviceFails((q) => submit(q, [image, 'invalid']), /check constraint/);
+    await serviceFails((q) => submit(q, [image, image, image, image]), /one to three photos/);
+    assert.equal((await db.query('select count(*)::int as n from public.support_tickets')).rows[0].n, 0);
+    const { id } = await asService((q) => submit(q, [image, image]));
+    const { id: anonymousTicket } = await asService((q) => submit(q, [image], null));
+    const { id: textTicket } = await asService((q) => fileTicket(q, ALICE, ipHash(26)));
+    const counts = await step(BOB, (q) => q.rows('select id, photo_count from public.support_tickets order by id'));
+    assert.deepEqual(counts, [{ id, photo_count: 2 }, { id: anonymousTicket, photo_count: 1 }, { id: textTicket, photo_count: 0 }]);
+    assert.deepEqual(await step(BOB, (q) => q.rows('select position, image from public.support_ticket_photos where ticket_id = $1 order by position', [id])),
+      [{ position: 1, image }, { position: 2, image }]);
+    assert.deepEqual(await step(ALICE, (q) => q.rows('select image from public.support_ticket_photos')), []);
+    await step(BOB, async (q) => {
+      await fails(q.rows('delete from public.support_ticket_photos where ticket_id = $1', [id]), /permission denied/);
+    });
+    await step(null, async (q) => {
+      await fails(q.rows('select image from public.support_ticket_photos'), /permission denied/);
+    });
+    await db.query('delete from public.support_tickets where id = $1', [id]);
+    assert.deepEqual(await step(BOB, (q) => q.rows('select image from public.support_ticket_photos where ticket_id = $1', [id])), []);
+  });
+});
 // ---------------------------------------------------------------- meet
 
 test('meet: only people who chose to be visible, never friends, yourself or blocked people', async () => {
@@ -1127,6 +1210,64 @@ async function games(user, body, first = 0) {
 }
 
 const myMatches = (step, who) => step(who, async (q) => (await q.one('select public.my_matches() as m')).m);
+
+test('game rankings: completed results, tied ranks, friends, and worldwide visibility', async () => {
+  await withPeople(async ({ step }) => {
+    await befriend(ALICE, BOB);
+    await db.query("update public.profiles set display_name = case id when $1 then 'Alice' when $2 then 'Bob' else 'Carol' end", [ALICE, BOB]);
+    await db.query(`
+      insert into public.matches (game, player_a, player_b, state, status, result, finished_at)
+      values ('four', $1, $2, '{}', 'done', 'a', now() - interval '90 days'),
+             ('four', $2, $3, '{}', 'done', 'b', now()),
+             ('four', $3, $1, '{}', 'done', 'draw', now()),
+             ('four', $1, $2, '{}', 'active', null, null),
+             ('four', $1, $2, '{}', 'active', null, null),
+             ('four', $1, $2, '{}', 'cancelled', null, now()),
+             ('four', $2, $1, '{}', 'declined', null, now()),
+             ('gomoku', $2, $1, '{}', 'done', 'a', now())
+    `, [ALICE, BOB, CAROL]);
+    await db.exec("update public.matches set updated_at = now() - interval '8 days' where id = (select id from public.matches where status = 'active' limit 1)");
+    await db.query(`
+      insert into public.duels (challenger, opponent, questions, challenger_score, opponent_score, status, finished_at)
+      values ($1, $2, array['q1','q2','q3','q4','q5'], 4, 2, 'done', now()),
+             ($2, $1, array['q1','q2','q3','q4','q5'], 5, 5, 'done', now()),
+             ($1, $2, array['q1','q2','q3','q4','q5'], 5, null, 'open', null)
+    `, [ALICE, BOB]);
+
+    const board = (game, scope, who = ALICE) =>
+      step(who, async (q) => (await q.one('select public.game_leaderboard($1, $2) as board', [game, scope])).board);
+    const fields = ({ rows }) => rows.map((r) => [r.display_name, r.rank, r.points, r.wins, r.draws, r.losses, r.me]);
+    assert.deepEqual(fields(await board('four', 'friends')), [
+      ['Alice', 1, 4, 1, 1, 0, true], ['Bob', 2, 0, 0, 0, 2, false],
+    ]);
+    assert.deepEqual(fields(await board('gomoku', 'friends')), [
+      ['Bob', 1, 3, 1, 0, 0, false], ['Alice', 2, 0, 0, 0, 1, true],
+    ]);
+    assert.deepEqual(fields(await board('quiz-duel', 'friends')), [
+      ['Alice', 1, 4, 1, 1, 0, true], ['Bob', 2, 1, 0, 1, 1, false],
+    ]);
+    assert.deepEqual(await board('four', 'global'), { show_in_global: false, rows: [] });
+
+    await step(CAROL, (q) => q.rows('update public.profiles set show_in_global = true where id = $1', [CAROL]));
+    assert.deepEqual(fields(await board('four', 'global')), [['Carol', 1, 4, 1, 1, 0, false]]);
+    await step(ALICE, (q) => q.rows('update public.profiles set show_in_global = true where id = $1', [ALICE]));
+    const global = await board('four', 'global');
+    assert.equal(global.show_in_global, true);
+    assert.deepEqual(fields(global), [['Alice', 1, 4, 1, 1, 0, true], ['Carol', 1, 4, 1, 1, 0, false]]);
+    assert.deepEqual(Object.keys(global.rows[1]).sort(), ['avatar_color', 'avatar_icon', 'display_name', 'draws', 'losses', 'me', 'points', 'rank', 'wins']);
+    assert.deepEqual(await step(ALICE, (q) => q.rows('select player_a from public.matches where player_a = $1', [BOB])), [{ player_a: BOB }, { player_a: BOB }]);
+
+    await step(ALICE, (q) => q.rows('insert into public.blocks (blocker, blocked) values ($1, $2)', [ALICE, CAROL]));
+    assert.deepEqual(fields(await board('four', 'global')), [['Alice', 1, 4, 1, 1, 0, true]]);
+    assert.deepEqual(fields(await board('four', 'global', CAROL)), [['Carol', 1, 4, 1, 1, 0, true]]);
+    await step(ALICE, async (q) => {
+      await fails(q.one("select public.game_leaderboard('solo', 'global')"), /unknown game leaderboard/);
+    });
+    await step(null, async (q) => {
+      await fails(q.one("select public.game_leaderboard('four', 'global')"), /permission denied/);
+    });
+  });
+});
 
 test('games: only the Edge Function (service role) writes games; players only read their own', async () => {
   await withPeople(async ({ step }) => {

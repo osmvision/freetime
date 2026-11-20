@@ -441,6 +441,8 @@ verify_jwt = false
 
 # "Report a problem": public on purpose (people who can't sign in must be able to report it).
 # Rate limits and validation live in the function and in public.support_submit.
+# Secret: SUPPORT_IP_HASH_KEY (a long random value, used only to hash the caller's address for the
+# per-address limit; without it that limit is off).
 [functions.support]
 verify_jwt = false
 

@@ -3,21 +3,26 @@
 //   POST /functions/v1/support
 //   { "category": "bug|account|idea|other", "message": "…", "contact"?, "appVersion"?,
 //     "platform"?: "desktop|web", "lang"?, "screen"? }
+//   With attachments: { "ticket": { …same fields… }, "photos": ["…base64 JPEG…"] }
 //   → { "id": 42 }
 //
 // Public on purpose (deployed with verify_jwt = false): people who can't sign in must be able to
 // say so. With "Authorization: Bearer <session>", the ticket is linked to that account.
 // Rate limits live in the database (public.support_submit): 10 an hour per network address,
-// 5 an hour per account, 300 a day in all. The address is stored only as a keyed hash.
+// 5 an hour per account, 300 a day in all. The address is stored only as a keyed hash, with a
+// secret of its own (SUPPORT_IP_HASH_KEY); without it, or without an address the platform vouches
+// for (see address.js), only the account and daily limits apply.
 // Only the admins listed in private.admins can read the tickets (see the migration).
 
 import { createClient } from 'npm:@supabase/supabase-js@2.45.4';
+import { clientAddress, keyedHash } from './address.js';
+import { readTicketJson, validTicketPhoto } from './photos.js';
 
 const CATEGORIES = new Set(['bug', 'account', 'idea', 'other']);
 const PLATFORMS = new Set(['desktop', 'web']);
-const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+const IP_HASH_KEY = Deno.env.get('SUPPORT_IP_HASH_KEY') ?? '';
 
-const db = createClient(Deno.env.get('SUPABASE_URL')!, SERVICE_KEY, { auth: { persistSession: false } });
+const db = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, { auth: { persistSession: false } });
 
 type Ticket = {
   category: string;
@@ -31,20 +36,32 @@ type Ticket = {
 
 Deno.serve(async (req) => {
   if (req.method !== 'POST') return reply(405, { error: 'method', message: 'POST only' });
-  const ticket = clean(await req.json().catch(() => null));
+  let body;
+  try {
+    body = await readTicketJson(req);
+  } catch (e) {
+    if (e instanceof RangeError) return reply(413, { error: 'too_large', message: 'The attached photos are too large.' });
+    body = null;
+  }
+  const withPhotos = body != null && Object.hasOwn(body, 'ticket');
+  const ticket = clean(withPhotos ? body.ticket : body);
   if (!ticket) {
     return reply(400, { error: 'invalid', message: 'Describe the problem in 10 to 4000 characters and pick a category.' });
+  }
+  const photos = withPhotos ? body.photos : [];
+  if (withPhotos && (!Array.isArray(photos) || photos.length < 1 || photos.length > 3 || !photos.every(validTicketPhoto))) {
+    return reply(422, { error: 'invalid_photos', message: 'One or more photos could not be attached.' });
   }
 
   try {
     // A session links the ticket to the account; a bad or expired one just sends it unlinked.
     const token = (req.headers.get('authorization') ?? '').replace(/^Bearer\s+/i, '').trim();
     const { data: auth } = token ? await db.auth.getUser(token) : { data: { user: null } };
-    const ip = (req.headers.get('x-forwarded-for') ?? '').split(',')[0].trim();
+    const ip = clientAddress(req.headers);
 
-    const { data: id, error } = await db.rpc('support_submit', {
+    const { data: id, error } = await db.rpc(withPhotos ? 'support_submit_with_photos' : 'support_submit', {
       p_user: auth?.user?.id ?? null,
-      p_ip_hash: ip ? await keyedHash(ip) : null,
+      p_ip_hash: ip ? await keyedHash(ip, IP_HASH_KEY) : null,
       p_category: ticket.category,
       p_message: ticket.message,
       p_contact: ticket.contact,
@@ -52,6 +69,7 @@ Deno.serve(async (req) => {
       p_platform: ticket.platform,
       p_lang: ticket.lang,
       p_screen: ticket.screen,
+      ...(withPhotos ? { p_photos: photos } : {}),
     });
     if (error) {
       if (error.code === '54000') return reply(429, { error: 'too_many', message: error.message });
@@ -87,13 +105,6 @@ function clean(body: unknown): Ticket | null {
     lang: /^[a-zA-Z-]{2,10}$/.test(lang) ? lang : null,
     screen: /^[a-z0-9_-]{1,40}$/.test(screen) ? screen : null,
   };
-}
-
-/** HMAC-SHA256 of the address with a server secret: comparable for the rate limit, not reversible. */
-async function keyedHash(value: string): Promise<string> {
-  const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(SERVICE_KEY), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
-  const sig = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(value));
-  return [...new Uint8Array(sig)].map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 
 function reply(status: number, body: unknown): Response {
