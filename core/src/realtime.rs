@@ -31,13 +31,13 @@ pub enum Event {
     Down,
     Message(Message),
     /// An invite was created or answered: (id, its from_user, its to_user, status, title, starts_at).
-    Invite { id: i64, from_user: String, to_user: String, status: String, title: String, starts_at: String, inserted: bool },
+    Invite { id: i64, from_user: String, to_user: String, status: String, title: String, category: String, starts_at: String, inserted: bool },
     /// A profile you may see changed (yours or a friend's): who, and their "free until" (None = not free).
     Profile { id: String, display_name: String, free_until: Option<String> },
     /// A quiz duel you're in was created or changed (someone played, declined or cancelled).
     Duel { id: String, challenger: String, opponent: String, status: String, inserted: bool },
     /// A game you're in was started or moved on: whose turn it is now (0 = player_a), if anyone's.
-    Match { id: String, game: String, player_a: String, player_b: String, turn: Option<i64>, status: String, inserted: bool },
+    Match { id: String, game: String, player_a: String, player_b: String, turn: Option<i64>, status: String, b_moved: bool, inserted: bool },
 }
 
 pub fn websocket_url() -> String {
@@ -109,6 +109,7 @@ pub fn parse(text: &str) -> Option<Event> {
             to_user: text_of("to_user")?,
             status: text_of("status")?,
             title: text_of("title").unwrap_or_default(),
+            category: text_of("category").unwrap_or_default(),
             starts_at: text_of("starts_at").unwrap_or_default(),
             inserted: kind == "INSERT",
         }),
@@ -131,6 +132,7 @@ pub fn parse(text: &str) -> Option<Event> {
             player_b: text_of("player_b")?,
             turn: record.get("turn").and_then(Value::as_i64),
             status: text_of("status")?,
+            b_moved: record.get("b_moved").and_then(Value::as_bool).unwrap_or(false),
             inserted: kind == "INSERT",
         }),
         _ => None,
@@ -247,8 +249,8 @@ mod tests {
 
     #[test]
     fn reads_invites_and_the_join_reply() {
-        let invite = r#"{"topic":"realtime:freetime","event":"postgres_changes","payload":{"data":{"table":"invites","type":"UPDATE","record":{"id":7,"from_user":"a","to_user":"b","status":"accepted","title":"Hades","starts_at":"2026-11-18T21:00:00+00:00"}}}}"#;
-        assert!(matches!(parse(invite), Some(Event::Invite { id: 7, inserted: false, .. })));
+        let invite = r#"{"topic":"realtime:freetime","event":"postgres_changes","payload":{"data":{"table":"invites","type":"UPDATE","record":{"id":7,"from_user":"a","to_user":"b","status":"accepted","title":"Hades","category":"game","starts_at":"2026-11-18T21:00:00+00:00"}}}}"#;
+        assert!(matches!(parse(invite), Some(Event::Invite { id: 7, inserted: false, category, .. }) if category == "game"));
         let profile = r#"{"topic":"realtime:freetime","event":"postgres_changes","payload":{"data":{"table":"profiles","type":"UPDATE","record":{"id":"b","display_name":"Julian","free_until":"2026-11-19T21:30:00+00:00"}}}}"#;
         assert_eq!(parse(profile), Some(Event::Profile { id: "b".into(), display_name: "Julian".into(), free_until: Some("2026-11-19T21:30:00+00:00".into()) }));
         let not_free = r#"{"topic":"realtime:freetime","event":"postgres_changes","payload":{"data":{"table":"profiles","type":"UPDATE","record":{"id":"b","display_name":"Julian","free_until":null}}}}"#;
@@ -269,10 +271,10 @@ mod tests {
 
     #[test]
     fn reads_games() {
-        let frame = r#"{"topic":"realtime:freetime","event":"postgres_changes","payload":{"data":{"table":"matches","type":"UPDATE","record":{"id":"m1","game":"four","player_a":"a","player_b":"b","state":{"board":[]},"turn":1,"status":"active","version":3}}}}"#;
+        let frame = r#"{"topic":"realtime:freetime","event":"postgres_changes","payload":{"data":{"table":"matches","type":"UPDATE","record":{"id":"m1","game":"four","player_a":"a","player_b":"b","state":{"board":[]},"turn":1,"status":"active","b_moved":true,"version":3}}}}"#;
         assert_eq!(
             parse(frame),
-            Some(Event::Match { id: "m1".into(), game: "four".into(), player_a: "a".into(), player_b: "b".into(), turn: Some(1), status: "active".into(), inserted: false })
+            Some(Event::Match { id: "m1".into(), game: "four".into(), player_a: "a".into(), player_b: "b".into(), turn: Some(1), status: "active".into(), b_moved: true, inserted: false })
         );
         let over = frame.replace("\"turn\":1", "\"turn\":null");
         assert!(matches!(parse(&over), Some(Event::Match { turn: None, .. })));

@@ -325,7 +325,17 @@ impl Client {
 
     pub fn update_profile(&self, s: &Session, edit: &ProfileEdit) -> Result<OnlineProfile> {
         ensure_uuid(&s.user_id)?;
-        let body = serde_json::to_value(edit.checked()?)?;
+        let edit = edit.checked()?;
+        if let Some(photo) = &edit.photo {
+            let body = json!({
+                "p_display_name": edit.display_name, "p_avatar_icon": edit.avatar_icon,
+                "p_avatar_color": edit.avatar_color, "p_bio": edit.bio,
+                "p_status_text": edit.status_text, "p_image": photo.image,
+            });
+            let saved = self.call("POST", "/rest/v1/rpc/save_profile_with_photo", Some(&s.access_token), Some(&body), None)?;
+            return serde_json::from_value(saved).context("unexpected profile response");
+        }
+        let body = serde_json::to_value(edit)?;
         let v = self.call(
             "PATCH",
             &format!("/rest/v1/profiles?id=eq.{}&select={PROFILE_COLUMNS}", s.user_id),
@@ -334,6 +344,21 @@ impl Client {
             Some("return=representation"),
         )?;
         first_profile(v)
+    }
+
+    pub fn profile_photos(&self, s: &Session, ids: &[String]) -> Result<Vec<ProfilePhoto>> {
+        if ids.is_empty() {
+            return Ok(Vec::new());
+        }
+        if ids.len() > 12 {
+            bail!("too many profile photos requested");
+        }
+        for id in ids {
+            ensure_uuid(id)?;
+        }
+        let path = format!("/rest/v1/profile_photos?user_id=in.({})&select=user_id,image", ids.join(","));
+        let photos = self.call("GET", &path, Some(&s.access_token), None, None)?;
+        serde_json::from_value(photos).context("unexpected profile photos response")
     }
 
     pub fn reset_friend_tag(&self, s: &Session) -> Result<String> {
@@ -378,11 +403,20 @@ impl Client {
     /// Sends a problem report to the freetime team. Works signed out (`s` = None); signed in, the
     /// ticket is linked to the account. Returns the ticket's number.
     pub fn send_ticket(&self, s: Option<&Session>, ticket: &crate::support::NewTicket) -> Result<i64> {
-        let ticket = ticket.checked()?;
-        let body = serde_json::to_value(&ticket)?;
+        let mut ticket = ticket.checked()?;
+        let photos = std::mem::take(&mut ticket.photos);
+        let with_photos = !photos.is_empty();
+        // Older support functions reject this envelope before writing a text-only report.
+        let body = if with_photos { json!({ "ticket": ticket, "photos": photos }) } else { serde_json::to_value(&ticket)? };
         let v = self
             .call("POST", "/functions/v1/support", s.map(|s| s.access_token.as_str()), Some(&body), None)
-            .map_err(|e| crate::support::send_error(&e))?;
+            .map_err(|e| {
+                if with_photos && e.to_string().contains("(HTTP 400)") {
+                    anyhow!("Photo attachments are unavailable right now.")
+                } else {
+                    crate::support::send_error(&e)
+                }
+            })?;
         v["id"].as_i64().ok_or_else(|| anyhow!("unexpected answer from freetime's server"))
     }
 
@@ -399,9 +433,24 @@ impl Client {
             Some(_) => bail!("unknown ticket status"),
             None => String::new(),
         };
-        let path = format!("/rest/v1/support_tickets?select={}&order=created_at.desc&limit=200{filter}", crate::support::TICKET_COLUMNS);
-        let v = self.call("GET", &path, Some(&s.access_token), None, None)?;
+        let list = |columns: &str| {
+            let path = format!("/rest/v1/support_tickets?select={columns}&order=created_at.desc&limit=200{filter}");
+            self.call("GET", &path, Some(&s.access_token), None, None)
+        };
+        let v = match list(&format!("{},photo_count", crate::support::TICKET_COLUMNS)) {
+            Err(e) if e.to_string().contains("photo_count") && e.to_string().contains("(HTTP 400)") => list(crate::support::TICKET_COLUMNS)?,
+            result => result?,
+        };
         serde_json::from_value(v).context("unexpected ticket list")
+    }
+
+    pub fn ticket_photos(&self, s: &Session, id: i64) -> Result<Vec<crate::support::TicketPhoto>> {
+        if id <= 0 {
+            bail!("unknown ticket");
+        }
+        let path = format!("/rest/v1/support_ticket_photos?select=image&ticket_id=eq.{id}&order=position");
+        let photos = self.call("GET", &path, Some(&s.access_token), None, None)?;
+        serde_json::from_value(photos).context("unexpected ticket photos")
     }
 
     /// An admin changes a ticket's status and note.
@@ -597,6 +646,22 @@ impl Client {
     /// Your games: your turn first, then waiting, then finished (last 30 days).
     pub fn my_matches(&self, s: &Session) -> Result<Value> {
         self.call("POST", "/rest/v1/rpc/my_matches", Some(&s.access_token), Some(&json!({})), None)
+    }
+
+    /// The completed multiplayer results for one game, ranked by points.
+    pub fn game_leaderboard(&self, s: &Session, game: &str, scope: &str) -> Result<Value> {
+        if !matches!(game, "four" | "gomoku" | "draughts" | "dots" | "torpedoes" | "quiz-duel")
+            || !matches!(scope, "friends" | "global")
+        {
+            bail!("unknown game leaderboard");
+        }
+        self.call(
+            "POST",
+            "/rest/v1/rpc/game_leaderboard",
+            Some(&s.access_token),
+            Some(&json!({ "p_game": game, "p_scope": scope })),
+            None,
+        )
     }
 
     /// Declines, cancels or resigns a game. Returns "declined", "cancelled" or "resigned".
@@ -914,10 +979,11 @@ fn ensure_uuid(id: &str) -> Result<()> {
 
 // ---------------------------------------------------------------- the online profile
 
-const PROFILE_COLUMNS: &str = "display_name,avatar_icon,avatar_color,bio,status_text,friend_tag,free_until";
+const PROFILE_COLUMNS: &str = "id,display_name,avatar_icon,avatar_color,bio,status_text,friend_tag,free_until";
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct OnlineProfile {
+    pub id: String,
     pub display_name: String,
     pub avatar_icon: i16,
     pub avatar_color: i16,
@@ -927,6 +993,12 @@ pub struct OnlineProfile {
     /// While you've said you're free.
     #[serde(default)]
     pub free_until: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ProfilePhoto {
+    pub user_id: String,
+    pub image: String,
 }
 
 fn first_profile(v: Value) -> Result<OnlineProfile> {
@@ -1018,6 +1090,14 @@ pub struct ProfileEdit {
     pub bio: String,
     #[serde(default)]
     pub status_text: String,
+    /// Omit to keep the existing photo. An explicit edit with no image removes it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub photo: Option<ProfilePhotoEdit>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProfilePhotoEdit {
+    pub image: Option<String>,
 }
 
 impl ProfileEdit {
@@ -1038,7 +1118,10 @@ impl ProfileEdit {
         if !(0..24).contains(&self.avatar_icon) || !(0..8).contains(&self.avatar_color) {
             bail!("unknown avatar");
         }
-        Ok(ProfileEdit { display_name: name, avatar_icon: self.avatar_icon, avatar_color: self.avatar_color, bio, status_text: status })
+        if self.photo.as_ref().and_then(|photo| photo.image.as_ref()).is_some_and(|image| image.len() > 140_000) {
+            bail!("The profile photo is too large");
+        }
+        Ok(ProfileEdit { display_name: name, avatar_icon: self.avatar_icon, avatar_color: self.avatar_color, bio, status_text: status, photo: self.photo.clone() })
     }
 }
 
@@ -1140,7 +1223,7 @@ mod tests {
 
     #[test]
     fn profile_edits_are_checked() {
-        let ok = ProfileEdit { display_name: "  Osm\n ".into(), avatar_icon: 2, avatar_color: 1, bio: String::new(), status_text: "Free tonight".into() };
+        let ok = ProfileEdit { display_name: "  Osm\n ".into(), avatar_icon: 2, avatar_color: 1, bio: String::new(), status_text: "Free tonight".into(), photo: None };
         assert_eq!(ok.checked().unwrap().display_name, "Osm");
         assert!(ProfileEdit { display_name: "".into(), ..ok.clone() }.checked().is_err());
         assert!(ProfileEdit { display_name: "x".repeat(25), ..ok.clone() }.checked().is_err());

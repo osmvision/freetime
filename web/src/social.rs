@@ -50,6 +50,7 @@ pub fn invoke(
         "save_profile" => {
             json!(client.update_profile(&session, &arg::<ProfileEdit>(args, "edit")?)?)
         }
+        "profile_photos" => json!(client.profile_photos(&session, &arg::<Vec<String>>(args, "ids")?)?),
         "reset_friend_tag" => json!(client.reset_friend_tag(&session)?),
         "export_my_data" => client.export_my_data(&session)?,
         "delete_my_account" => {
@@ -67,6 +68,7 @@ pub fn invoke(
             Value::Null
         }
         "support_tickets" => json!(client.tickets(&session, arg::<Option<String>>(args, "status")?.as_deref())?),
+        "support_ticket_photos" => json!(client.ticket_photos(&session, arg(args, "id")?)?),
         "update_support_ticket" => {
             client.update_ticket(&session, arg::<i64>(args, "id")?, &text("status")?, &text("note")?)?;
             Value::Null
@@ -140,6 +142,7 @@ pub fn invoke(
         }
         "game_action" => client.game_action(&session, &arg::<Value>(args, "request")?)?,
         "my_matches" => client.my_matches(&session)?,
+        "game_leaderboard" => client.game_leaderboard(&session, &text("game")?, &text("scope")?)?,
         "leave_match" => json!(client.leave_match(&session, &text("id")?)?),
         _ => bail!("Unknown web command"),
     };

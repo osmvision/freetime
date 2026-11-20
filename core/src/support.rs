@@ -12,6 +12,8 @@ pub const MIN_MESSAGE: usize = 10;
 pub const MAX_MESSAGE: usize = 4000;
 pub const MAX_CONTACT: usize = 200;
 pub const MAX_NOTE: usize = 2000;
+pub const MAX_PHOTOS: usize = 3;
+pub const MAX_PHOTO_LENGTH: usize = 400_000;
 
 /// The columns an admin reads (not the address hash, which only serves the rate limit).
 pub const TICKET_COLUMNS: &str = "id,created_at,updated_at,user_id,category,message,contact,app_version,platform,lang,screen,status,admin_note";
@@ -32,6 +34,8 @@ pub struct NewTicket {
     pub lang: Option<String>,
     #[serde(default)]
     pub screen: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub photos: Vec<String>,
 }
 
 /// Control characters out (line breaks and tabs stay), ends trimmed, at most `max` characters.
@@ -60,6 +64,12 @@ impl NewTicket {
         if message.chars().count() > MAX_MESSAGE {
             bail!("That's a bit long: keep it under {MAX_MESSAGE} characters.");
         }
+        if self.photos.len() > MAX_PHOTOS {
+            bail!("You can attach up to 3 photos.");
+        }
+        if self.photos.iter().any(|image| image.len() > MAX_PHOTO_LENGTH || !image.starts_with("/9j/")) {
+            bail!("One or more photos could not be attached.");
+        }
         let contact = self.contact.as_deref().map(|c| tidy(c, MAX_CONTACT)).filter(|c| c.chars().count() >= 3);
         Ok(NewTicket {
             category: self.category.clone(),
@@ -69,6 +79,7 @@ impl NewTicket {
             platform: self.platform.clone().filter(|p| p == "desktop" || p == "web"),
             lang: code(self.lang.as_deref(), 10),
             screen: code(self.screen.as_deref(), 40),
+            photos: self.photos.clone(),
         })
     }
 }
@@ -89,6 +100,13 @@ pub struct Ticket {
     pub screen: Option<String>,
     pub status: String,
     pub admin_note: Option<String>,
+    #[serde(default)]
+    pub photo_count: u8,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct TicketPhoto {
+    pub image: String,
 }
 
 /// A readable error for a failed send (the HTTP error from the server is in `e`).
@@ -96,6 +114,10 @@ pub fn send_error(e: &anyhow::Error) -> anyhow::Error {
     let text = e.to_string();
     if text.contains("(HTTP 429)") {
         anyhow::anyhow!("Too many reports were sent from here recently. Try again in an hour.")
+    } else if text.contains("(HTTP 413)") {
+        anyhow::anyhow!("The attached photos are too large.")
+    } else if text.contains("(HTTP 422)") {
+        anyhow::anyhow!("One or more photos could not be attached.")
     } else if text.contains("(HTTP 400)") {
         anyhow::anyhow!("Describe the problem in a few words (at least {MIN_MESSAGE} characters).")
     } else {
@@ -130,6 +152,7 @@ mod tests {
             platform: Some("tablet".into()),
             lang: Some("fr; drop".into()),
             screen: Some("../etc".into()),
+            photos: Vec::new(),
         }
         .checked()
         .unwrap();
