@@ -1175,7 +1175,7 @@ fn ensure_uuid(id: &str) -> Result<()> {
 
 // ---------------------------------------------------------------- the online profile
 
-const PROFILE_COLUMNS: &str = "id,display_name,avatar_icon,avatar_color,bio,status_text,friend_tag,free_until";
+const PROFILE_COLUMNS: &str = "id,display_name,avatar_icon,avatar_color,bio,status_text,friend_tag,free_until,show_in_global";
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct OnlineProfile {
@@ -1189,6 +1189,9 @@ pub struct OnlineProfile {
     /// While you've said you're free.
     #[serde(default)]
     pub free_until: Option<String>,
+    /// Public profile: anyone signed in can see your card and find you in the Discover list.
+    #[serde(default)]
+    pub show_in_global: bool,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
