@@ -37,6 +37,7 @@ export const api = {
   signIn: (provider) => invoke('sign_in', { provider }),
   signOut: () => invoke('sign_out'),
   account: () => invoke('get_account'),
+  profilePhotos: (ids) => invoke('profile_photos', { ids }),
   saveProfile: (edit) => invoke('save_profile', { edit }),
   resetFriendTag: () => invoke('reset_friend_tag'),
   liveStatus: () => invoke('live_status'),
@@ -65,6 +66,7 @@ export const api = {
   // Two-player games with friends (moves are checked on the server).
   gameAction: (request) => invoke('game_action', { request }),
   myMatches: () => invoke('my_matches'),
+  gameLeaderboard: (game, scope) => invoke('game_leaderboard', { game, scope }),
   leaveMatch: (id) => invoke('leave_match', { id }),
   // Friends' feed and social settings.
   friendFeed: () => invoke('friend_feed'),
@@ -85,6 +87,8 @@ export const api = {
   answerInvite: (id, accept) => invoke('answer_invite', { id, accept }),
   cancelInvite: (id) => invoke('cancel_invite', { id }),
   getNotifyMessages: () => invoke('get_notify_messages'),
+  getNotifyInvites: () => invoke('get_notify_invites'),
+  setNotifyInvites: (enabled) => invoke('set_notify_invites', { enabled }),
   // Updates: GitHub releases, signed (src/updates.rs).
   updateStatus: () => invoke('update_status'),
   setAutoUpdate: (enabled) => invoke('set_auto_update', { enabled }),
@@ -98,6 +102,7 @@ export const api = {
   sendSupportTicket: (ticket) => invoke('send_support_ticket', { ticket }),
   supportIsAdmin: () => invoke('support_is_admin'),
   supportTickets: (status = null) => invoke('support_tickets', { status }),
+  supportTicketPhotos: (id) => invoke('support_ticket_photos', { id }),
   updateSupportTicket: (id, status, note) => invoke('update_support_ticket', { id, status, note }),
   socialOverview: () => invoke('social_overview'),
   friendRequest: (tag) => invoke('friend_request', { tag }),

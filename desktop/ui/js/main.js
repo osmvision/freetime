@@ -16,6 +16,7 @@ import { assistantAccountChanged, assistantSettingsChanged, mountAssistant } fro
 import { watchUpdates } from './updates.js';
 import * as ticketsView from './tickets.js';
 import * as gamesView from './games.js';
+import { watchGameInvites } from './game-invites.js';
 
 initDisplay();
 initViewport();
@@ -89,7 +90,7 @@ function goto(view, options = {}) {
     else button.removeAttribute('aria-current');
   }
   main.scrollTop = 0;
-  if (view === 'games') gamesView.render(views.games, ctx);
+  if (view === 'games') gamesView.render(views.games, ctx, options);
   if (view === 'friends') friendsView.render(views.friends, ctx, options);
   if (view === 'messages') messagesView.render(views.messages, ctx, options);
   if (view === 'history') historyView.render(views.history, ctx, options);
@@ -116,27 +117,39 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
-// ---------------------------------------------------------------- your profile chip (no network: local name and avatar)
+// ---------------------------------------------------------------- your profile chip
 
 const meChip = document.getElementById('me-chip');
 meChip.addEventListener('click', () => goto('settings', { focus: 'profile' }));
+let meRender = 0;
 
 async function renderMe() {
+  const run = ++meRender;
   try {
     const [status, mine] = await Promise.all([api.accountStatus(), api.myFriendCode()]);
+    if (run !== meRender) return;
     meChip.replaceChildren();
     if (status.signed_in) {
       meChip.append(avatar(mine.avatar, 'sm'), h('span', { class: 'me-name' }, mine.name));
       meChip.title = 'Your profile';
       meChip.setAttribute('aria-label', `Your profile: ${mine.name}`);
+      api.account().then(({ profile }) => {
+        if (run !== meRender || !profile) return;
+        meChip.replaceChildren(
+          avatar({ icon: profile.avatar_icon, color: profile.avatar_color, userId: profile.id }, 'sm'),
+          h('span', { class: 'me-name' }, profile.display_name),
+        );
+        meChip.setAttribute('aria-label', `Your profile: ${profile.display_name}`);
+      }).catch(() => {});
     } else {
+      ctx.setInvites(0);
       meChip.append(icon('log-in'), h('span', { class: 'me-name' }, 'Sign in'));
       meChip.title = 'Sign in to add friends and send messages';
       meChip.setAttribute('aria-label', 'Sign in');
     }
     meChip.hidden = false;
   } catch {
-    meChip.hidden = true;
+    if (run === meRender) meChip.hidden = true;
   }
 }
 
@@ -224,6 +237,10 @@ async function refreshAdmin() {
 async function start() {
   startI18n();
   hydrateIcons();
+  await watchGameInvites(({ kind, id }) => {
+    if (kind === 'pick') goto('friends', { tab: 'friends', inviteId: id });
+    else goto('games', { invitation: { kind, id } });
+  });
   if (!inTauri) await (await import('./web-app.js')).initWebApp();
   await Promise.all([loadPhotos(), loadSupport()]);
   renderMe();
@@ -252,28 +269,34 @@ async function start() {
       ctx.setUnread((parseInt(badge.textContent, 10) || 0) + 1);
     }
   });
-  await listen('invites-changed', async () => {
+  const refreshInvites = async () => {
+    if (!views.friends.hidden && friendsView.refreshInvites(views.friends, ctx)) return;
     try {
       const list = await api.invites();
       ctx.setInvites(list.filter((i) => i.direction === 'incoming' && i.status === 'pending').length);
     } catch {
       // The next check catches up.
     }
-    if (!views.friends.hidden) friendsView.render(views.friends, ctx);
-  });
+  };
+  await listen('invites-changed', refreshInvites);
   await listen('invites-updated', (n) => ctx.setInvites(n));
+  refreshInvites();
   await listen('friend-free-changed', () => discover.friendFreeChanged());
   // Quiz duels: a friend challenged you or played their side.
   gamesView.refreshDuelDot();
-  const duelsChanged = () => (views.games.hidden ? gamesView.refreshDuelDot() : gamesView.render(views.games, ctx));
+  const duelsChanged = () => gamesView.refreshGameList(views.games, ctx, 'duel');
   await listen('duels-changed', duelsChanged);
   document.addEventListener('duel-played', () => gamesView.refreshDuelDot());
   // Games with friends: an open game window follows along; the list and the dot catch up.
   gamesView.refreshMatchDot();
   await listen('matches-changed', () => {
     document.dispatchEvent(new CustomEvent('matches-changed'));
-    if (views.games.hidden) gamesView.refreshMatchDot();
-    else gamesView.render(views.games, ctx);
+    gamesView.refreshGameList(views.games, ctx, 'match');
+  });
+  await listen('game-ranking-changed', (game) => {
+    if (!views.games.hidden) {
+      views.games.querySelector('.game-ranking')?.dispatchEvent(new CustomEvent('game-ranking-changed', { detail: game }));
+    }
   });
   await watchUpdates();
   await listen('online-updated', (online) => {

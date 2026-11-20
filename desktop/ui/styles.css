@@ -1402,6 +1402,70 @@ button.tag:hover {
   transition: opacity 0.25s, transform 0.25s;
 }
 
+.game-invite-toast {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: start;
+  width: 380px;
+  max-width: calc(100vw - 48px);
+  padding: 12px;
+  border: 1px solid var(--lavender-line);
+  border-inline-start: 4px solid var(--purple);
+  background: var(--coupon);
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+
+.game-invite-icon {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--r-control);
+  background: var(--lavender);
+}
+
+.game-invite-toast .icon {
+  color: var(--purple);
+}
+
+.game-invite-copy {
+  min-width: 0;
+}
+
+.game-invite-detail {
+  margin: 2px 0 8px;
+  color: var(--text-2);
+}
+
+.game-invite-toast .btn {
+  min-height: 36px;
+}
+
+.game-invite-toast .btn.square {
+  min-width: 36px;
+}
+
+body:has(> .quiz-backdrop) .game-invite-toast {
+  display: none;
+}
+
+@media (pointer: coarse) {
+  .game-invite-toast .btn {
+    min-height: 44px;
+  }
+
+  .game-invite-toast .btn.square {
+    min-width: 44px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .game-invite-toast {
+    animation: none;
+  }
+}
+
 /* ---------------------------------------------------------------- city search */
 
 .city-picker {
@@ -2975,6 +3039,14 @@ button.tag:hover {
   height: 22px;
 }
 
+.avatar-photo {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  object-fit: cover;
+}
+
 .avatar.lg {
   width: 72px;
   height: 72px;
@@ -4030,7 +4102,8 @@ body[data-view="messages"] .assistant-panel {
   color: var(--text);
 }
 
-.seg-btn[aria-selected="true"] {
+.seg-btn[aria-selected="true"],
+.game-board-controls .seg-btn[aria-pressed="true"] {
   background: var(--coupon);
   color: var(--text);
   box-shadow: var(--shadow);
@@ -4967,6 +5040,59 @@ body[data-view="messages"] .assistant-panel {
 
 .board-row.me {
   background: var(--lavender);
+}
+
+.game-board-controls,
+.game-board-name,
+.game-board-stats {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.game-board-controls,
+.game-board-stats {
+  flex-wrap: wrap;
+}
+
+.game-board-controls .input {
+  width: auto;
+  max-width: 100%;
+}
+
+.game-board-body .global-switch {
+  margin-bottom: 12px;
+}
+
+.game-board .board-row {
+  gap: clamp(6px, 2vw, 14px);
+  padding-inline: clamp(4px, 2vw, 14px);
+  cursor: inherit;
+}
+
+.game-board .board-row:not(.me):hover {
+  background: transparent;
+}
+
+.game-board-player {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.game-board-stats {
+  margin-top: 3px;
+  gap: 2px 10px;
+  font-size: 13px;
+  color: var(--text-2);
+}
+
+.game-board-stats > span,
+.game-board .board-points {
+  white-space: nowrap;
+}
+
+.game-board-rule {
+  margin-bottom: 0;
 }
 
 .place {
@@ -6221,6 +6347,35 @@ body[data-view="messages"] .assistant-panel {
   gap: 10px;
 }
 
+.problem-photos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.problem-photos:empty {
+  display: none;
+}
+
+.problem-photo {
+  display: flex;
+  align-items: start;
+  gap: 4px;
+}
+
+.problem-photo img {
+  width: 64px;
+  height: 48px;
+  object-fit: contain;
+  border: 1px solid var(--rule-soft);
+  border-radius: var(--r-control);
+  background: var(--stock);
+}
+
+.problem-body .problem-error {
+  color: var(--red);
+}
+
 .tickets {
   display: grid;
   gap: 14px;
@@ -6278,6 +6433,26 @@ body[data-view="messages"] .assistant-panel {
   font-weight: 600;
   overflow-wrap: anywhere;
   user-select: text;
+}
+
+.ticket-photos summary {
+  width: fit-content;
+  padding: 6px 0;
+  cursor: pointer;
+}
+
+.ticket-photos-content {
+  display: grid;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.ticket-photos-content img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  border: 1px solid var(--rule-soft);
+  border-radius: var(--r-control);
 }
 
 .ticket-actions {

@@ -87,7 +87,7 @@ function seasonCard(v) {
   );
 }
 
-function globalSwitch(v, reload) {
+export function globalSwitch(v, reload, detail = 'Others can see your name, avatar, activity ranking and game results, and send you a friend request.') {
   const box = h('input', { type: 'checkbox', checked: v.show_in_global });
   box.addEventListener('change', async () => {
     box.disabled = true;
@@ -110,7 +110,7 @@ function globalSwitch(v, reload) {
       'div',
       { class: 'strip-text' },
       h('label', { class: 'check' }, box, h('strong', {}, 'Show me on the global ranking and in Meet')),
-      h('span', {}, 'Others then see your name, avatar, tier, points and badges, and can send you a friend request. Never your email, bio or status.'),
+      h('span', {}, detail),
     ),
   );
 }
@@ -124,7 +124,7 @@ function boardRow(r, ctx) {
       'button',
       { type: 'button', class: `board-row${r.me ? ' me' : ''}`, onclick: () => openCard(r.user_id, ctx) },
       medal,
-      avatar({ icon: r.avatar_icon, color: r.avatar_color }, 'sm'),
+      avatar({ icon: r.avatar_icon, color: r.avatar_color, userId: r.user_id }, 'sm'),
       h('span', { class: 'board-name', translate: 'no' }, r.display_name),
       r.me ? h('span', { class: 'board-you' }, 'You') : null,
       h('span', { class: 'board-points figures' }, `${r.points} pts`),
@@ -137,7 +137,7 @@ function topOne(r, ctx) {
     'button',
     { type: 'button', class: 'top-one', onclick: () => openCard(r.user_id, ctx) },
     h('span', { class: 'top-crown' }, icon('crown')),
-    avatar({ icon: r.avatar_icon, color: r.avatar_color }, 'lg'),
+    avatar({ icon: r.avatar_icon, color: r.avatar_color, userId: r.user_id }, 'lg'),
     h('span', { class: 'mini-k' }, 'Top 1 this month'),
     h('strong', { translate: 'no' }, r.display_name),
     h('span', { class: 'figures' }, `${r.points} pts`),
@@ -321,7 +321,7 @@ export async function openCard(userId, ctx) {
       h(
         'div',
         { class: 'card-top' },
-        avatar({ icon: c.avatar_icon, color: c.avatar_color }, 'lg'),
+        avatar({ icon: c.avatar_icon, color: c.avatar_color, userId: c.id }, 'lg'),
         h(
           'div',
           { class: 'card-who' },

@@ -1,10 +1,10 @@
 // Your profile (Settings): a compact card, with the editor only when you ask for it.
 // Signing in is the only thing here that touches the network, and only when clicked.
 
-import { api } from './api.js';
+import { api, inTauri } from './api.js';
 import { invalidatePrefs } from './feed.js';
 import { forgetAssistantChat } from './assistant.js';
-import { AVATAR_COLORS, AVATAR_ICONS, avatar } from './avatars.js';
+import { AVATAR_COLORS, AVATAR_ICONS, avatar, loadProfilePhoto, prepareProfilePhoto } from './avatars.js';
 import { btn, errText, fill, h, icon, toast } from './dom.js';
 
 /** Renders the Profile section into `box`. `onChange()` runs after sign-in, sign-out or a save. */
@@ -91,7 +91,7 @@ function card(box, acc, onChange) {
       h(
         'div',
         { class: 'profile-card' },
-        avatar({ icon: p.avatar_icon, color: p.avatar_color }, 'lg'),
+        avatar({ icon: p.avatar_icon, color: p.avatar_color, userId: p.id }, 'lg'),
         h(
           'div',
           { class: 'profile-who' },
@@ -149,7 +149,7 @@ function card(box, acc, onChange) {
         ),
         h('span', { class: 'hint' }, 'Friends add you with this tag in the Friends tab.'),
       ),
-      notifications(),
+      inTauri ? notifications() : webInviteNotifications(),
       shareGames(),
       yourData(box, onChange),
     ),
@@ -191,7 +191,29 @@ function shareGames() {
   );
 }
 
-/** The new-message notifications switch. */
+function webInviteNotifications() {
+  const input = h('input', { type: 'checkbox', disabled: true });
+  api.getNotifyInvites().then((enabled) => {
+    input.checked = enabled;
+    input.disabled = false;
+  }).catch((e) => toast(errText(e), 'error'));
+  input.addEventListener('change', async () => {
+    input.disabled = true;
+    try {
+      await api.setNotifyInvites(input.checked);
+    } catch (e) {
+      input.checked = !input.checked;
+      toast(errText(e), 'error');
+    } finally {
+      input.disabled = false;
+    }
+  });
+  return h('div', { class: 'field' },
+    h('span', { class: 'field-label' }, 'Notifications'),
+    h('label', { class: 'check' }, input, 'Invites from friends'),
+  );
+}
+
 /** Notifications, quiet hours and sharing: all in config.toml on this PC. */
 function notifications() {
   const boxes = {
@@ -318,15 +340,26 @@ function yourData(box, onChange) {
 /** The full editor, opened from the card. */
 function editor(box, acc, onChange) {
   const p = acc.profile;
-  const look = { icon: p.avatar_icon, color: p.avatar_color };
+  const look = { icon: p.avatar_icon, color: p.avatar_color, photo: null };
+  let photoEdit;
   const name = h('input', { class: 'input', type: 'text', value: p.display_name, maxlength: 24, spellcheck: 'false', autocomplete: 'off', 'aria-label': 'Display name' });
   const bio = h('input', { class: 'input', type: 'text', value: p.bio, maxlength: 160, placeholder: 'A line about you (optional)', 'aria-label': 'Bio' });
   const statusText = h('input', { class: 'input', type: 'text', value: p.status_text, maxlength: 60, placeholder: 'e.g. Free tonight', 'aria-label': 'Status' });
   const preview = h('div', { class: 'look-preview' });
   const icons = h('div', { class: 'look-icons', role: 'group', 'aria-label': 'Avatar icon' });
   const colors = h('div', { class: 'look-colors', role: 'group', 'aria-label': 'Avatar color' });
-  const paint = () => {
+  const file = h('input', { type: 'file', accept: 'image/jpeg,image/png,image/webp', hidden: true });
+  const choosePhoto = btn({ label: 'Choose a photo', icon: 'folder-open', small: true, onclick: () => file.click() });
+  const removePhoto = btn({ label: 'Remove photo', kind: 'quiet', small: true, onclick: () => {
+    photoEdit = look.photo = null;
+    paintAvatar();
+  } });
+  const paintAvatar = () => {
     fill(preview, avatar(look, 'lg'));
+    removePhoto.hidden = !look.photo;
+  };
+  const paint = () => {
+    paintAvatar();
     fill(icons, AVATAR_ICONS.map((n, i) => h('button', { type: 'button', class: 'look-icon', 'aria-pressed': String(look.icon === i), 'aria-label': n.replace(/-\d+$/, '').replace(/-/g, ' '), onclick: () => { look.icon = i; paint(); } }, icon(n))));
     fill(colors, AVATAR_COLORS.map((c, i) => h('button', { type: 'button', class: 'look-color', vars: { '--av': c.hex }, 'aria-pressed': String(look.color === i), 'aria-label': c.name, title: c.name, onclick: () => { look.color = i; paint(); } }, look.color === i ? icon('check') : null)));
   };
@@ -338,22 +371,51 @@ function editor(box, acc, onChange) {
     kind: 'primary',
     onclick: async () => {
       save.disabled = true;
+      choosePhoto.disabled = removePhoto.disabled = true;
       try {
-        const profile = await api.saveProfile({ display_name: name.value, avatar_icon: look.icon, avatar_color: look.color, bio: bio.value, status_text: statusText.value });
+        const profile = await api.saveProfile({
+          display_name: name.value, avatar_icon: look.icon, avatar_color: look.color, bio: bio.value, status_text: statusText.value,
+          ...(photoEdit === undefined ? {} : { photo: { image: photoEdit } }),
+        });
         toast('Profile saved', 'ok');
         card(box, { ...acc, profile }, onChange);
         onChange();
       } catch (e) {
         toast(errText(e), 'error', 6000);
-        save.disabled = false;
+        save.disabled = choosePhoto.disabled = removePhoto.disabled = false;
       }
     },
   });
+  file.addEventListener('change', async () => {
+    const [selected] = file.files;
+    if (!selected) return;
+    file.value = '';
+    save.disabled = choosePhoto.disabled = removePhoto.disabled = true;
+    try {
+      photoEdit = look.photo = await prepareProfilePhoto(selected);
+      paintAvatar();
+    } catch (e) {
+      if (preview.isConnected) toast(errText(e), 'error');
+    } finally {
+      save.disabled = choosePhoto.disabled = removePhoto.disabled = false;
+    }
+  });
+  loadProfilePhoto(p.id).then((image) => {
+    if (photoEdit === undefined && preview.isConnected) {
+      look.photo = image;
+      paintAvatar();
+    }
+  }).catch(() => {});
 
   fill(
     box,
     panel(
       h('div', { class: 'look' }, preview, h('label', { class: 'field look-name' }, h('span', { class: 'field-label' }, 'Display name'), name)),
+      h('div', { class: 'field' },
+        h('span', { class: 'field-label' }, 'Profile photo'),
+        h('div', { class: 'row' }, file, choosePhoto, removePhoto),
+        h('span', { class: 'hint' }, 'JPG, PNG or WebP, up to 12 MB.'),
+      ),
       h('div', { class: 'field' }, h('span', { class: 'field-label' }, 'Icon'), icons),
       h('div', { class: 'field' }, h('span', { class: 'field-label' }, 'Color'), colors),
       h('label', { class: 'field' }, h('span', { class: 'field-label' }, 'Bio'), bio),

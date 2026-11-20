@@ -7,6 +7,7 @@ import { api } from './api.js';
 import { avatar } from './avatars.js';
 import { btn, emptyState, errText, fill, h, icon, pageHead, toast } from './dom.js';
 import { openQuiz, quizBanner, quizCard, setDuelDot } from './quiz.js';
+import { renderGameRanking } from './game-ranking.js';
 import { GAME_INFO, challenge, playComputer, playOnline } from './play/screen.js';
 
 const DAY = 86400000;
@@ -32,7 +33,8 @@ export async function refreshDuelDot() {
 export async function refreshMatchDot() {
   try {
     const list = await api.myMatches();
-    matchTurns = list.filter((m) => m.phase === 'your_turn').length;
+    matchTurns = list.filter((m) => m.phase === 'your_turn'
+      || (m.phase === 'waiting' && m.me === 1 && !m.b_moved)).length;
     return list;
   } catch {
     matchTurns = 0;
@@ -42,17 +44,38 @@ export async function refreshMatchDot() {
   }
 }
 
-export async function render(root, ctx) {
+export async function render(root, ctx, { invitation } = {}) {
   const quizBox = h('div', { class: 'games-quiz' });
   const duelsBox = h('section', { class: 'panel duels' });
   const matchesBox = h('section', { class: 'panel duels matches', hidden: true });
   const gamesBox = h('section', { class: 'panel play-games' });
-  fill(root, pageHead('Games', 'The quiz of the day, quiz duels, and games to play with a friend or the computer.'), quizBox, matchesBox, gamesBox, duelsBox);
+  const rankingBox = h('section', { class: 'panel game-ranking' });
+  fill(
+    root,
+    pageHead('Games', 'The quiz of the day, quiz duels, and games to play with a friend or the computer.',
+      btn({ label: 'Game rankings', icon: 'trophy', small: true, onclick: () => rankingBox.querySelector('h2')?.focus() })),
+    quizBox, matchesBox, gamesBox, duelsBox, rankingBox,
+  );
+  renderGameRanking(rankingBox, ctx);
   const reloadMatches = () => renderMatches(matchesBox, ctx);
   renderQuiz(quizBox, ctx);
-  renderMatches(matchesBox, ctx);
+  const matches = renderMatches(matchesBox, ctx);
   renderGames(gamesBox, ctx, reloadMatches);
-  renderDuels(duelsBox, ctx);
+  const duels = renderDuels(duelsBox, ctx);
+  if (invitation) {
+    await (invitation.kind === 'match' ? matches : duels);
+    const row = document.getElementById(`${invitation.kind}-invite-${invitation.id}`);
+    if (!root.hidden && row) row.focus();
+  }
+}
+
+export function refreshGameList(root, ctx, kind) {
+  if (kind === 'match') {
+    const box = root.hidden ? null : root.querySelector('.matches');
+    return box ? renderMatches(box, ctx) : refreshMatchDot();
+  }
+  const box = root.hidden ? null : root.querySelector('.duels:not(.matches)');
+  return box ? renderDuels(box, ctx) : refreshDuelDot();
 }
 
 // ---------------------------------------------------------------- two-player games
@@ -136,8 +159,8 @@ function matchRow(m, reload) {
   }
   return h(
     'li',
-    { class: `duel match duel-${m.phase === 'over' ? 'done' : m.phase}` },
-    avatar({ icon: m.other.avatar_icon, color: m.other.avatar_color }),
+    { class: `duel match duel-${m.phase === 'over' ? 'done' : m.phase}`, id: `match-invite-${m.id}`, tabindex: -1 },
+    avatar({ icon: m.other.avatar_icon, color: m.other.avatar_color, userId: m.other.id }),
     h(
       'div',
       { class: 'duel-main' },
@@ -258,8 +281,8 @@ function duelRow(d, ctx, reload) {
   }
   return h(
     'li',
-    { class: `duel duel-${d.state}` },
-    avatar({ icon: d.other.avatar_icon, color: d.other.avatar_color }),
+    { class: `duel duel-${d.state}`, id: `duel-invite-${d.id}`, tabindex: -1 },
+    avatar({ icon: d.other.avatar_icon, color: d.other.avatar_color, userId: d.other.id }),
     h('div', { class: 'duel-main' }, h('div', { class: 'duel-who' }, who, ' ', line)),
     side,
     h('div', { class: 'person-actions' }, actions),
@@ -336,7 +359,7 @@ async function pickFriend(ctx, title, onPick) {
           h(
             'li',
             { class: 'duel' },
-            avatar({ icon: f.avatar_icon, color: f.avatar_color }),
+            avatar({ icon: f.avatar_icon, color: f.avatar_color, userId: f.user_id }),
             h('div', { class: 'duel-main' }, h('strong', { translate: 'no' }, f.display_name)),
             h('div', { class: 'person-actions' }, btn({ label: 'Challenge', icon: 'swords', kind: 'primary', small: true, onclick: () => { close(); onPick(f); } })),
           ),

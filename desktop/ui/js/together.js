@@ -193,7 +193,7 @@ const linkFor = (id) => {
 };
 
 /** Renders the invites panel (incoming and outgoing) into `box`; hides it when there are none. */
-export async function invitesPanel(box, ctx) {
+export async function invitesPanel(box, ctx, inviteId) {
   let list;
   try {
     list = await api.invites();
@@ -243,7 +243,7 @@ export async function invitesPanel(box, ctx) {
             ];
         return h(
           'div',
-          { class: 'invite-row' },
+          { class: 'invite-row', id: `pick-invite-${i.id}`, tabindex: -1 },
           avatar({ icon: i.other_icon, color: i.other_color }),
           h(
             'div',
@@ -257,4 +257,7 @@ export async function invitesPanel(box, ctx) {
       }),
     ),
   );
+  if (inviteId && box.isConnected && !box.closest('[hidden]')) {
+    document.getElementById(`pick-invite-${inviteId}`)?.focus();
+  }
 }

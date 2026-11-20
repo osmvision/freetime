@@ -121,7 +121,7 @@ function drawList() {
       return h(
         'button',
         { type: 'button', class: 'chat-row', 'aria-current': active ? 'true' : null, onclick: () => openFriend(f.user_id) },
-        avatar({ icon: f.avatar_icon, color: f.avatar_color }, 'sm'),
+        avatar({ icon: f.avatar_icon, color: f.avatar_color, userId: f.user_id }, 'sm'),
         h('span', { class: 'chat-row-text' }, h('span', { class: 'chat-row-name' }, f.display_name), h('span', { class: 'chat-row-preview' }, preview)),
         unread ? h('span', { class: 'chat-unread', 'aria-label': `${unread} unread` }, unread > 99 ? '99+' : String(unread)) : null,
       );
@@ -186,7 +186,7 @@ async function openFriend(friendId) {
     h(
       'header',
       { class: 'chat-head' },
-      avatar({ icon: friend.avatar_icon, color: friend.avatar_color }),
+      avatar({ icon: friend.avatar_icon, color: friend.avatar_color, userId: friend.user_id }),
       h('div', { class: 'entry-main' }, h('div', { class: 'entry-title' }, friend.display_name), friend.status_text ? h('div', { class: 'entry-sub' }, friend.status_text) : null),
       h(
         'div',

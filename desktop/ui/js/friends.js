@@ -12,6 +12,13 @@ import { startDuel } from './games.js';
 
 let tab = 'feed';
 
+export function refreshInvites(root, ctx) {
+  const box = root.querySelector('.friend-invites');
+  if (!box) return false;
+  invitesPanel(box, ctx);
+  return true;
+}
+
 /** "Friends" or "Ranking". */
 function tabs(root, ctx) {
   return h(
@@ -28,7 +35,7 @@ function tabs(root, ctx) {
   );
 }
 
-export async function render(root, ctx, { tab: wanted } = {}) {
+export async function render(root, ctx, { tab: wanted, inviteId } = {}) {
   if (wanted) tab = wanted;
   const head = () =>
     tab === 'meet'
@@ -79,7 +86,7 @@ export async function render(root, ctx, { tab: wanted } = {}) {
   );
   root.replaceChildren(head(), online, codes);
   if (status.signed_in) {
-    onlineSection(online, ctx);
+    onlineSection(online, ctx, inviteId);
   } else {
     codes.open = true;
     fill(
@@ -105,7 +112,7 @@ function streakChip(s) {
 
 let streaks = {};
 
-async function onlineSection(box, ctx) {
+async function onlineSection(box, ctx, inviteId) {
   fill(box, h('div', { class: 'ghost', style: 'height:200px;margin-bottom:18px' }));
   let data;
   try {
@@ -121,8 +128,8 @@ async function onlineSection(box, ctx) {
   const incoming = data.friends.filter((f) => f.state === 'incoming');
   const outgoing = data.friends.filter((f) => f.state === 'outgoing');
 
-  const invitesBox = h('div');
-  invitesPanel(invitesBox, ctx);
+  const invitesBox = h('div', { class: 'friend-invites' });
+  invitesPanel(invitesBox, ctx, inviteId);
   fill(
     box,
     invitesBox,
@@ -193,7 +200,7 @@ function person(f, sub, extra, actions) {
   return h(
     'div',
     { class: 'friend' },
-    avatar({ icon: f.avatar_icon, color: f.avatar_color }),
+    avatar({ icon: f.avatar_icon, color: f.avatar_color, userId: f.user_id }),
     h('div', { class: 'entry-main' }, h('div', { class: 'entry-title' }, f.display_name), sub ? h('div', { class: 'entry-sub' }, sub) : null, extra),
     h('div', { class: 'person-actions' }, actions),
   );
