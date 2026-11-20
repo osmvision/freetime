@@ -12,10 +12,11 @@ control.
 
 ## On your PC (always)
 
-Settings, your picks history and ratings, imported Steam games, cached store and video lists, and
-friends added by code are stored in your Windows user folders (`%APPDATA%\freetime`). They never
-leave your PC unless you send something yourself. "Open data folder" in Settings shows them;
-deleting that folder removes them.
+Settings, your picks history and ratings, your "not now" answers on Discover ("too long",
+"already done", "another time"), your Discover shortcuts, imported Steam games, cached store and
+video lists, evening reminders, and friends added by code are stored in your Windows user folders
+(`%APPDATA%\freetime`). They never leave your PC unless you send something yourself. "Open data
+folder" in Settings shows them; deleting that folder removes them.
 
 To work, the app contacts these services, and only for what you see on screen:
 
@@ -56,7 +57,16 @@ To work, the app contacts these services, and only for what you see on screen:
 - Games you play with friends (Four in a row, Draughts, Chess, Torpedoes...): the board, whose turn it
   is and the result, and for Torpedoes where you placed your ships. Games against the computer
   stay on your PC. You can clear a finished game, or all of them, from your list: that hides them
-  for you only (the other player keeps theirs); they are deleted with your account.
+  for you only (the other player keeps theirs); they are deleted with your account. At the end of
+  a game, the app shows your record against that friend, counted from these same games.
+- Evenings you organise or are invited to: the one or two times, the things to do (up to three),
+  your note, who is invited, each guest's answer (which times work, what they'd rather do) and the
+  final choice. They show in the app until a few hours after the evening; they are part of your
+  data export and deleted with your account. The optional reminder stays on your PC.
+- Only if you press "Save to my account" (Settings → On all your devices): a copy of your Discover
+  shortcuts, your usual Discover context, your rated picks and your "not now" answers, so another
+  device can bring them back. Nothing is sent otherwise. You can delete this copy at any time; it
+  is part of your data export and deleted with your account.
 
 **The free assistant**
 
@@ -91,6 +101,8 @@ Closed reports and their photos are deleted after one year. Deleting your accoun
   other player.
 - In a game with a friend, you both see the board. In Torpedoes, the other player never sees your
   ships, only where their own shots landed.
+- In an evening, the host and every guest see who is invited and each guest's answers. Nobody
+  else sees it. The copy made by "Save to my account" is seen by you only.
 - Only the two people in a conversation can read it. Messages are encrypted in transit and stored
   encrypted on disk by our hosting provider, but they are **not end-to-end encrypted**: the people
   who run freetime could technically access them. We only do so to handle a report you or the other

@@ -131,7 +131,8 @@ function download(value) {
 }
 
 const MUTATIONS = new Set(['pick', 'rate', 'finish_quiz', 'save_settings', 'set_city', 'finish_welcome',
-  'my_friend_code', 'add_friend', 'remove_friend', 'steam_import', 'steam_forget', 'set_share_library', 'set_notify_messages', 'set_notify_invites']);
+  'my_friend_code', 'add_friend', 'remove_friend', 'steam_import', 'steam_forget', 'set_share_library', 'set_notify_messages', 'set_notify_invites',
+  'not_now', 'load_preferences']);
 
 async function dispatch(cmd, args) {
   if (cmd === 'get_notify_invites') return notifyInvites();
@@ -155,6 +156,12 @@ async function dispatch(cmd, args) {
     const url = new URL(args.url);
     if (!['https:', 'http:', 'steam:'].includes(url.protocol)) throw new Error('Unsupported link');
     window.open(url.href, '_blank', 'noopener,noreferrer');
+    return;
+  }
+  if (cmd === 'remind') {
+    // The browser's own notification when allowed; otherwise the app shows a message itself.
+    if ('Notification' in window && Notification.permission === 'granted') new Notification(args.title, { body: args.body });
+    else throw new Error('notifications are off');
     return;
   }
   if (cmd === 'live_status') return false; // Polling also covers reconnects and tab suspension.

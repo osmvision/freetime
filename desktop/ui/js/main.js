@@ -17,6 +17,7 @@ import { watchUpdates } from './updates.js';
 import * as ticketsView from './tickets.js';
 import * as gamesView from './games.js';
 import { watchGameInvites } from './game-invites.js';
+import { watchReminders } from './evenings.js';
 
 initDisplay();
 initViewport();
@@ -241,6 +242,8 @@ async function start() {
     if (kind === 'pick') goto('friends', { tab: 'friends', inviteId: id });
     else goto('games', { invitation: { kind, id } });
   });
+  // Evening reminders you asked for (kept on this device, checked while the app is open).
+  watchReminders();
   if (!inTauri) await (await import('./web-app.js')).initWebApp();
   await Promise.all([loadPhotos(), loadSupport()]);
   renderMe();

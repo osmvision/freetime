@@ -25,9 +25,10 @@ export const invitable = (c) => /^[a-z]+:[A-Za-z0-9_.-]+$/.test(c.id ?? '') && c
 
 /**
  * Renders who's free and the "I'm free" button into `box`. `minutes()` gives the free time
- * picked on Discover. Returns { refresh, friends } so the caller can update it and reuse the list.
+ * picked on Discover; `onRefreshed(friends)` runs after each refresh. Returns { refresh, friends }
+ * so the caller can update it and reuse the list.
  */
-export function freeStrip(box, minutes, onFriendsChanged = () => {}) {
+export function freeStrip(box, minutes, onFriendsChanged = () => {}, onRefreshed = () => {}) {
   let mine = null;
   let friends = [];
   let known = 0;
@@ -56,6 +57,7 @@ export function freeStrip(box, minutes, onFriendsChanged = () => {}) {
       mine = acc.profile.free_until && new Date(acc.profile.free_until) > new Date() ? acc.profile.free_until : null;
       draw();
       changed();
+      onRefreshed(friends);
     } catch {
       // Offline or session ended: hide the strip rather than show an error on Discover.
       box.replaceChildren();
@@ -239,6 +241,8 @@ export async function invitesPanel(box, ctx, inviteId) {
               ]
           : [
               h('span', { class: `invite-state ${i.status}` }, statusText[i.status]),
+              // Accepted: both sides get the button to launch it.
+              i.status === 'accepted' && link ? btn({ label: 'Open', icon: 'play', small: true, kind: 'primary', onclick: () => api.open(link).catch((e) => toast(errText(e), 'error')) }) : null,
               i.status === 'pending' || i.status === 'accepted' ? btn({ label: 'Cancel', kind: 'quiet', small: true, onclick: () => act(api.cancelInvite(i.id), 'Invite cancelled') }) : null,
             ];
         return h(

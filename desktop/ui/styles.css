@@ -7254,3 +7254,419 @@ body[data-view="messages"] .assistant-panel {
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
+
+/* ---------------------------------------------------------------- Discover shortcuts */
+
+.shortcuts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: -10px 0 22px;
+}
+
+.shortcut {
+  display: inline-flex;
+  align-items: center;
+  border: 1.5px solid var(--rule-soft);
+  border-radius: 20px;
+  background: var(--coupon);
+}
+
+.shortcut-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 36px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 20px;
+  background: none;
+  color: var(--text);
+  font: 600 14px/1.2 var(--body);
+}
+
+.shortcut-btn .icon {
+  width: 16px;
+  height: 16px;
+  color: var(--purple);
+}
+
+.shortcut-btn[aria-pressed="true"] {
+  background: var(--lavender);
+  color: var(--purple);
+}
+
+.shortcut.own .shortcut-btn {
+  padding-right: 6px;
+}
+
+.shortcut-remove {
+  display: inline-grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  margin-right: 3px;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: var(--text-3);
+}
+
+.shortcut-remove:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+
+.shortcut-remove .icon {
+  width: 14px;
+  height: 14px;
+}
+
+.shortcut-add {
+  border: 1.5px dashed var(--lavender-line);
+  color: var(--text-2);
+}
+
+.shortcut-form {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.shortcut-name {
+  width: min(240px, 100%);
+  height: 36px;
+}
+
+/* ---------------------------------------------------------------- "Not this one: why?" */
+
+.strip.not-now .strip-text strong {
+  font-size: 16px;
+}
+
+/* ---------------------------------------------------------------- "Shall we play now?" */
+
+.play-now-list {
+  display: grid;
+  gap: 12px;
+  margin: -8px 0 22px;
+}
+
+.play-now {
+  display: grid;
+  gap: 12px;
+  padding: 14px 16px;
+  border: 1.5px solid var(--lavender-line);
+  border-left: 5px solid var(--good);
+  border-radius: var(--r-ticket);
+  background: var(--coupon);
+  animation: issue 0.35s var(--ease) backwards;
+}
+
+.play-now-head {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+}
+
+.play-now-text strong {
+  display: block;
+  font-size: 16px;
+  line-height: 1.3;
+}
+
+.play-now-ask {
+  color: var(--good);
+  font: 700 15px/1.2 var(--display);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.play-now-sub {
+  color: var(--text-2);
+  font-size: 14px;
+}
+
+.play-now-pick {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--stock);
+}
+
+.play-now-pick > .icon {
+  width: 20px;
+  height: 20px;
+  color: var(--purple);
+}
+
+.play-now-label {
+  color: var(--text-2);
+  font-size: 14px;
+}
+
+.play-now-title {
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.play-now-why,
+.play-now-state {
+  color: var(--text-3);
+  font-size: 13px;
+}
+
+.play-now-actions {
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* ---------------------------------------------------------------- evenings */
+
+.coming-up .strip {
+  margin-bottom: 12px;
+}
+
+.coming-up {
+  margin-bottom: 22px;
+}
+
+.evenings-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.evenings-head h2 {
+  margin: 0;
+}
+
+.evening {
+  display: grid;
+  gap: 8px;
+  padding: 14px 0;
+  border-bottom: 1px dashed var(--line-soft);
+}
+
+.evening:last-child {
+  border-bottom: 0;
+}
+
+.evening .field-label {
+  margin-top: 4px;
+}
+
+.evening-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.evening-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 0 12px;
+  border: 1.5px solid var(--rule-soft);
+  border-radius: 20px;
+  background: var(--coupon);
+  color: var(--text);
+  font-size: 14px;
+  text-align: left;
+}
+
+.evening-option .icon {
+  width: 16px;
+  height: 16px;
+  color: var(--text-3);
+}
+
+.evening-option[aria-pressed="true"] {
+  border-color: var(--purple);
+  background: var(--lavender);
+  color: var(--purple);
+  font-weight: 700;
+}
+
+.evening-option[aria-pressed="true"] .icon {
+  color: var(--purple);
+}
+
+.evening-count {
+  padding: 2px 7px;
+  border-radius: 10px;
+  background: var(--stock);
+  color: var(--text-2);
+  font: 600 12px/1.3 var(--figures);
+}
+
+.evening-final {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  font-size: 17px;
+}
+
+.evening-final .icon {
+  width: 20px;
+  height: 20px;
+  color: var(--good);
+}
+
+.evening-actions {
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+
+.evening-time {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.evening-time .input {
+  width: min(260px, 100%);
+}
+
+.evening-picked {
+  display: grid;
+  gap: 4px;
+  margin: 0 0 8px;
+  padding: 0;
+  list-style: none;
+}
+
+.evening-picked li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 4px 4px 4px 12px;
+  border-radius: 8px;
+  background: var(--stock);
+  font-weight: 600;
+}
+
+.evening-picked li.hint {
+  padding: 8px 12px;
+  background: none;
+  font-weight: 400;
+}
+
+.problem-form .evening-offer {
+  margin-bottom: 8px;
+}
+
+.problem-form .evening-offer button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.problem-form .evening-offer button .icon {
+  width: 14px;
+  height: 14px;
+}
+
+.evening-form .field > .btn {
+  justify-self: start;
+}
+
+.problem-form .evening-offer button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.evening-form .row .input {
+  flex: 1 1 200px;
+}
+
+/* ---------------------------------------------------------------- the end of a game */
+
+.game-end {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+  padding: 12px 14px;
+  border: 1.5px solid var(--lavender-line);
+  border-radius: 8px;
+  background: var(--stock);
+}
+
+.game-end-row {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr);
+  align-items: start;
+  gap: 10px;
+}
+
+.game-end-row > .icon {
+  width: 20px;
+  height: 20px;
+  margin-top: 2px;
+  color: var(--purple);
+}
+
+.game-end-row strong,
+.game-end-record {
+  display: block;
+}
+
+.game-end-record {
+  color: var(--text-2);
+  font-size: 14px;
+}
+
+.game-end-last {
+  display: flex;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+.game-end-dot {
+  display: inline-grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  font: 700 13px/1 var(--figures);
+}
+
+.game-end-dot.won {
+  background: var(--good);
+  color: var(--on-ink, #fff);
+}
+
+.game-end-dot.draw {
+  background: var(--rule-soft);
+  color: var(--text);
+}
+
+.game-end-dot.lost {
+  background: var(--red);
+  color: var(--on-red);
+}
+
+@media (max-width: 560px) {
+  .shortcut-btn,
+  .evening-option {
+    min-height: 44px;
+  }
+
+  .play-now-head {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+  }
+}

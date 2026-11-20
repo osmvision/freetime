@@ -1,4 +1,5 @@
-// Display, city, interests, language, updates, your data, help. Nothing here needs an account.
+// Display, city, interests, language, updates, your data, help. Nothing here needs an account,
+// except "On all your devices" (shown signed in, and only sends when you press it).
 
 import { profileSection } from './account.js';
 import { api, inTauri } from './api.js';
@@ -6,10 +7,11 @@ import { cityPicker, openMeteoCredit } from './city.js';
 import { btn, emptyState, errText, h, icon, pageHead, toast } from './dom.js';
 import { openProblemReport } from './problem.js';
 import { photoCredits } from './photos.js';
-import { preferredLang, setLang } from './i18n.js';
+import { locale, preferredLang, setLang } from './i18n.js';
 import { updatesBody } from './updates.js';
 import { supportBody } from './support.js';
 import { TEXT_SIZES, THEMES, availableTextSizes, displayState, onDisplayChange, setHighContrast, setTextSize, setTheme } from './display.js';
+import { applyExtra, localExtra } from './shortcuts.js';
 
 const INTEREST_IDEAS = [
   'speedrunning',
@@ -95,6 +97,7 @@ function draw(root, ctx, s) {
         languageSection(),
         section('download', 'Updates', inTauri ? 'New versions come from freetime’s GitHub releases and are signed: anything else is refused.' : 'The web version updates when you reopen it.', null, updatesBody()),
         dataSection(s),
+        devicesSection(),
         problemSection(),
         supportSection(),
         creditsSection(),
@@ -278,6 +281,89 @@ function dataSection(s) {
       ),
     ),
   );
+}
+
+/**
+ * "On all your devices": your Discover shortcuts, usual context and what tunes your picks (ratings
+ * and "not now" answers), saved to your account and brought to another device, only on a click.
+ * Hidden when signed out.
+ */
+function devicesSection() {
+  const status = h('p', { class: 'hint', role: 'status' }, 'Checking…');
+  const when = (iso) => new Date(iso).toLocaleString(locale(), { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+  const showSaved = (at) => {
+    status.textContent = at ? `Last saved to your account: ${when(at)}` : 'Nothing saved to your account yet.';
+    bring.disabled = !at;
+    forget.disabled = !at;
+  };
+  const run = async (button, work) => {
+    button.disabled = true;
+    try {
+      await work();
+    } catch (e) {
+      toast(errText(e), 'error', 6000);
+    } finally {
+      button.disabled = false;
+    }
+  };
+  const save = btn({
+    label: 'Save to my account',
+    icon: 'upload',
+    kind: 'primary',
+    small: true,
+    onclick: () =>
+      run(save, async () => {
+        showSaved(await api.savePreferences(localExtra()));
+        toast('Saved: open freetime on another device and bring them there', 'ok', 5000);
+      }),
+  });
+  const bring = btn({
+    label: 'Bring them here',
+    icon: 'download',
+    small: true,
+    onclick: () =>
+      run(bring, async () => {
+        const got = await api.loadPreferences();
+        if (!got) return showSaved(null);
+        applyExtra(got.extra);
+        showSaved(got.saved_at);
+        toast(got.added ? `Brought here, with ${got.added} new things learned about your tastes` : 'Brought here: shortcuts and context updated', 'ok', 5000);
+      }),
+  });
+  const forget = btn({
+    label: 'Delete the saved copy',
+    icon: 'trash-2',
+    kind: 'quiet',
+    small: true,
+    onclick: () =>
+      run(forget, async () => {
+        await api.forgetPreferences();
+        showSaved(null);
+        toast('The copy in your account is deleted. This device keeps its own.', 'ok');
+      }),
+  });
+  const box = section(
+    'cloud',
+    'On all your devices',
+    'Your Discover shortcuts, your usual context and what freetime learned about your tastes, carried from Windows to the browser, a phone or Linux. Nothing is sent unless you press a button.',
+    null,
+    h('div', { class: 'row' }, save, bring, forget),
+    status,
+  );
+  box.hidden = true;
+  api
+    .accountStatus()
+    .then(async (st) => {
+      if (!st.signed_in) return;
+      box.hidden = false;
+      try {
+        showSaved((await api.preferencesStatus())?.saved_at ?? null);
+      } catch {
+        status.textContent = 'Can’t reach your account right now.';
+      }
+    })
+    .catch(() => {});
+  return box;
 }
 
 /** "Report a problem": a short form to the freetime team, signed in or not. */

@@ -70,6 +70,22 @@ export const api = {
   leaveMatch: (id) => invoke('leave_match', { id }),
   hideMatch: (id) => invoke('hide_match', { id }),
   hideFinishedMatches: () => invoke('hide_finished_matches'),
+  playNow: (req, mate) => invoke('play_now', { req, mate }),
+  headToHead: (other, game = null) => invoke('head_to_head', { other, game }),
+  // Evenings: two times, up to three things to do, answers in one click.
+  myEvenings: () => invoke('my_evenings'),
+  createEvening: (evening) => invoke('create_evening', { evening }),
+  answerEvening: (id, slots, activity = null) => invoke('answer_evening', { id, slots, activity }),
+  settleEvening: (id, slot, activity) => invoke('settle_evening', { id, slot, activity }),
+  cancelEvening: (id) => invoke('cancel_evening', { id }),
+  remind: (title, body) => invoke('remind', { title, body }),
+  // "Too long" / "already done" / "another time" about an idea on Discover.
+  notNow: (id, reason, minutes) => invoke('not_now', { id, reason, minutes }),
+  // Preferences on all your devices, only when asked.
+  savePreferences: (extra) => invoke('save_preferences', { extra }),
+  loadPreferences: () => invoke('load_preferences'),
+  preferencesStatus: () => invoke('preferences_status'),
+  forgetPreferences: () => invoke('forget_preferences'),
   // Friends' feed and social settings.
   friendFeed: () => invoke('friend_feed'),
   sharePost: (post) => invoke('share_post', { post }),

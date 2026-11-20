@@ -3,6 +3,7 @@
 
 import { api } from './api.js';
 import { invitesPanel } from './together.js';
+import { eveningsPanel } from './evenings.js';
 import { AVATAR_COLORS, AVATAR_ICONS, avatar } from './avatars.js';
 import { btn, emptyState, errText, fill, h, icon, pageHead, toast } from './dom.js';
 import { openCard, renderRanked } from './ranked.js';
@@ -130,8 +131,11 @@ async function onlineSection(box, ctx, inviteId) {
 
   const invitesBox = h('div', { class: 'friend-invites' });
   invitesPanel(invitesBox, ctx, inviteId);
+  const eveningsBox = h('div', { class: 'friend-evenings' });
+  eveningsPanel(eveningsBox, { friends });
   fill(
     box,
+    eveningsBox,
     invitesBox,
     addByTag(reload),
     incoming.length || outgoing.length

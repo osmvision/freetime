@@ -1,7 +1,7 @@
 // The main screen: today's ticket (the best pick), why it fits, and the rest of the book behind it.
 
 import { api } from './api.js';
-import { locale } from './i18n.js';
+import { locale, t } from './i18n.js';
 import { cityPicker, openMeteoCredit } from './city.js';
 import {
   btn,
@@ -25,6 +25,9 @@ import { streakChip, weekStrip } from './recap.js';
 import { todayStrip } from './book.js';
 import { offerShare } from './feed.js';
 import { shareTicket } from './share.js';
+import { renderPlayNow } from './play-now.js';
+import { comingUp, eveningIdeas, planEvening } from './evenings.js';
+import { BUILT_IN, MAX_SHORTCUTS, MOOD_KEY, myShortcuts, saveShortcuts } from './shortcuts.js';
 
 const TIMES = [15, 30, 45, 60, 90, 120, 180, 240];
 const ENERGY = [
@@ -46,8 +49,13 @@ const BUDGET = [
   { id: 'paid', label: 'Any price', icon: 'wallet' },
 ];
 const FARE = { free: 'Free', cheap: 'Cheap', paid: 'Paid' };
-const MOOD_KEY = 'freetime.mood.v2';
 const BOOK_SIZE = 12;
+/** "Not this one", and why: each reason tunes the next picks differently (see core/src/history.rs). */
+const NOT_NOW = [
+  { id: 'too_long', label: 'Too long', done: 'Noted: fewer ideas that long for the time you have' },
+  { id: 'already_done', label: 'Already done', done: 'Noted: it won’t come back for two weeks' },
+  { id: 'another_time', label: 'Another time', done: 'Noted: it will come back in a few days' },
+];
 
 let ctx;
 const els = {};
@@ -82,20 +90,42 @@ export function init(root, boot, context) {
 
   els.head = h('div');
   els.context = h('div', { class: 'context', role: 'toolbar', 'aria-label': 'Your free time' });
+  els.shortcuts = h('div', { class: 'shortcuts', role: 'group', 'aria-label': 'Shortcuts' });
   els.cityPrompt = h('div');
   els.rate = h('div');
+  els.why = h('div');
   els.results = h('div', { 'aria-live': 'polite' });
   els.free = h('div');
+  els.playNow = h('div');
+  els.evenings = h('div');
   els.week = h('div');
   els.today = h('div');
-  root.replaceChildren(els.head, els.context, els.free, els.week, els.today, els.cityPrompt, els.rate, els.results);
+  root.replaceChildren(els.head, els.context, els.shortcuts, els.free, els.playNow, els.evenings, els.week, els.today, els.cityPrompt, els.rate, els.why, els.results);
   weekStrip(els.week);
   renderToday();
   // Who's free and "I'm free" (signed in only). Refreshed every minute while Discover is on screen.
   // When the friend list first arrives (or changes size), redraw so the ticket gets its Invite button.
-  state.together = freeStrip(els.free, () => state.req.minutes, () => {
+  // Each refresh also updates "Shall we play now?" and the evenings coming up.
+  state.together = freeStrip(
+    els.free,
+    () => state.req.minutes,
+    () => {
+      renderContext();
+      if (state.results?.best && !state.loading) renderResults(state.results);
+    },
+    (friends) => {
+      renderPlayNow(els.playNow, friends, state.req);
+      comingUp(els.evenings, ctx);
+    },
+  );
+  // Preferences brought from another device (Settings): take the new context and shortcuts.
+  document.addEventListener('preferences-loaded', () => {
+    const mood = loadMood(state.categories);
+    state.party = mood.party ?? state.party;
+    delete mood.party;
+    state.req = { ...state.req, ...mood };
     renderContext();
-    if (state.results?.best && !state.loading) renderResults(state.results);
+    changed();
   });
   state.together.refresh();
   setInterval(() => {
@@ -223,6 +253,7 @@ function renderHead() {
 function changed() {
   saveMood();
   renderHead();
+  renderShortcuts();
   clearTimeout(state.timer);
   state.timer = setTimeout(() => runSuggest(), 220);
 }
@@ -302,6 +333,96 @@ function renderContext() {
       },
     }),
   );
+  renderShortcuts();
+}
+
+// ---------------------------------------------------------------- shortcuts
+
+/** Whether the context already is what this shortcut sets. */
+function applies(set) {
+  return Object.entries(set).every(([k, v]) =>
+    Array.isArray(v) ? [...v].sort().join() === [...(state.req[k] ?? [])].sort().join() : state.req[k] === v,
+  );
+}
+
+function renderShortcuts() {
+  if (!els.shortcuts) return;
+  const mine = myShortcuts();
+  const chip = (s, own) =>
+    h(
+      'span',
+      { class: own ? 'shortcut own' : 'shortcut' },
+      h(
+        'button',
+        { type: 'button', class: 'shortcut-btn', 'aria-pressed': String(applies(s.set)), onclick: () => applyShortcut(s) },
+        icon(s.icon ?? 'zap'),
+        h('span', own ? { translate: 'no' } : {}, s.label),
+      ),
+      own
+        ? h(
+            'button',
+            {
+              type: 'button',
+              class: 'shortcut-remove',
+              'aria-label': `Remove the shortcut ${s.label}`,
+              title: 'Remove',
+              onclick: () => {
+                saveShortcuts(myShortcuts().filter((x) => x.id !== s.id));
+                renderShortcuts();
+              },
+            },
+            icon('x'),
+          )
+        : null,
+    );
+  fill(
+    els.shortcuts,
+    BUILT_IN.map((s) => chip(s, false)),
+    mine.map((s) => chip(s, true)),
+    mine.length < MAX_SHORTCUTS
+      ? h('button', { type: 'button', class: 'shortcut-btn shortcut-add', onclick: addShortcut }, icon('plus'), h('span', {}, 'Save this context'))
+      : null,
+  );
+}
+
+function applyShortcut(s) {
+  const set = { ...s.set };
+  if (set.categories) {
+    set.categories = set.categories.filter((c) => state.categories.some((x) => x.id === c));
+    if (!set.categories.length) delete set.categories;
+  }
+  Object.assign(state.req, set);
+  renderContext();
+  changed();
+}
+
+/** "Save this context": a name (prefilled), then it joins the shortcuts on this device. */
+function addShortcut() {
+  const r = state.req;
+  // A field's value isn't translated by the page layer: translate the energy word here.
+  const energy = t(ENERGY.find((e) => e.id === r.energy)?.label ?? '');
+  const name = h('input', { class: 'input shortcut-name', type: 'text', maxlength: 40, value: `${fmtMinutes(r.minutes)} · ${energy}`, 'aria-label': 'Shortcut name' });
+  const done = (keep) => {
+    const label = name.value.trim();
+    if (keep && label) {
+      const { minutes, energy: e, with_friends, can_go_out, budget, categories } = state.req;
+      const set = { minutes, energy: e, with_friends, can_go_out, budget, categories };
+      if (saveShortcuts([...myShortcuts(), { id: `mine-${Date.now().toString(36)}`, label, set }])) toast('Shortcut saved', 'ok');
+      else toast('This device can’t keep shortcuts', 'error');
+    }
+    renderShortcuts();
+  };
+  name.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      done(true);
+    } else if (e.key === 'Escape') done(false);
+  });
+  els.shortcuts.querySelector('.shortcut-add')?.replaceWith(
+    h('span', { class: 'shortcut-form' }, name, btn({ label: 'Save', small: true, kind: 'primary', onclick: () => done(true) }), btn({ label: 'Cancel', small: true, kind: 'quiet', onclick: () => done(false) })),
+  );
+  name.focus();
+  name.select();
 }
 
 /** Sets the kinds of ideas wanted. None picked (while the menu is open) asks for nothing yet. */
@@ -762,6 +883,24 @@ function coupon(c, { label = 'Admit one' } = {}) {
                   const open = actions.nextElementSibling?.classList.contains('invite-panel');
                   if (open) return actions.nextElementSibling.remove();
                   const panel = invitePanel(c, state.together.friends(), () => panel.remove());
+                  // Or a whole evening: two times and up to three things to do, this one first.
+                  panel.append(
+                    btn({
+                      label: 'Plan an evening: two times, up to three ideas',
+                      icon: 'calendar',
+                      kind: 'quiet',
+                      small: true,
+                      onclick: async () => {
+                        panel.remove();
+                        planEvening({
+                          friends: state.together.friends(),
+                          activities: [{ idea_id: c.id, title: c.title, category: c.category }],
+                          ideas: await eveningIdeas(),
+                          onDone: () => comingUp(els.evenings, ctx),
+                        });
+                      },
+                    }),
+                  );
                   actions.after(panel);
                 },
               })
@@ -826,6 +965,7 @@ function stamp(el, kind) {
 /** "Not this one": stamp VOID, tear the coupon off, rank again without it. */
 async function voidCoupon(c, el) {
   state.hidden.add(c.id);
+  askWhy(c);
   stamp(el, 'void');
   if (!reducedMotion()) {
     await wait(380);
@@ -833,6 +973,43 @@ async function voidCoupon(c, el) {
     await wait(420);
   }
   runSuggest({ keepShuffle: true, quiet: true });
+}
+
+/**
+ * After "Not this one": an optional "why?" for that idea. The answer stays on this device
+ * (history) and tunes the next picks; ignoring it changes nothing.
+ */
+function askWhy(c) {
+  clearTimeout(state.whyTimer);
+  const close = () => {
+    clearTimeout(state.whyTimer);
+    els.why.replaceChildren();
+  };
+  const answer = async (reason) => {
+    close();
+    try {
+      await api.notNow(c.id, reason.id, state.req.minutes);
+      toast(reason.done, 'ok', 4200);
+    } catch (e) {
+      toast(errText(e), 'error');
+    }
+  };
+  fill(
+    els.why,
+    h(
+      'div',
+      { class: 'strip not-now' },
+      icon('x'),
+      h('div', { class: 'strip-text' }, h('strong', {}, h('span', {}, 'Not this one:'), ' ', h('span', { translate: 'no' }, c.title)), h('span', {}, 'Tell freetime why (optional): the next picks will take it into account.')),
+      h(
+        'div',
+        { class: 'strip-actions' },
+        NOT_NOW.map((r) => btn({ label: r.label, small: true, onclick: () => answer(r) })),
+        btn({ label: 'Close', icon: 'x', square: true, small: true, kind: 'quiet', onclick: close }),
+      ),
+    ),
+  );
+  state.whyTimer = setTimeout(close, 20000);
 }
 
 /** A friend's "free now" changed (live): refresh the strip right away. */
@@ -907,6 +1084,7 @@ function leaf(c, i) {
           square: true,
           onclick: () => {
             state.hidden.add(c.id);
+            askWhy(c);
             el.classList.add('voided');
             setTimeout(() => el.remove(), reducedMotion() ? 0 : 260);
           },
