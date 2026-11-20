@@ -90,6 +90,8 @@ pub fn invoke(
             Value::Null
         }
         "open_chat" => json!(client.open_direct(&session, &text("friend")?)?),
+        "friend_groups" => json!(client.friend_groups(&session)?),
+        "manage_friend_group" => json!(client.manage_friend_group(&session, &arg(args, "edit")?)?),
         "chat_messages" => {
             json!(client.messages(&session, &text("conversation")?, arg(args, "after")?)?)
         }

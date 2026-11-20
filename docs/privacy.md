@@ -42,7 +42,8 @@ To work, the app contacts these services, and only for what you see on screen:
   status, and your friend tag. A profile photo is stored as a resized square image. You can replace
   or remove it in your profile settings.
 - Your friend requests, friendships and blocks.
-- Your messages and the conversations you are part of, with the reactions you and your friend put
+- Your messages and the conversations you are part of (including the names and memberships of
+  private groups), with the reactions you and your friend put
   on them (which emoji, and who). You can edit a message you sent for 15 minutes; it then shows
   "edited", and its earlier versions are kept apart, readable only by the freetime team, so that
   a report can't be emptied by editing. They are deleted with the message or your account.
@@ -109,7 +110,8 @@ Closed reports and their photos are deleted after one year. Deleting your accoun
   ships, only where their own shots landed.
 - In an evening, the host and every guest see who is invited and each guest's answers. Nobody
   else sees it. The copy made by "Save to my account" is seen by you only.
-- Only the two people in a conversation can read it. Messages are encrypted in transit and stored
+- Only participants can read a conversation. In groups, members receive messages from the time
+  they join. Messages are encrypted in transit and stored
   encrypted on disk by our hosting provider, but they are **not end-to-end encrypted**: the people
   who run freetime could technically access them. We only do so to handle a report you or the other
   person made, or when the law requires it.

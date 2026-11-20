@@ -115,15 +115,15 @@ let streaks = {};
 
 async function onlineSection(box, ctx, inviteId) {
   fill(box, h('div', { class: 'ghost', style: 'height:200px;margin-bottom:18px' }));
-  let data;
+  let data, groups;
   try {
-    data = await api.socialOverview();
+    [data, groups] = await Promise.all([api.socialOverview(), api.friendGroups().catch(() => [])]);
     streaks = await api.togetherStreaks().catch(() => ({}));
   } catch (e) {
     fill(box, h('div', { class: 'strip' }, icon('triangle-alert'), h('div', { class: 'strip-text' }, h('strong', {}, 'Could not load your friends'), h('span', {}, errText(e))), btn({ label: 'Try again', small: true, onclick: () => onlineSection(box, ctx) })));
     return;
   }
-  ctx.setUnread?.(data.conversations.reduce((n, c) => n + c.unread, 0));
+  ctx.setUnread?.([...data.conversations, ...groups].reduce((n, c) => n + c.unread, 0));
   const reload = () => onlineSection(box, ctx);
   const friends = data.friends.filter((f) => f.state === 'friend');
   const incoming = data.friends.filter((f) => f.state === 'incoming');
