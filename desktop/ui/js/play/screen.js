@@ -13,6 +13,7 @@ export const GAME_INFO = {
   draughts: { name: 'Draughts', icon: 'circle-dot', rule: 'International rules: captures are compulsory (the longest one), men capture backwards, kings fly.' },
   dots: { name: 'Dots and boxes', icon: 'square-dashed', rule: 'Draw a line in turn. Close a box to score it and play again. Most boxes wins.' },
   torpedoes: { name: 'Torpedoes', icon: 'anchor', rule: 'Hide 4 ships, then fire one shot in turn. Sink the whole fleet first.' },
+  chess: { name: 'Chess', icon: 'crown', rule: 'Checkmate the king. Castling, en passant and promotion are allowed. Stalemate and repeated positions are draws.' },
 };
 
 const store = {
@@ -77,6 +78,7 @@ function statusLine(state, me, otherName, thinking) {
   } else {
     parts.push(h('strong', {}, h('span', { class: `piece p${1 - me}`, 'aria-hidden': 'true' }), otherName ? h('span', {}, h('span', {}, 'Waiting for'), ' ', h('span', { translate: 'no' }, otherName)) : thinking ? 'The computer is thinking…' : 'The computer’s turn'));
   }
+  if (state.game === 'chess' && state.check && state.winner === null) parts.push(h('strong', { class: 'game-check' }, 'Check!'));
   const sc = scores(state);
   if (sc) parts.push(h('span', { class: 'game-score figures' }, `${sc[me]} – ${sc[1 - me]}`));
   if (state.game === 'torpedoes' && state.phase === 'play') {

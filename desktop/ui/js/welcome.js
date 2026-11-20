@@ -2,6 +2,7 @@
 // Every step can be skipped; nothing leaves the PC except the city search and the Steam import,
 // and only when the user uses them.
 
+import { googleSignIn } from './account.js';
 import { api, inTauri } from './api.js';
 import { AVATAR_COLORS, AVATAR_ICONS, avatar } from './avatars.js';
 import { cityPicker, openMeteoCredit } from './city.js';
@@ -11,7 +12,7 @@ const MOOD_KEY = 'freetime.mood.v2';
 const TOPICS = ['speedrunning', 'space', 'chess', 'football highlights', 'lo-fi music', 'game dev', 'street food', 'documentaries', 'science explained', 'history', 'travel', 'cooking'];
 
 /** Shows the welcome over the app. Resolves when finished or skipped; `then` is 'discover' or 'profile'. */
-export function runWelcome(boot) {
+export function runWelcome(boot, ctx = {}) {
   return new Promise((resolve) => {
     const layer = h('div', { class: 'welcome', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Welcome to freetime' });
     document.body.append(layer);
@@ -26,11 +27,16 @@ export function runWelcome(boot) {
       topics: new Set(),
     };
     let step = 0;
+    let account = null; // Set once the person signs in from the last step.
+
+    const save = async (skipped = false) => {
+      if (!skipped) saveCategories(answers.categories);
+      await api.finishWelcome(skipped || !answers.topics.size ? null : [...answers.topics]);
+    };
 
     const finish = async (then = 'discover', skipped = false) => {
       try {
-        if (!skipped) saveCategories(answers.categories);
-        await api.finishWelcome(skipped || !answers.topics.size ? null : [...answers.topics]);
+        await save(skipped);
       } catch (e) {
         toast(errText(e), 'error');
       }
@@ -45,7 +51,20 @@ export function runWelcome(boot) {
       () => where(answers),
       () => into(answers, boot.categories),
       () => games(),
-      () => done(answers, finish),
+      () =>
+        done(answers, finish, account, {
+          // On the web the page leaves for Google: the welcome is done before it does, or it would come back.
+          before: inTauri ? null : () => save(),
+          onSignedIn: (acc) => {
+            account = acc;
+            try {
+              ctx.accountChanged?.();
+            } catch {
+              // The app catches up when the welcome closes.
+            }
+            draw();
+          },
+        }),
     ];
     const titles = ['Welcome', 'You', 'Where', 'Your mood', 'Your games', 'Ready'];
 
@@ -234,7 +253,7 @@ function into(answers, categories) {
 function games() {
   if (!inTauri) return [
     h('h2', { class: 'welcome-step' }, 'Your Steam games'),
-    h('p', { class: 'welcome-lead' }, 'You can import your public Steam library in Settings with your profile and a Web API key. Built-in ideas are ready now.'),
+    h('p', { class: 'welcome-lead' }, 'Importing your Steam library is done in the Windows app. Built-in ideas are ready now.'),
   ];
   const status = h('div', { class: 'city-status', 'aria-live': 'polite' });
   const pick = h('div', { class: 'row' });
@@ -262,7 +281,7 @@ function games() {
         if (scan.chosen) return finishImport(scan.chosen, go);
         if (!scan.found) {
           status.className = 'city-status warn';
-          status.textContent = 'Steam isn’t installed on this PC. You can connect your account later in Settings.';
+          status.textContent = 'Steam isn’t installed on this PC.';
           return;
         }
         if (!scan.accounts.length) {
@@ -293,16 +312,19 @@ function games() {
   ];
 }
 
-function done(answers, finish) {
+function done(answers, finish, account, google) {
   return [
     h('h1', { class: 'welcome-title' }, answers.name.trim() ? `You’re all set, ${answers.name.trim()}` : 'You’re all set'),
     h('p', { class: 'welcome-lead' }, 'Your first ticket is waiting. Rate what you do, and freetime learns what you like.'),
-    h(
-      'div',
-      { class: 'row welcome-cta' },
-      btn({ label: 'Show my first ticket', icon: 'ticket', kind: 'primary', onclick: () => finish('discover') }),
-      btn({ label: 'Sign in to add friends', icon: 'log-in', onclick: () => finish('profile') }),
-    ),
-    h('p', { class: 'hint' }, 'Signing in is optional: it gives you a profile, friends and messages.'),
+    h('div', { class: 'row welcome-cta' }, btn({ label: 'Show my first ticket', icon: 'ticket', kind: 'primary', onclick: () => finish('discover') })),
+    account
+      ? h('p', { class: 'welcome-account done' }, icon('check'), `Signed in as ${account.profile?.display_name ?? 'you'}`)
+      : h(
+          'div',
+          { class: 'welcome-account' },
+          h('strong', {}, 'Create your account'),
+          h('p', { class: 'hint' }, 'Optional: with a Google account, add friends by tag, send them messages and play games together. Your email stays private.'),
+          googleSignIn({ kind: '', before: google.before, onSignedIn: google.onSignedIn }),
+        ),
   ];
 }

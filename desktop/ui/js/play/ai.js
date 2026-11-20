@@ -2,7 +2,7 @@
 // mistakes on purpose), 2 = hard. Every move it returns comes from legalMoves(), so it plays by
 // the same rules as everyone.
 
-import { DOTS, FOUR, GOMOKU, TORPEDOES, boxSides, draughtsMoves, isKing, legalMoves, ownerOf, play } from './rules.js';
+import { DOTS, FOUR, GOMOKU, TORPEDOES, boxSides, chessInCheck, chessMake, chessMoves, chessPosition, draughtsMoves, isKing, legalMoves, ownerOf, play } from './rules.js';
 
 const pickRandom = (list) => list[Math.floor(Math.random() * list.length)];
 
@@ -18,6 +18,8 @@ export function computerMove(state, player, level = 2) {
       return gomokuMove(state, player, level, moves);
     case 'draughts':
       return draughtsMove(state, player, level, moves);
+    case 'chess':
+      return chessMove(state, player, level, moves);
     case 'dots':
       return dotsMove(state, player, level, moves);
     case 'torpedoes':
@@ -165,6 +167,136 @@ function draughtsMove(state, player, level, moves) {
   const scored = moves.map((m) => ({ m, v: -draughtsSearch(play(state, player, m).state, 1 - player, depth - 1, -Infinity, Infinity) + Math.random() * (level === 1 ? 6 : 0.5) }));
   scored.sort((a, b) => b.v - a.v);
   return scored[0].m;
+}
+
+// ---------------------------------------------------------------- chess: material, placement, alpha-beta
+
+const CHESS_VALUE = [0, 100, 320, 330, 500, 900, 0];
+const MATE = 30000;
+
+// Where each piece likes to stand, from white's side (row 0 is the 8th rank); black reads them upside
+// down. The classic "simplified evaluation" tables.
+const PLACE = {
+  1: [0, 0, 0, 0, 0, 0, 0, 0, 50, 50, 50, 50, 50, 50, 50, 50, 10, 10, 20, 30, 30, 20, 10, 10, 5, 5, 10, 25, 25, 10, 5, 5, 0, 0, 0, 20, 20, 0, 0, 0, 5, -5, -10, 0, 0, -10, -5, 5, 5, 10, 10, -20, -20, 10, 10, 5, 0, 0, 0, 0, 0, 0, 0, 0],
+  2: [-50, -40, -30, -30, -30, -30, -40, -50, -40, -20, 0, 0, 0, 0, -20, -40, -30, 0, 10, 15, 15, 10, 0, -30, -30, 5, 15, 20, 20, 15, 5, -30, -30, 0, 15, 20, 20, 15, 0, -30, -30, 5, 10, 15, 15, 10, 5, -30, -40, -20, 0, 5, 5, 0, -20, -40, -50, -40, -30, -30, -30, -30, -40, -50],
+  3: [-20, -10, -10, -10, -10, -10, -10, -20, -10, 0, 0, 0, 0, 0, 0, -10, -10, 0, 5, 10, 10, 5, 0, -10, -10, 5, 5, 10, 10, 5, 5, -10, -10, 0, 10, 10, 10, 10, 0, -10, -10, 10, 10, 10, 10, 10, 10, -10, -10, 5, 0, 0, 0, 0, 5, -10, -20, -10, -10, -10, -10, -10, -10, -20],
+  4: [0, 0, 0, 0, 0, 0, 0, 0, 5, 10, 10, 10, 10, 10, 10, 5, -5, 0, 0, 0, 0, 0, 0, -5, -5, 0, 0, 0, 0, 0, 0, -5, -5, 0, 0, 0, 0, 0, 0, -5, -5, 0, 0, 0, 0, 0, 0, -5, -5, 0, 0, 0, 0, 0, 0, -5, 0, 0, 0, 5, 5, 0, 0, 0],
+  5: [-20, -10, -10, -5, -5, -10, -10, -20, -10, 0, 0, 0, 0, 0, 0, -10, -10, 0, 5, 5, 5, 5, 0, -10, -5, 0, 5, 5, 5, 5, 0, -5, 0, 0, 5, 5, 5, 5, 0, -5, -10, 5, 5, 5, 5, 5, 0, -10, -10, 0, 5, 0, 0, 0, 0, -10, -20, -10, -10, -5, -5, -10, -10, -20],
+  6: [-30, -40, -40, -50, -50, -40, -40, -30, -30, -40, -40, -50, -50, -40, -40, -30, -30, -40, -40, -50, -50, -40, -40, -30, -30, -40, -40, -50, -50, -40, -40, -30, -20, -30, -30, -40, -40, -30, -30, -20, -10, -20, -20, -20, -20, -20, -20, -10, 20, 20, 0, 0, 0, 0, 20, 20, 20, 30, 10, 0, 0, 10, 30, 20],
+};
+const KING_ENDGAME = [-50, -40, -30, -20, -20, -30, -40, -50, -30, -20, -10, 0, 0, -10, -20, -30, -30, -10, 20, 30, 30, 20, -10, -30, -30, -10, 30, 40, 40, 30, -10, -30, -30, -10, 30, 40, 40, 30, -10, -30, -30, -10, 20, 30, 30, 20, -10, -30, -30, -30, 0, 0, 0, 0, -30, -30, -50, -30, -30, -30, -30, -30, -30, -50];
+
+/** The position's worth for the side to move (positive: better for them), in hundredths of a pawn. */
+function chessEval(pos) {
+  const b = pos.b;
+  let heavy = 0;
+  for (let i = 0; i < 64; i++) {
+    const t = Math.abs(b[i]);
+    if (t > 1 && t < 6) heavy += CHESS_VALUE[t];
+  }
+  const endgame = heavy <= 2200;
+  let score = 0;
+  for (let i = 0; i < 64; i++) {
+    const v = b[i];
+    if (v === 0) continue;
+    const t = Math.abs(v);
+    const at = v > 0 ? i : (7 - (i >> 3)) * 8 + (i & 7);
+    const worth = CHESS_VALUE[t] + (t === 6 && endgame ? KING_ENDGAME[at] : PLACE[t][at]);
+    score += v > 0 ? worth : -worth;
+  }
+  return pos.side === 1 ? score : -score;
+}
+
+const isCapture = (pos, m) => pos.b[m.to] !== 0 || (Math.abs(pos.b[m.from]) === 1 && m.to === pos.ep && (m.from & 7) !== (m.to & 7));
+
+/** Captures and promotions first, the cheapest capturer of the most valuable piece first. */
+function orderChess(pos, moves, first) {
+  const key = (m) => {
+    if (first && m.from === first.from && m.to === first.to && m.promo === first.promo) return 100000;
+    let k = 0;
+    if (pos.b[m.to] !== 0) k += 10 * CHESS_VALUE[Math.abs(pos.b[m.to])] - CHESS_VALUE[Math.abs(pos.b[m.from])] + 1000;
+    else if (isCapture(pos, m)) k += 1000 + 1000 - 100;
+    if (m.promo) k += CHESS_VALUE[{ q: 5, r: 4, b: 3, n: 2 }[m.promo]];
+    return k;
+  };
+  return moves.map((m) => [key(m), m]).sort((a, b) => b[0] - a[0]).map(([, m]) => m);
+}
+
+class SearchOver extends Error {}
+
+function chessQuiet(pos, alpha, beta, depth, ctx, known = null) {
+  if ((++ctx.nodes & 511) === 0 && Date.now() > ctx.deadline) throw new SearchOver();
+  const stand = chessEval(pos);
+  if (depth === 0 || stand >= beta) return stand;
+  if (stand > alpha) alpha = stand;
+  for (const m of orderChess(pos, (known ?? chessMoves(pos)).filter((x) => isCapture(pos, x) || x.promo), null)) {
+    const v = -chessQuiet(chessMake(pos, m), -beta, -alpha, depth - 1, ctx);
+    if (v >= beta) return v;
+    if (v > alpha) alpha = v;
+  }
+  return alpha;
+}
+
+function chessSearch(pos, depth, alpha, beta, ply, ctx) {
+  if ((++ctx.nodes & 511) === 0 && Date.now() > ctx.deadline) throw new SearchOver();
+  const moves = chessMoves(pos);
+  if (!moves.length) return chessInCheck(pos) ? -MATE + ply : 0;
+  if (depth === 0) return chessQuiet(pos, alpha, beta, 4, ctx, moves);
+  let best = -Infinity;
+  for (const m of orderChess(pos, moves, null)) {
+    const v = -chessSearch(chessMake(pos, m), depth - 1, -beta, -alpha, ply + 1, ctx);
+    if (v > best) best = v;
+    if (v > alpha) alpha = v;
+    if (alpha >= beta) break;
+  }
+  return best;
+}
+
+/** Easy: looks one move ahead (it never misses a mate in one) and plays a loose one on purpose. */
+function chessEasy(pos, moves) {
+  const scored = moves.map((m) => {
+    const next = chessMake(pos, m);
+    const replies = chessMoves(next);
+    const v = !replies.length ? (chessInCheck(next) ? MATE : 0) : -chessEval(next);
+    return { m, v: v + Math.random() * 160 };
+  });
+  scored.sort((a, b) => b.v - a.v);
+  return scored[0].m;
+}
+
+/** Hard: deeper and deeper searches until `ms` run out, then the best move of the last full one. */
+function chessHard(pos, moves, ms) {
+  const ctx = { nodes: 0, deadline: Date.now() + ms };
+  let ordered = orderChess(pos, moves, null);
+  let best = ordered[0];
+  for (let depth = 1; depth <= 5; depth++) {
+    try {
+      let alpha = -Infinity;
+      let top = null;
+      let topValue = -Infinity;
+      for (const m of ordered) {
+        const v = -chessSearch(chessMake(pos, m), depth - 1, -Infinity, -alpha, 1, ctx) + Math.random() * 2;
+        if (v > topValue) {
+          topValue = v;
+          top = m;
+        }
+        if (v > alpha) alpha = v;
+      }
+      best = top;
+      ordered = orderChess(pos, moves, top);
+      if (topValue > MATE - 100) break; // a forced mate was found
+    } catch (e) {
+      if (e instanceof SearchOver) break;
+      throw e;
+    }
+  }
+  return best;
+}
+
+function chessMove(state, player, level, moves) {
+  if (moves.length === 1) return moves[0];
+  const pos = chessPosition(state, player);
+  return level === 1 ? chessEasy(pos, moves) : chessHard(pos, moves, 1100);
 }
 
 // ---------------------------------------------------------------- dots and boxes: greedy and careful

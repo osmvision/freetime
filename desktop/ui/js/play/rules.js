@@ -18,7 +18,7 @@ const fail = (why) => {
 };
 const isInt = (n, lo, hi) => Number.isInteger(n) && n >= lo && n <= hi;
 
-export const GAMES = ['four', 'gomoku', 'draughts', 'dots', 'torpedoes'];
+export const GAMES = ['four', 'gomoku', 'draughts', 'dots', 'torpedoes', 'chess'];
 
 // ---------------------------------------------------------------- four in a row (7 × 6)
 
@@ -350,15 +350,320 @@ const torpedoes = {
   },
 };
 
+// ---------------------------------------------------------------- chess
+
+// Squares are 0-63: 0 is a8, 7 is h8, 56 is a1, 63 is h1 (row 0 is the 8th rank). Pieces: 1 pawn,
+// 2 knight, 3 bishop, 4 rook, 5 queen, 6 king; white is positive, black negative, 0 is empty.
+// The player who moves first plays white (`state.white`). A move is { from, to } (and `promo`:
+// 'q', 'r', 'b' or 'n' for a pawn reaching the last row); castling is the king's two-square step.
+// Drawn automatically: stalemate, a dead position (not enough pieces to mate), 50 moves without a
+// capture or a pawn move, and the same position for the third time.
+
+export const CHESS = { quietLimit: 100 }; // half-moves
+
+const PAWN = 1;
+const KNIGHT = 2;
+const BISHOP = 3;
+const ROOK = 4;
+const QUEEN = 5;
+const KING = 6;
+const PROMOTES = { q: QUEEN, r: ROOK, b: BISHOP, n: KNIGHT };
+const KNIGHT_STEPS = [[-2, -1], [-2, 1], [-1, -2], [-1, 2], [1, -2], [1, 2], [2, -1], [2, 1]];
+const KING_STEPS = [[-1, -1], [-1, 0], [-1, 1], [0, -1], [0, 1], [1, -1], [1, 0], [1, 1]];
+const DIAGONALS = [[-1, -1], [-1, 1], [1, -1], [1, 1]];
+const STRAIGHTS = [[-1, 0], [1, 0], [0, -1], [0, 1]];
+
+const START_ROW = [ROOK, KNIGHT, BISHOP, QUEEN, KING, BISHOP, KNIGHT, ROOK];
+const chessStartBoard = () => [
+  ...START_ROW.map((t) => -t),
+  ...Array(8).fill(-PAWN),
+  ...Array(32).fill(0),
+  ...Array(8).fill(PAWN),
+  ...START_ROW,
+];
+
+/** Is `target` attacked by the pieces of colour `by` (1 white, -1 black)? */
+function attacked(b, target, by) {
+  const r = target >> 3;
+  const c = target & 7;
+  const pr = r + by; // a white pawn attacks upwards (to a smaller row): it stands one row below
+  if (pr >= 0 && pr < 8) {
+    if (c > 0 && b[pr * 8 + c - 1] === by * PAWN) return true;
+    if (c < 7 && b[pr * 8 + c + 1] === by * PAWN) return true;
+  }
+  for (const [dr, dc] of KNIGHT_STEPS) {
+    const rr = r + dr;
+    const cc = c + dc;
+    if (rr >= 0 && rr < 8 && cc >= 0 && cc < 8 && b[rr * 8 + cc] === by * KNIGHT) return true;
+  }
+  for (const [dr, dc] of KING_STEPS) {
+    const rr = r + dr;
+    const cc = c + dc;
+    if (rr >= 0 && rr < 8 && cc >= 0 && cc < 8 && b[rr * 8 + cc] === by * KING) return true;
+  }
+  for (const [steps, slider] of [[DIAGONALS, BISHOP], [STRAIGHTS, ROOK]]) {
+    for (const [dr, dc] of steps) {
+      let rr = r + dr;
+      let cc = c + dc;
+      while (rr >= 0 && rr < 8 && cc >= 0 && cc < 8) {
+        const v = b[rr * 8 + cc];
+        if (v !== 0) {
+          if (v === by * slider || v === by * QUEEN) return true;
+          break;
+        }
+        rr += dr;
+        cc += dc;
+      }
+    }
+  }
+  return false;
+}
+
+const kingSquare = (b, side) => b.indexOf(side * KING);
+
+/** Is the side to move in check? */
+export function chessInCheck(pos) {
+  const k = kingSquare(pos.b, pos.side);
+  return k >= 0 && attacked(pos.b, k, -pos.side);
+}
+
+/** Moves that follow the pieces' movement, leaving the king's safety to `chessMoves`. */
+function pseudoMoves(pos) {
+  const { b, side, castle, ep } = pos;
+  const out = [];
+  const lastRow = side === 1 ? 0 : 7;
+  const add = (from, to, promotes) => {
+    if (promotes) for (const promo of ['q', 'r', 'b', 'n']) out.push({ from, to, promo });
+    else out.push({ from, to });
+  };
+  for (let from = 0; from < 64; from++) {
+    const v = b[from];
+    if (v * side <= 0) continue;
+    const t = Math.abs(v);
+    const r = from >> 3;
+    const c = from & 7;
+    if (t === PAWN) {
+      const r1 = r - side;
+      if (b[r1 * 8 + c] === 0) {
+        add(from, r1 * 8 + c, r1 === lastRow);
+        const startRow = side === 1 ? 6 : 1;
+        if (r === startRow && b[(r - 2 * side) * 8 + c] === 0) out.push({ from, to: (r - 2 * side) * 8 + c });
+      }
+      for (const dc of [-1, 1]) {
+        const cc = c + dc;
+        if (cc < 0 || cc > 7) continue;
+        const to = r1 * 8 + cc;
+        if (b[to] * side < 0) add(from, to, r1 === lastRow);
+        else if (to === ep) out.push({ from, to });
+      }
+    } else if (t === KNIGHT || t === KING) {
+      for (const [dr, dc] of t === KNIGHT ? KNIGHT_STEPS : KING_STEPS) {
+        const rr = r + dr;
+        const cc = c + dc;
+        if (rr < 0 || rr > 7 || cc < 0 || cc > 7) continue;
+        if (b[rr * 8 + cc] * side <= 0) out.push({ from, to: rr * 8 + cc });
+      }
+    } else {
+      const steps = t === BISHOP ? DIAGONALS : t === ROOK ? STRAIGHTS : [...DIAGONALS, ...STRAIGHTS];
+      for (const [dr, dc] of steps) {
+        let rr = r + dr;
+        let cc = c + dc;
+        while (rr >= 0 && rr < 8 && cc >= 0 && cc < 8) {
+          const to = rr * 8 + cc;
+          if (b[to] * side > 0) break;
+          out.push({ from, to });
+          if (b[to] !== 0) break;
+          rr += dr;
+          cc += dc;
+        }
+      }
+    }
+  }
+  // Castling: king and rook unmoved, the squares between empty, and the king neither in check nor
+  // crossing or landing on an attacked square.
+  const home = side === 1 ? 56 : 0;
+  if (b[home + 4] === side * KING && !attacked(b, home + 4, -side)) {
+    const rights = side === 1 ? [castle[0], castle[1]] : [castle[2], castle[3]];
+    if (rights[0] && b[home + 7] === side * ROOK && b[home + 5] === 0 && b[home + 6] === 0 && !attacked(b, home + 5, -side) && !attacked(b, home + 6, -side)) {
+      out.push({ from: home + 4, to: home + 6 });
+    }
+    if (rights[1] && b[home] === side * ROOK && b[home + 1] === 0 && b[home + 2] === 0 && b[home + 3] === 0 && !attacked(b, home + 3, -side) && !attacked(b, home + 2, -side)) {
+      out.push({ from: home + 4, to: home + 2 });
+    }
+  }
+  return out;
+}
+
+/** The position after `m` (a new object; `m` must be legal). */
+export function chessMake(pos, m) {
+  const { side } = pos;
+  const b = pos.b.slice();
+  const castle = pos.castle.slice();
+  const v = b[m.from];
+  const t = Math.abs(v);
+  let ep = -1;
+  b[m.from] = 0;
+  if (t === PAWN) {
+    if (m.to === pos.ep && b[m.to] === 0 && (m.from & 7) !== (m.to & 7)) b[m.to + 8 * side] = 0; // en passant
+    if (Math.abs(m.to - m.from) === 16) ep = (m.from + m.to) / 2;
+    b[m.to] = m.promo ? side * PROMOTES[m.promo] : v;
+  } else {
+    b[m.to] = v;
+    if (t === KING && Math.abs(m.to - m.from) === 2) {
+      const home = side === 1 ? 56 : 0;
+      if (m.to > m.from) {
+        b[home + 7] = 0;
+        b[home + 5] = side * ROOK;
+      } else {
+        b[home] = 0;
+        b[home + 3] = side * ROOK;
+      }
+    }
+  }
+  if (t === KING) {
+    castle[side === 1 ? 0 : 2] = false;
+    castle[side === 1 ? 1 : 3] = false;
+  }
+  for (const s of [m.from, m.to]) {
+    if (s === 63) castle[0] = false;
+    else if (s === 56) castle[1] = false;
+    else if (s === 7) castle[2] = false;
+    else if (s === 0) castle[3] = false;
+  }
+  return { b, side: -side, castle, ep };
+}
+
+/** Every legal move of the side to move in `pos` = { b, side, castle, ep }. */
+export function chessMoves(pos) {
+  const legal = [];
+  for (const m of pseudoMoves(pos)) {
+    const next = chessMake(pos, m);
+    const k = kingSquare(next.b, pos.side);
+    if (k >= 0 && !attacked(next.b, k, next.side)) legal.push(m);
+  }
+  return legal;
+}
+
+/** The position of a chess state, for the side to move (or for `player`). */
+export function chessPosition(state, player = state.turn) {
+  return { b: state.board, side: player === state.white ? 1 : -1, castle: state.castle, ep: state.ep };
+}
+
+function hash53(str) {
+  let h1 = 0xdeadbeef;
+  let h2 = 0x41c6ce57;
+  for (let i = 0; i < str.length; i++) {
+    const ch = str.charCodeAt(i);
+    h1 = Math.imul(h1 ^ ch, 2654435761);
+    h2 = Math.imul(h2 ^ ch, 1597334677);
+  }
+  h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+  h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+  return 4294967296 * (2097151 & h2) + (h1 >>> 0);
+}
+
+/** A number that is the same for two equal positions (pieces, side to move, rights, en passant). */
+function positionKey(pos) {
+  const { b, side, castle, ep } = pos;
+  // An en passant square only counts when a pawn could take there.
+  let epKey = -1;
+  if (ep >= 0) {
+    const row = ep >> 3;
+    const c = ep & 7;
+    const pawnRow = row + side;
+    const mine = side * PAWN;
+    if ((c > 0 && b[pawnRow * 8 + c - 1] === mine) || (c < 7 && b[pawnRow * 8 + c + 1] === mine)) epKey = ep;
+  }
+  return hash53(`${b.join(',')}|${side}|${castle.map(Number).join('')}|${epKey}`);
+}
+
+/** Dead position: no way left to checkmate (K v K, K+minor v K, bishops all on one colour). */
+function insufficientMaterial(b) {
+  const pieces = [];
+  for (let i = 0; i < 64; i++) if (b[i] !== 0 && Math.abs(b[i]) !== KING) pieces.push([Math.abs(b[i]), i]);
+  if (pieces.length === 0) return true;
+  if (pieces.length === 1) return pieces[0][0] === KNIGHT || pieces[0][0] === BISHOP;
+  const shade = ([, i]) => ((i >> 3) + (i & 7)) % 2;
+  return pieces.every(([t]) => t === BISHOP) && pieces.every((p) => shade(p) === shade(pieces[0]));
+}
+
+/**
+ * A chess state from a FEN string (tests and puzzles). White is player 0; the side to move in the
+ * FEN is the player to move.
+ */
+export function chessFromFen(fen) {
+  const [placement, side, rights = '-', ep = '-', clock = '0'] = fen.trim().split(/\s+/);
+  const board = [];
+  for (const ch of placement.replace(/\//g, '')) {
+    if (/\d/.test(ch)) board.push(...Array(Number(ch)).fill(0));
+    else {
+      const t = { p: PAWN, n: KNIGHT, b: BISHOP, r: ROOK, q: QUEEN, k: KING }[ch.toLowerCase()];
+      board.push(ch === ch.toLowerCase() ? -t : t);
+    }
+  }
+  if (board.length !== 64) throw new Error('Bad FEN');
+  const state = {
+    game: 'chess',
+    white: 0,
+    board,
+    castle: [rights.includes('K'), rights.includes('Q'), rights.includes('k'), rights.includes('q')],
+    ep: ep === '-' ? -1 : (8 - Number(ep[1])) * 8 + (ep.charCodeAt(0) - 97),
+    clock: Number(clock),
+    last: null,
+    check: false,
+    turn: side === 'b' ? 1 : 0,
+    winner: null,
+    plies: 0,
+  };
+  const pos = chessPosition(state);
+  return { ...state, seen: [positionKey(pos)], check: chessInCheck(pos) };
+}
+
+const chess = {
+  init: (first = 0) => {
+    const state = { white: first === 1 ? 1 : 0, board: chessStartBoard(), castle: [true, true, true, true], ep: -1, clock: 0, last: null, check: false };
+    return { ...state, seen: [positionKey(chessPosition({ ...state, turn: state.white }))] };
+  },
+  legal: (s, p) => chessMoves(chessPosition(s, p)),
+  apply(s, move, p) {
+    const pos = chessPosition(s, p);
+    if (!isInt(move?.from, 0, 63) || !isInt(move?.to, 0, 63)) fail('Pick a piece, then a square.');
+    const legal = chessMoves(pos);
+    const wanted = legal.filter((m) => m.from === move.from && m.to === move.to);
+    if (!wanted.length) {
+      const mine = pos.b[move.from] * pos.side > 0;
+      fail(mine && pseudoMoves(pos).some((m) => m.from === move.from && m.to === move.to) ? 'That would leave your king in check.' : 'That move isn’t allowed.');
+    }
+    let m = wanted[0];
+    if (m.promo) {
+      m = wanted.find((x) => x.promo === move.promo);
+      if (!m) fail('Pick the piece to promote to.');
+    } else if (move.promo !== undefined && move.promo !== null) {
+      fail('Only a pawn reaching the last row promotes.');
+    }
+    const next = chessMake(pos, m);
+    const capture = pos.b[m.to] !== 0 || (Math.abs(pos.b[m.from]) === PAWN && m.to === pos.ep && (m.from & 7) !== (m.to & 7));
+    const reset = capture || Math.abs(pos.b[m.from]) === PAWN;
+    const clock = reset ? 0 : s.clock + 1;
+    const key = positionKey(next);
+    const seen = reset ? [key] : [...s.seen, key];
+    const check = chessInCheck(next);
+    let winner = null;
+    if (!chessMoves(next).length) winner = check ? p : 'draw';
+    else if (insufficientMaterial(next.b) || clock >= CHESS.quietLimit || seen.filter((k) => k === key).length >= 3) winner = 'draw';
+    return { state: { board: next.b, castle: next.castle, ep: next.ep, clock, seen, last: { from: m.from, to: m.to }, check }, winner };
+  },
+};
+
 // ---------------------------------------------------------------- the common interface
 
-const RULES = { four, gomoku, draughts, dots, torpedoes };
+const RULES = { four, gomoku, draughts, dots, torpedoes, chess };
 
 /** A new game. `first` is the player who moves first (Torpedoes: player 0 places first). */
 export function newGame(game, first = 0) {
   const rules = RULES[game];
   if (!rules) fail('Unknown game.');
-  return { game, ...rules.init(), turn: game === 'torpedoes' ? 0 : first === 1 ? 1 : 0, winner: null, plies: 0 };
+  return { game, ...rules.init(first), turn: game === 'torpedoes' ? 0 : first === 1 ? 1 : 0, winner: null, plies: 0 };
 }
 
 /** The moves `player` can make now ([] when it isn't their turn). */

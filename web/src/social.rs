@@ -144,6 +144,11 @@ pub fn invoke(
         "my_matches" => client.my_matches(&session)?,
         "game_leaderboard" => client.game_leaderboard(&session, &text("game")?, &text("scope")?)?,
         "leave_match" => json!(client.leave_match(&session, &text("id")?)?),
+        "hide_match" => {
+            client.hide_match(&session, &text("id")?)?;
+            Value::Null
+        }
+        "hide_finished_matches" => json!(client.hide_finished_matches(&session)?),
         _ => bail!("Unknown web command"),
     };
     Ok(value)

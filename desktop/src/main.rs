@@ -80,6 +80,8 @@ fn main() {
             duels::my_matches,
             duels::game_leaderboard,
             duels::leave_match,
+            duels::hide_match,
+            duels::hide_finished_matches,
             feed::friend_feed,
             feed::share_post,
             feed::delete_post,

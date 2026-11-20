@@ -247,7 +247,7 @@ async function start() {
   let boot = await api.bootstrap();
   let after = 'discover';
   if (boot.setup.needs_welcome) {
-    after = await runWelcome(boot);
+    after = await runWelcome(boot, ctx);
     boot = await api.bootstrap();
     renderMe();
   }

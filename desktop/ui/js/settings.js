@@ -1,4 +1,4 @@
-// City, interests, Steam and YouTube connections. API keys are write-only: the UI never sees them.
+// Display, city, interests, language, updates, your data, help. Nothing here needs an account.
 
 import { profileSection } from './account.js';
 import { api, inTauri } from './api.js';
@@ -33,7 +33,6 @@ export async function render(root, ctx, options = {}) {
   try {
     draw(root, ctx, await api.settings());
     if (options.focus === 'profile') root.querySelector('.profile-box')?.scrollIntoView({ block: 'start' });
-    if (options.focus === 'assistant') root.querySelector('.assistant-settings')?.scrollIntoView({ block: 'start' });
   } catch (e) {
     root.replaceChildren(head(), emptyState({ icon: 'triangle-alert', title: 'Could not load your settings', text: errText(e) }));
   }
@@ -93,9 +92,6 @@ function draw(root, ctx, s) {
         displaySection(),
         locationSection(s, ctx, root, (box) => (cityBox = box)),
         interestsSection(form),
-        steamSection(s, form, ctx, root),
-        youtubeSection(s, form),
-        assistantSection(s, form),
         languageSection(),
         section('download', 'Updates', inTauri ? 'New versions come from freetime’s GitHub releases and are signed: anything else is refused.' : 'The web version updates when you reopen it.', null, updatesBody()),
         dataSection(s),
@@ -236,186 +232,6 @@ function interestsSection(form) {
   );
 }
 
-function steamSection(s, form, ctx, root) {
-  const st = s.steam;
-  const day = (unix) => new Date(unix * 1000).toLocaleDateString();
-  const picker = h('div', { class: 'row' });
-  const label = inTauri ? (st.imported ? 'Re-import my games from Steam on this PC' : 'Import my games from Steam on this PC') : 'Import my Steam library';
-  const importBtn = h('button', { type: 'button', class: 'btn', onclick: () => startImport() }, label);
-
-  async function finish(steamId) {
-    importBtn.disabled = true;
-    importBtn.textContent = 'Importing…';
-    try {
-      const done = await api.steamImport(steamId);
-      toast(`${done.status.games} games imported (${done.status.installed} installed)`, 'ok', 4500);
-      for (const note of done.notes) toast(note, 'error', 7000);
-      ctx.settingsSaved?.();
-      render(root, ctx);
-    } catch (e) {
-      toast(errText(e), 'error', 7000);
-      importBtn.disabled = false;
-      importBtn.textContent = label;
-    }
-  }
-
-  // Only now are Steam's folder and the allowed files read.
-  async function startImport() {
-    if (!inTauri) return finish(form.steam_profile || null);
-    try {
-      const scan = await api.steamScan();
-      if (scan.chosen) return finish(scan.chosen);
-      if (!scan.found) {
-        toast('Steam isn’t installed on this PC. Paste your SteamID and add a Web API key to import from your account.', 'error', 7000);
-        return;
-      }
-      if (!scan.accounts.length) {
-        toast('No Steam account has used this PC yet.', 'error');
-        return;
-      }
-      if (scan.accounts.length === 1) return finish(scan.accounts[0].steam_id64);
-      picker.replaceChildren(
-        h('span', { class: 'field-label' }, 'Which account?'),
-        ...scan.accounts.map((a) =>
-          h(
-            'button',
-            {
-              type: 'button',
-              class: 'btn small',
-              onclick: () => {
-                picker.replaceChildren();
-                finish(a.steam_id64);
-              },
-            },
-            a.last_used ? `${a.steam_id64} · last used ${day(a.last_used)}` : a.steam_id64,
-          ),
-        ),
-      );
-    } catch (e) {
-      toast(errText(e), 'error');
-    }
-  }
-
-  async function forget() {
-    try {
-      await api.steamForget();
-      toast('Imported games forgotten', 'ok');
-      ctx.settingsSaved?.();
-      render(root, ctx);
-    } catch (e) {
-      toast(errText(e), 'error');
-    }
-  }
-
-  return section(
-    'gamepad-2',
-    'Steam',
-    inTauri ? 'freetime never reads Steam’s files on its own. Import your games once (installed games and playtime), and re-import after installing new ones.' : 'Enter your Steam profile and save a Web API key below to import your public game library.',
-    pill(st.imported, st.imported ? `${st.games} games` : 'Not imported'),
-    h(
-      'div',
-      { class: 'row' },
-      importBtn,
-      st.imported ? h('button', { type: 'button', class: 'btn small quiet', onclick: forget }, 'Forget imported games') : null,
-    ),
-    st.imported
-      ? h(
-          'span',
-          { class: 'hint' },
-          `Imported ${day(st.imported_at)} ${st.from_web_api ? 'from your Steam account' : 'from this PC'} · SteamID ${st.steam_id64}`,
-        )
-      : null,
-    picker,
-    labeled(
-      'Or paste your SteamID64 or profile URL',
-      input({
-        value: form.steam_profile,
-        placeholder: '7656119… or steamcommunity.com/profiles/7656119…',
-        'aria-label': 'SteamID64 or profile URL',
-        oninput: (e) => (form.steam_profile = e.target.value),
-      }),
-      'Saved with “Save changes”, then used by the import instead of asking.',
-    ),
-    keyField({
-      label: 'Web API key (optional)',
-      isSet: s.steam_key_set,
-      fromEnv: s.steam_key_from_env,
-      envName: 'STEAM_API_KEY',
-      getUrl: 'https://steamcommunity.com/dev/apikey',
-      onInput: (v) => (form.steam_key = v),
-      onClear: (v) => (form.clear_steam_key = v),
-    }),
-    h('span', { class: 'hint' }, 'With a key, the import also lists every game on your account, with playtime. Game details must be public.'),
-  );
-}
-
-function youtubeSection(s, form) {
-  // Searches on your interests work without a key, through freetime's shared search.
-  return section(
-    'circle-play',
-    'YouTube',
-    'Real videos that fit your free time, from your interests and the channels you follow.',
-    pill(true, s.youtube_key_set ? 'Your own key' : 'Connected'),
-    h('span', { class: 'hint' }, 'Nothing to set up: videos for your interests come from freetime’s shared search, refreshed every few hours.'),
-    keyField({
-      label: 'Your own Data API key (optional)',
-      isSet: s.youtube_key_set,
-      fromEnv: s.youtube_key_from_env,
-      envName: 'YOUTUBE_API_KEY',
-      getUrl: 'https://console.cloud.google.com/apis/library/youtube.googleapis.com',
-      onInput: (v) => (form.youtube_key = v),
-      onClear: (v) => (form.clear_youtube_key = v),
-    }),
-    h('span', { class: 'hint' }, 'Only useful if the shared search runs out for the day: your key searches with your own quota.'),
-    labeled(
-      'Channels you follow (no key needed)',
-      tagInput(form.channels, 'Channel ID (starts with UC…), press Enter'),
-      'On a channel page: About → Share channel → Copy channel ID.',
-    ),
-  );
-}
-
-/** The chat assistant: a Mistral key and the model. Saved with "Save changes". */
-function assistantSection(s, form) {
-  const listId = 'assistant-models';
-  const models = h('datalist', { id: listId });
-  const modelInput = input({
-    value: form.assistant_model,
-    list: listId,
-    placeholder: 'mistral-small-latest',
-    'aria-label': 'Mistral model',
-    oninput: (e) => (form.assistant_model = e.target.value),
-  });
-  // The models this key can use (or a built-in list): suggestions, any id can be typed.
-  api
-    .assistantModels()
-    .then((list) => models.replaceChildren(...list.map((m) => h('option', { value: m }))))
-    .catch(() => {});
-  const box = section(
-    'sparkles',
-    'Assistant',
-    'Chat with an assistant that knows your picks: the bubble at the bottom right of every screen. It runs on Mistral AI: free when you’re signed in, with a daily limit, or without limit on your own API key.',
-    pill(true, s.mistral_key_set ? s.assistant_model : 'Free when signed in'),
-    keyField({
-      label: 'Mistral API key',
-      isSet: s.mistral_key_set,
-      fromEnv: s.mistral_key_from_env,
-      envName: 'MISTRAL_API_KEY',
-      getUrl: 'https://console.mistral.ai/api-keys',
-      onInput: (v) => (form.mistral_key = v),
-      onClear: (v) => (form.clear_mistral_key = v),
-    }),
-    labeled('Model', h('div', {}, modelInput, models), 'With your own key: pick from the list or type any Mistral model id. Small models answer fastest.'),
-    h(
-      'span',
-      { class: 'hint' },
-      'Only when you write to it, your messages are sent to Mistral with a short context: the date, the weather, what you set on Discover, your interests, your current picks and your last few picks. The free assistant goes through freetime’s server, which only counts your messages for the daily limit.',
-    ),
-  );
-  box.classList.add('assistant-settings');
-  return box;
-}
-
 /** Automatic (follows Windows), English or French. Changing it reloads the window. */
 function languageSection() {
   const current = preferredLang();
@@ -531,37 +347,6 @@ function labeled(text, control, ...extras) {
     h('span', { class: 'field-label' }, text),
     control,
     extras.map((x) => (typeof x === 'string' ? h('span', { class: 'hint' }, x) : x)),
-  );
-}
-
-function input(props) {
-  return h('input', { class: 'input', type: 'text', spellcheck: 'false', autocomplete: 'off', ...props });
-}
-
-function keyField({ label, isSet, fromEnv, envName, getUrl, onInput, onClear }) {
-  const field = input({
-    type: 'password',
-    placeholder: isSet ? 'Saved (leave empty to keep it)' : 'Paste your key here',
-    'aria-label': label,
-    oninput: (e) => onInput(e.target.value),
-  });
-  return labeled(
-    label,
-    h(
-      'div',
-      { class: 'row' },
-      field,
-      h(
-        'button',
-        { type: 'button', class: 'btn small', onclick: () => api.open(getUrl).catch((e) => toast(errText(e), 'error')) },
-        icon('external-link'),
-        'Get a key',
-      ),
-    ),
-    fromEnv ? `Using ${envName} from your environment.` : null,
-    isSet && !fromEnv
-      ? h('label', { class: 'check' }, h('input', { type: 'checkbox', onchange: (e) => onClear(e.target.checked) }), 'Remove the saved key')
-      : null,
   );
 }
 

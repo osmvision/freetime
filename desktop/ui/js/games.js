@@ -1,5 +1,5 @@
 // Games: the daily quiz, quiz duels with friends, and two-player games (Four in a row, Giant
-// tic-tac-toe, Draughts, Dots and boxes, Torpedoes) against the computer or a friend. A duel is 5
+// tic-tac-toe, Draughts, Dots and boxes, Torpedoes, Chess) against the computer or a friend. A duel is 5
 // questions for both players; the server picks them and keeps the score. Online games are checked
 // move by move on the server with the same rules as the app (js/play/rules.js).
 
@@ -136,8 +136,62 @@ async function renderMatches(box, ctx) {
   fill(
     box,
     h('div', { class: 'duels-head' }, h('div', {}, h('h2', {}, 'Your games with friends'), h('p', { class: 'hint' }, 'With your friends, turn by turn. A game nobody plays for 7 days ends.'))),
-    groups.map(([title, items]) => h('div', { class: 'duel-group' }, h('h3', { class: 'duel-group-title' }, title), h('ul', { class: 'duel-list' }, items.map((m) => matchRow(m, reload))))),
+    groups.map(([title, items]) => (title === 'Finished' ? finishedGroup(items, reload) : h('div', { class: 'duel-group' }, h('h3', { class: 'duel-group-title' }, title), h('ul', { class: 'duel-list' }, items.map((m) => matchRow(m, reload)))))),
   );
+}
+
+// Finished games: the latest few, the rest a click away; each one (or all of them) can be cleared.
+const FINISHED_SHOWN = 5;
+let finishedAll = false;
+
+function finishedGroup(items, reload) {
+  const shown = finishedAll ? items : items.slice(0, FINISHED_SHOWN);
+  const clearAll = btn({ label: 'Clear history', icon: 'trash-2', kind: 'quiet', small: true });
+  let armed = null;
+  clearAll.addEventListener('click', async () => {
+    if (!armed) {
+      clearAll.classList.add('armed');
+      clearAll.lastChild.textContent = 'Click again to clear the history';
+      armed = setTimeout(reload, 4000);
+      return;
+    }
+    clearTimeout(armed);
+    clearAll.disabled = true;
+    try {
+      await api.hideFinishedMatches();
+      toast('History cleared', 'ok');
+    } catch (e) {
+      toast(errText(e), 'error', 6000);
+    }
+    reload();
+  });
+  return h(
+    'div',
+    { class: 'duel-group' },
+    h('div', { class: 'duel-group-head' }, h('h3', { class: 'duel-group-title' }, 'Finished'), clearAll),
+    h('ul', { class: 'duel-list' }, shown.map((m) => matchRow(m, reload))),
+    items.length > FINISHED_SHOWN
+      ? btn({
+          label: finishedAll ? 'Show fewer' : `Show ${items.length - FINISHED_SHOWN} more`,
+          icon: finishedAll ? null : 'chevron-down',
+          kind: 'quiet',
+          small: true,
+          onclick: () => {
+            finishedAll = !finishedAll;
+            reload();
+          },
+        })
+      : null,
+  );
+}
+
+async function clearMatch(m, reload) {
+  try {
+    await api.hideMatch(m.id);
+  } catch (e) {
+    toast(errText(e), 'error', 6000);
+  }
+  reload();
 }
 
 const OUTCOME = { won: ['You won', 'won'], lost: ['You lost', 'lost'], draw: ['Draw', 'draw'], declined: ['Declined', 'off'], cancelled: ['Cancelled', 'off'], expired: ['Expired', 'off'] };
@@ -172,6 +226,7 @@ function matchRow(m, reload) {
       'div',
       { class: 'person-actions' },
       btn({ label: m.phase === 'your_turn' ? 'Play' : 'Open', icon: m.phase === 'your_turn' ? 'play' : 'eye', kind: m.phase === 'your_turn' ? 'primary' : '', small: true, onclick: () => playOnline(m, reload) }),
+      m.phase === 'over' ? btn({ label: 'Remove this game from your list', icon: 'trash-2', kind: 'quiet', small: true, square: true, onclick: () => clearMatch(m, reload) }) : null,
     ),
   );
 }

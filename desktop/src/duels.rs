@@ -95,3 +95,15 @@ pub fn leave_match(state: State<'_, AppState>, id: String) -> Res<String> {
     let s = live_session(&state)?;
     Client::new().map_err(err)?.leave_match(&s, &id).map_err(err)
 }
+
+#[tauri::command(async)]
+pub fn hide_match(state: State<'_, AppState>, id: String) -> Res<()> {
+    let s = live_session(&state)?;
+    Client::new().map_err(err)?.hide_match(&s, &id).map_err(err)
+}
+
+#[tauri::command(async)]
+pub fn hide_finished_matches(state: State<'_, AppState>) -> Res<u32> {
+    let s = live_session(&state)?;
+    Client::new().map_err(err)?.hide_finished_matches(&s).map_err(err)
+}

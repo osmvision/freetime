@@ -13,6 +13,8 @@ export function board(state, opts) {
       return gomokuBoard(state, opts);
     case 'draughts':
       return draughtsBoard(state, opts);
+    case 'chess':
+      return chessBoard(state, opts);
     case 'dots':
       return dotsBoard(state, opts);
     case 'torpedoes':
@@ -131,6 +133,147 @@ function draughtsBoard(state, { me, active, onMove }) {
     const done = moves.find((m) => m.path.length === prefix.length && m.path.every((x, k) => x === prefix[k]));
     if (done) onMove({ path: done.path, captured: done.captured });
     else draw();
+  }
+
+  draw();
+  return root;
+}
+
+// ---------------------------------------------------------------- chess
+
+const SVG_NS = 'http://www.w3.org/2000/svg';
+const svgNode = (tag, attrs) => {
+  const el = document.createElementNS(SVG_NS, tag);
+  for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v);
+  return el;
+};
+
+// The pieces are drawn from simple shapes (45 × 45), the same on every device: no font involved.
+// 'body' shapes take the piece's colour, 'cut' shapes are the thin lines on top of it.
+const SHAPES = {
+  1: [
+    ['circle', { cx: 22.5, cy: 13.5, r: 5.5 }],
+    ['path', { d: 'M22.5 19.5 C17.5 21 15.5 26 15 31 L13 36 C12.5 37.5 13.5 38.5 15 38.5 H30 C31.5 38.5 32.5 37.5 32 36 L30 31 C29.5 26 27.5 21 22.5 19.5 Z' }],
+  ],
+  2: [
+    ['path', { d: 'M13 38.5 C13 33 14.5 29 18 26 C15 26.5 12.5 28 10 27 C9 24 12 20 16 16 C17 14 17.5 11.5 17 9 C19 9.5 20.5 10.5 21.5 12 C24 9.5 28 10.5 30 14 C33 19 33.5 27 32.5 31 L32 38.5 Z' }],
+    ['circle', { cx: 17.5, cy: 15.5, r: 1.2 }, 'cut'],
+  ],
+  3: [
+    ['path', { d: 'M12 38.5 V34.5 H33 V38.5 Z' }],
+    ['path', { d: 'M15.5 34.5 C16 29 19 26.5 22.5 22.5 C26 26.5 29 29 29.5 34.5 Z' }],
+    ['path', { d: 'M22.5 8 C27 12.5 29 16 29 19.5 C29 22.5 26.5 25 22.5 25 C18.5 25 16 22.5 16 19.5 C16 16 18 12.5 22.5 8 Z' }],
+    ['circle', { cx: 22.5, cy: 7, r: 2.2 }],
+    ['path', { d: 'M21.5 14 L26 19', fill: 'none' }, 'cut'],
+  ],
+  4: [
+    ['path', { d: 'M12 38.5 V34.5 H33 V38.5 Z' }],
+    ['path', { d: 'M14.5 34.5 L16 19 H29 L30.5 34.5 Z' }],
+    ['path', { d: 'M13 19 V8.5 H18 V12.5 H20.5 V8.5 H24.5 V12.5 H27 V8.5 H32 V19 Z' }],
+  ],
+  5: [
+    ['path', { d: 'M11 38.5 V34.5 H34 V38.5 Z' }],
+    ['path', { d: 'M13 34.5 L10.5 14 L13.5 26 L16.5 11 L19.5 26 L22.5 9.5 L25.5 26 L28.5 11 L31.5 26 L34.5 14 L32 34.5 Z' }],
+    ...[[10.5, 13], [16.5, 10], [22.5, 8.5], [28.5, 10], [34.5, 13]].map(([cx, cy]) => ['circle', { cx, cy, r: 2.1 }]),
+  ],
+  6: [
+    ['path', { d: 'M11 38.5 V34.5 H34 V38.5 Z' }],
+    ['path', { d: 'M13.5 34.5 C12 28 15 23 20 21.5 V18 H25 V21.5 C30 23 33 28 31.5 34.5 Z' }],
+    ['path', { d: 'M20.5 5.5 H24.5 V9 H28 V13 H24.5 V18 H20.5 V13 H17 V9 H20.5 Z' }],
+  ],
+};
+const PIECE_NAMES = { 1: 'pawn', 2: 'knight', 3: 'bishop', 4: 'rook', 5: 'queen', 6: 'king' };
+const PROMOTION_CHOICES = [['q', 5], ['r', 4], ['b', 3], ['n', 2]];
+
+/** One piece as an SVG: `type` is 1-6 (pawn to king). */
+export function chessPiece(type, white) {
+  const svg = svgNode('svg', { viewBox: '0 0 45 45', class: `chess-piece ${white ? 'w' : 'b'}`, 'aria-hidden': 'true', focusable: 'false' });
+  for (const [tag, attrs, role] of SHAPES[type]) svg.append(svgNode(tag, { ...attrs, class: role === 'cut' ? 'cut' : 'body' }));
+  return svg;
+}
+
+function chessBoard(state, { me, active, onMove }) {
+  // Your pieces at the bottom: whoever plays black sees the board turned round.
+  const flip = me !== state.white;
+  const moves = active ? legalMoves(state, me) : [];
+  const last = new Set(state.last ? [state.last.from, state.last.to] : []);
+  let selected = -1;
+  let promoting = null;
+
+  // The king in check: the side to move, or the side that has just been mated.
+  const mover = state.turn ?? (state.winner === 0 || state.winner === 1 ? 1 - state.winner : null);
+  const kingInCheck = state.check && mover !== null ? state.board.indexOf((mover === state.white ? 1 : -1) * 6) : -1;
+
+  const root = h('div', { class: 'board chess-board', role: 'grid', 'aria-label': 'Chess' });
+  const name = (i) => `${String.fromCharCode(97 + (i & 7))}${8 - (i >> 3)}`;
+
+  function draw() {
+    const from = new Set(moves.map((m) => m.from));
+    const targets = new Set(selected >= 0 ? moves.filter((m) => m.from === selected).map((m) => m.to) : []);
+    const cells = [];
+    for (let k = 0; k < 64; k++) {
+      const i = flip ? 63 - k : k;
+      const r = i >> 3;
+      const c = i & 7;
+      const v = state.board[i];
+      const movable = from.has(i);
+      const target = targets.has(i);
+      const col = k & 7;
+      const row = k >> 3;
+      cells.push(
+        h(
+          'button',
+          {
+            type: 'button',
+            class: `ch-cell ${(r + c) % 2 === 1 ? 'dark' : 'light'}${i === selected ? ' chosen' : ''}${target ? (v !== 0 || (Math.abs(state.board[selected]) === 1 && i === state.ep) ? ' capture' : ' target') : ''}${movable && selected < 0 ? ' movable' : ''}${last.has(i) ? ' last' : ''}${i === kingInCheck ? ' check' : ''}`,
+            disabled: promoting !== null || !(movable || target),
+            'aria-label': `${name(i)}${v !== 0 ? `, ${v > 0 ? 'white' : 'black'} ${PIECE_NAMES[Math.abs(v)]}` : ''}`,
+            'aria-pressed': movable ? String(i === selected) : null,
+            onclick: () => pick(i),
+          },
+          v !== 0 ? chessPiece(Math.abs(v), v > 0) : null,
+          // The coordinates sit on the board's own edges, in the squares' corners.
+          col === 0 ? h('span', { class: 'ch-rank', 'aria-hidden': 'true' }, String(8 - r)) : null,
+          row === 7 ? h('span', { class: 'ch-file', 'aria-hidden': 'true' }, String.fromCharCode(97 + c)) : null,
+        ),
+      );
+    }
+    root.replaceChildren(...cells, ...(promoting ? [chooser()] : []));
+  }
+
+  /** The four pieces a pawn can become, over the board. */
+  function chooser() {
+    const white = state.board[promoting.from] > 0;
+    return h(
+      'div',
+      { class: 'ch-promote', role: 'group', 'aria-label': 'Promote the pawn to' },
+      PROMOTION_CHOICES.map(([promo, type]) =>
+        h(
+          'button',
+          {
+            type: 'button',
+            class: 'ch-choice',
+            'aria-label': PIECE_NAMES[type],
+            onclick: () => onMove({ from: promoting.from, to: promoting.to, promo }),
+          },
+          chessPiece(type, white),
+        ),
+      ),
+      h('button', { type: 'button', class: 'ch-choice cancel', 'aria-label': 'Cancel', onclick: () => ((promoting = null), draw()) }, icon('x')),
+    );
+  }
+
+  function pick(i) {
+    const options = selected >= 0 ? moves.filter((m) => m.from === selected && m.to === i) : [];
+    if (options.length) {
+      if (options[0].promo) {
+        promoting = { from: selected, to: i };
+        return draw();
+      }
+      return onMove({ from: selected, to: i });
+    }
+    selected = i === selected || !moves.some((m) => m.from === i) ? -1 : i;
+    draw();
   }
 
   draw();
