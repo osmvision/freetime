@@ -14,12 +14,42 @@ pub const RATE_AFTER_SECS: i64 = 30 * 60;
 const MAX_ENTRIES: usize = 500;
 const RECENT_SECS: i64 = 3 * 86_400;
 const RATE_WINDOW_SECS: i64 = 14 * 86_400;
+/// Passes older than this no longer count: tastes and moods change.
+const PASS_WINDOW_SECS: i64 = 21 * 86_400;
+/// The same idea passed twice within this gap counts once ("Other picks" pressed twice in a row).
+const PASS_DEBOUNCE_SECS: i64 = 3600;
+pub const MAX_PASSES: usize = 600;
+pub const MAX_NEVER: usize = 1000;
+/// How much a "never" weighs on the taste of its category and tags (a 👎 weighs 1).
+const NEVER_WEIGHT: f64 = 0.5;
 /// Tags that every item of a source shares: they say nothing about taste.
 const GENERIC_TAGS: [&str; 5] = ["steam", "store", "youtube", "epic", "free-week"];
 
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub struct History {
     pub entries: Vec<Entry>,
+    /// Ideas shown first and passed over without starting them: a light signal that fades.
+    #[serde(default)]
+    pub passes: Vec<Pass>,
+    /// Ideas the user asked never to see again ("Never suggest this"). Undone from Settings.
+    #[serde(default)]
+    pub never: Vec<Never>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Pass {
+    pub id: String,
+    pub ts: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Never {
+    pub id: String,
+    pub category: Category,
+    pub title: String,
+    #[serde(default)]
+    pub tags: Vec<String>,
+    pub ts: i64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -87,6 +117,10 @@ pub struct Prefs {
     pub recent: HashSet<String>,
     pub disliked: HashSet<String>,
     pub liked: HashSet<String>,
+    /// Ideas the user never wants to see again.
+    pub never: HashSet<String>,
+    /// How many times each idea was passed over lately (within `PASS_WINDOW_SECS`).
+    pub passed: HashMap<String, u32>,
 }
 
 impl Prefs {
@@ -158,6 +192,42 @@ impl History {
         }
     }
 
+    /// The idea was shown first and passed over ("Not this one", "Other picks"). Returns false
+    /// when it was already counted within the last hour.
+    pub fn record_pass(&mut self, id: &str, now: i64) -> bool {
+        if id.is_empty() || self.passes.iter().any(|p| p.id == id && (now - p.ts).abs() < PASS_DEBOUNCE_SECS) {
+            return false;
+        }
+        self.passes.retain(|p| now - p.ts < PASS_WINDOW_SECS);
+        self.passes.push(Pass { id: id.to_string(), ts: now });
+        if self.passes.len() > MAX_PASSES {
+            let extra = self.passes.len() - MAX_PASSES;
+            self.passes.drain(..extra);
+        }
+        true
+    }
+
+    /// "Never suggest this": the idea stops coming back until the user undoes it.
+    pub fn hide(&mut self, s: &Suggestion, now: i64) {
+        if self.never.iter().any(|n| n.id == s.id) {
+            return;
+        }
+        self.never.push(Never { id: s.id.clone(), category: s.category, title: s.title.clone(), tags: s.tags.clone(), ts: now });
+        if self.never.len() > MAX_NEVER {
+            let extra = self.never.len() - MAX_NEVER;
+            self.never.drain(..extra);
+        }
+    }
+
+    /// Undoes `hide`, and forgets the passes so the idea comes back on equal terms.
+    /// Returns false when the idea wasn't hidden.
+    pub fn unhide(&mut self, id: &str) -> bool {
+        let before = self.never.len();
+        self.never.retain(|n| n.id != id);
+        self.passes.retain(|p| p.id != id);
+        self.never.len() != before
+    }
+
     /// Indexes of picks that still need a rating, newest first.
     pub fn unrated(&self, now: i64, min_age_secs: i64, limit: usize) -> Vec<usize> {
         self.entries
@@ -201,6 +271,22 @@ impl History {
                 t.0 += r;
                 t.1 += 1.0;
             }
+        }
+        // "Never" is a half-weight 👎 on the taste, and the idea itself never comes back.
+        for n in &self.never {
+            p.never.insert(n.id.clone());
+            let c = cat.entry(n.category).or_default();
+            c.0 -= NEVER_WEIGHT;
+            c.1 += NEVER_WEIGHT;
+            for t in n.tags.iter().filter(|t| !GENERIC_TAGS.contains(&t.as_str())) {
+                let t = tag.entry(t.clone()).or_default();
+                t.0 -= NEVER_WEIGHT;
+                t.1 += NEVER_WEIGHT;
+            }
+        }
+        // Passes only touch the idea itself: skipping a game tonight says little about games.
+        for pass in self.passes.iter().filter(|p| now - p.ts < PASS_WINDOW_SECS) {
+            *p.passed.entry(pass.id.clone()).or_default() += 1;
         }
         // Shrink towards 0 so one rating doesn't swing everything.
         p.category = cat.into_iter().map(|(k, (s, n))| (k, s / (n + 2.0))).collect();
@@ -362,6 +448,7 @@ mod tests {
                 entry("b", Category::Sport, Some(1), now - 9 * 86_400),
                 entry("c", Category::Food, Some(-1), now - 100),
             ],
+            ..Default::default()
         };
         let p = h.prefs(now);
         assert!(p.category_affinity(Category::Sport) > 0.4);
@@ -380,7 +467,71 @@ mod tests {
                 entry("b", Category::Sport, None, now - 3600),
                 entry("fresh", Category::Sport, None, now - 60),
             ],
+            ..Default::default()
         };
         assert_eq!(h.unrated(now, 1800, 5), vec![2, 1]);
+    }
+
+    fn idea(id: &str, cat: Category) -> Suggestion {
+        Suggestion {
+            id: id.into(),
+            category: cat,
+            title: id.into(),
+            detail: String::new(),
+            link: None,
+            image: None,
+            min_minutes: 10,
+            max_minutes: 30,
+            energy: Energy::Medium,
+            outdoor: false,
+            social: Social::Solo,
+            cost: Cost::Free,
+            quality: 0.5,
+            tags: vec!["knitting".into(), "steam".into()],
+        }
+    }
+
+    #[test]
+    fn passes_count_once_an_hour_and_fade() {
+        let now = 10_000_000;
+        let mut h = History::default();
+        assert!(h.record_pass("a", now - 22 * 86_400), "an old pass");
+        assert!(h.record_pass("a", now - 7200));
+        assert!(!h.record_pass("a", now - 7000), "Other picks twice in a row counts once");
+        assert!(h.record_pass("a", now));
+        assert!(h.record_pass("b", now));
+        assert!(!h.record_pass("", now));
+        let p = h.prefs(now);
+        assert_eq!(p.passed.get("a"), Some(&2), "the 22-day-old pass no longer counts");
+        assert_eq!(p.passed.get("b"), Some(&1));
+        assert_eq!(h.passes.len(), 3, "faded passes are dropped when a new one comes");
+    }
+
+    #[test]
+    fn never_hides_the_idea_and_nudges_its_taste() {
+        let now = 10_000_000;
+        let mut h = History::default();
+        h.hide(&idea("knit", Category::Create), now);
+        h.hide(&idea("knit", Category::Create), now);
+        h.record_pass("knit", now);
+        assert_eq!(h.never.len(), 1, "hiding twice keeps one entry");
+        let p = h.prefs(now);
+        assert!(p.never.contains("knit"));
+        assert!(p.category_affinity(Category::Create) < 0.0);
+        assert!(p.tag_affinity(&["knitting".into()]) < 0.0);
+        assert_eq!(p.tag_affinity(&["steam".into()]), 0.0, "source tags say nothing about taste");
+
+        assert!(h.unhide("knit"));
+        assert!(!h.unhide("knit"));
+        let p = h.prefs(now);
+        assert!(!p.never.contains("knit") && p.passed.is_empty(), "back on equal terms");
+        assert_eq!(p.category_affinity(Category::Create), 0.0);
+    }
+
+    #[test]
+    fn history_without_passes_or_never_still_loads() {
+        let old = r#"{"entries":[{"id":"a","category":"sport","title":"A","ts":1}]}"#;
+        let h: History = serde_json::from_str(old).unwrap();
+        assert!(h.passes.is_empty() && h.never.is_empty() && h.entries.len() == 1);
     }
 }

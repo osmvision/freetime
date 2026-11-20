@@ -53,6 +53,7 @@ fn up_to(history: &History, last: Option<NaiveDate>) -> History {
             })
             .cloned()
             .collect::<Vec<Entry>>(),
+        ..Default::default()
     }
 }
 
@@ -226,6 +227,7 @@ mod tests {
                 e("idea:aglio-olio", Category::Food, at(2026, 11, 18, 12)), // new: +2
                 e(&daily.id, daily.category, at(2026, 11, 18, 18)), // ticket of the day: +3 (and +2 if new)
             ],
+            ..Default::default()
         };
         let mut log = QuizLog::default();
         log.days.insert(day.to_string(), quiz::Score { score: 4, total: 5 });
@@ -253,7 +255,7 @@ mod tests {
     fn first_ticket_badge_counts_once() {
         let cat = catalog::load();
         let d1 = NaiveDate::from_ymd_opt(2026, 11, 16).unwrap();
-        let h = History { entries: vec![e("idea:hike", Category::Sport, at(2026, 11, 16, 10)), e("idea:swim", Category::Sport, at(2026, 11, 17, 10))] };
+        let h = History { entries: vec![e("idea:hike", Category::Sport, at(2026, 11, 16, 10)), e("idea:swim", Category::Sport, at(2026, 11, 17, 10))], ..Default::default() };
         let p1 = day_points(&h, &cat, &QuizLog::default(), d1);
         assert_eq!(p1.badges, 5, "First ticket, earned on the 16th: {p1:?}");
         let p2 = day_points(&h, &cat, &QuizLog::default(), d1.succ_opt().unwrap());

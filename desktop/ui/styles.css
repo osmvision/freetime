@@ -1386,6 +1386,28 @@ button.tag:hover {
   animation: issue 0.3s var(--ease) backwards;
 }
 
+.toast-action {
+  min-height: 32px;
+  margin-left: 4px;
+  padding: 4px 10px;
+  border: 1px solid currentColor;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.toast-action:hover {
+  background: rgb(255 255 255 / 0.12);
+}
+
+.toast-action:focus-visible {
+  outline: 2px solid #cdbff0;
+  outline-offset: 2px;
+}
+
 .toast .icon {
   width: 18px;
   height: 18px;

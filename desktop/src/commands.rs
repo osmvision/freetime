@@ -566,6 +566,68 @@ pub fn pick(state: State<'_, AppState>, id: String) -> Res<Picked> {
     Ok(Picked { title: s.title, icon: s.category.icon(), link: s.link })
 }
 
+/// The lead idea was passed over ("Not this one", "Other picks"): it sinks a little for a while.
+#[tauri::command(async)]
+pub fn pass_idea(id: String) -> Res<()> {
+    let mut h = History::load();
+    if h.record_pass(&id, history::now()) {
+        h.save().map_err(err)?;
+    }
+    Ok(())
+}
+
+/// "Never suggest this": the idea stops coming back until it's restored from Settings.
+#[tauri::command(async)]
+pub fn hide_idea(state: State<'_, AppState>, id: String) -> Res<()> {
+    let s = lock(&state.shown)
+        .get(&id)
+        .cloned()
+        .ok_or_else(|| "That idea isn't available anymore. Refresh your picks.".to_string())?;
+    let mut h = History::load();
+    h.hide(&s, history::now());
+    h.save().map_err(err)
+}
+
+/// Undoes "Never suggest this".
+#[tauri::command(async)]
+pub fn unhide_idea(id: String) -> Res<Vec<HiddenIdea>> {
+    let mut h = History::load();
+    if h.unhide(&id) {
+        h.save().map_err(err)?;
+    }
+    Ok(hidden_list(&h))
+}
+
+#[derive(Serialize)]
+pub struct HiddenIdea {
+    id: String,
+    title: String,
+    category: Category,
+    category_label: &'static str,
+    ago: String,
+}
+
+fn hidden_list(h: &History) -> Vec<HiddenIdea> {
+    let now = history::now();
+    h.never
+        .iter()
+        .rev()
+        .map(|n| HiddenIdea {
+            id: n.id.clone(),
+            title: n.title.clone(),
+            category: n.category,
+            category_label: n.category.label(),
+            ago: history::ago(now - n.ts),
+        })
+        .collect()
+}
+
+/// Ideas hidden with "Never suggest this", newest first.
+#[tauri::command(async)]
+pub fn hidden_ideas() -> Vec<HiddenIdea> {
+    hidden_list(&History::load())
+}
+
 #[tauri::command(async)]
 pub fn open_link(url: String) -> Res<()> {
     open::open_link(&url).map_err(err)

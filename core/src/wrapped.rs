@@ -156,6 +156,7 @@ mod tests {
                 e("steam:620", Category::Game, at(11, 16), None),
                 e("idea:swim", Category::Sport, at(12, 1), Some(1)), // December: after
             ],
+            ..Default::default()
         };
         let mut quizzes = QuizLog::default();
         quizzes.days.insert("2026-11-03".into(), Score { score: 4, total: 5 });

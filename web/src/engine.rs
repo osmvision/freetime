@@ -341,6 +341,8 @@ pub fn invoke(call: Call, token: Option<&str>) -> Result<Value> {
         keys,
     } = call;
     if state.history.entries.len() > 500
+        || state.history.passes.len() > history::MAX_PASSES
+        || state.history.never.len() > history::MAX_NEVER
         || state.friends.len() > 50
         || state.online.len() > 1000
         || state.shown.len() > 1000
@@ -358,6 +360,8 @@ pub fn invoke(call: Call, token: Option<&str>) -> Result<Value> {
         .entries
         .iter()
         .any(|e| e.minutes.is_some_and(|m| m > 600) || e.ts < 0 || e.ts > 4_102_444_800)
+        || state.history.passes.iter().any(|p| p.ts < 0 || p.ts > 4_102_444_800 || p.id.len() > 300)
+        || state.history.never.iter().any(|n| n.ts < 0 || n.ts > 4_102_444_800 || n.id.len() > 300 || n.title.len() > 400)
         || state
             .online
             .iter()
@@ -440,6 +444,43 @@ pub fn invoke(call: Call, token: Option<&str>) -> Result<Value> {
                 "icon": item.category.icon(),
                 "link": item.link
             })
+        }
+        "pass_idea" => {
+            let id: String = arg(&args, "id")?;
+            if state.history.record_pass(&id, history::now()) {
+                patch["history"] = json!(state.history);
+            }
+            Value::Null
+        }
+        "hide_idea" => {
+            let id: String = arg(&args, "id")?;
+            let item = state
+                .shown
+                .iter()
+                .chain(state.online.iter())
+                .find(|s| s.id == id)
+                .cloned()
+                .or_else(|| catalog::load().into_iter().find(|s| s.id == id))
+                .context("Refresh your picks to find this idea")?;
+            state.history.hide(&item, history::now());
+            patch["history"] = json!(state.history);
+            Value::Null
+        }
+        "unhide_idea" | "hidden_ideas" => {
+            if cmd == "unhide_idea" {
+                let id: String = arg(&args, "id")?;
+                if state.history.unhide(&id) {
+                    patch["history"] = json!(state.history);
+                }
+            }
+            let now = history::now();
+            json!(state.history.never.iter().rev().map(|n| json!({
+                "id": n.id,
+                "title": n.title,
+                "category": n.category,
+                "category_label": n.category.label(),
+                "ago": history::ago(now - n.ts)
+            })).collect::<Vec<_>>())
         }
         "rate" => {
             let id: String = arg(&args, "id")?;

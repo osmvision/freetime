@@ -3,7 +3,7 @@
 import { profileSection } from './account.js';
 import { api, inTauri } from './api.js';
 import { cityPicker, openMeteoCredit } from './city.js';
-import { btn, emptyState, errText, h, icon, pageHead, toast } from './dom.js';
+import { btn, categoryIcon, emptyState, errText, h, icon, pageHead, toast } from './dom.js';
 import { openProblemReport } from './problem.js';
 import { photoCredits } from './photos.js';
 import { preferredLang, setLang } from './i18n.js';
@@ -93,6 +93,7 @@ function draw(root, ctx, s) {
         displaySection(),
         locationSection(s, ctx, root, (box) => (cityBox = box)),
         interestsSection(form),
+        hiddenSection(),
         steamSection(s, form, ctx, root),
         youtubeSection(s, form),
         assistantSection(s, form),
@@ -462,6 +463,48 @@ function dataSection(s) {
       ),
     ),
   );
+}
+
+/** Ideas hidden with "Never suggest this", each one a click away from coming back. */
+function hiddenSection() {
+  const list = h('div', { class: 'hidden-ideas' }, h('p', { class: 'hint' }, 'Loading…'));
+  const draw = (items) => {
+    list.replaceChildren();
+    if (!items.length) {
+      list.append(h('p', { class: 'hint' }, 'None. The ban button on a ticket hides an idea for good.'));
+      return;
+    }
+    for (const it of items) {
+      list.append(
+        h(
+          'div',
+          { class: 'entry' },
+          h('div', { class: 'entry-thumb' }, icon(categoryIcon(it.category))),
+          h(
+            'div',
+            { class: 'entry-main' },
+            h('div', { class: 'entry-title', title: it.title }, it.title),
+            h('div', { class: 'entry-sub' }, `${it.category_label} · ${it.ago}`),
+          ),
+          btn({
+            label: 'Show again',
+            icon: 'rotate-ccw',
+            small: true,
+            onclick: async () => {
+              try {
+                draw(await api.unhideIdea(it.id));
+                toast('It can come back in your picks.', 'ok');
+              } catch (e) {
+                toast(errText(e), 'error');
+              }
+            },
+          }),
+        ),
+      );
+    }
+  };
+  api.hiddenIdeas().then(draw, (e) => list.replaceChildren(h('p', { class: 'hint' }, errText(e))));
+  return section('ban', 'Hidden ideas', 'Ideas you asked never to see again. Bring one back whenever you like.', null, list);
 }
 
 /** "Report a problem": a short form to the freetime team, signed in or not. */
