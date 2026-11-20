@@ -1184,6 +1184,7 @@ fn on_live_event(app: &AppHandle, event: realtime::Event) {
                     "gomoku" => "Giant tic-tac-toe",
                     "draughts" => "Draughts",
                     "dots" => "Dots and boxes",
+                    "chess" => "Chess",
                     "torpedoes" => "Torpedoes",
                     _ => "A game",
                 };

@@ -1,5 +1,5 @@
 // Games: the daily quiz, quiz duels with friends, and two-player games (Four in a row, Giant
-// tic-tac-toe, Draughts, Dots and boxes, Torpedoes) against the computer or a friend. A duel is 5
+// tic-tac-toe, Draughts, Dots and boxes, Torpedoes, Chess) against the computer or a friend. A duel is 5
 // questions for both players; the server picks them and keeps the score. Online games are checked
 // move by move on the server with the same rules as the app (js/play/rules.js).
 

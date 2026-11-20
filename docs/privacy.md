@@ -51,7 +51,7 @@ To work, the app contacts these services, and only for what you see on screen:
 - Quiz duels you play with friends: who played, the questions, your answers and the scores.
   Duels older than 30 days no longer show in the app; they are part of your data export, and
   deleted with your account.
-- Games you play with friends (Four in a row, Draughts, Torpedoes...): the board, whose turn it
+- Games you play with friends (Four in a row, Draughts, Chess, Torpedoes...): the board, whose turn it
   is and the result, and for Torpedoes where you placed your ships. Games against the computer
   stay on your PC.
 
