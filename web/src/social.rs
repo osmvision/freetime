@@ -96,6 +96,9 @@ pub fn invoke(
         "send_message" => {
             json!(client.send_message(&session, &text("conversation")?, &text("body")?)?)
         }
+        "changed_messages" => json!(client.changed_messages(&session, &text("conversation")?, &text("since")?)?),
+        "react_to_message" => client.toggle_message_reaction(&session, arg(args, "id")?, &text("emoji")?)?,
+        "edit_message" => client.edit_message(&session, arg(args, "id")?, &text("body")?)?,
         "mark_read" => {
             client.mark_read(&session, &text("conversation")?, arg(args, "upTo")?)?;
             Value::Null

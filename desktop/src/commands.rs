@@ -1203,6 +1203,10 @@ fn on_live_event(app: &AppHandle, event: realtime::Event) {
             }
             let _ = app.emit("message-new", LiveMessage { message: m, mine });
         }
+        realtime::Event::MessageChanged(m) => {
+            let mine = m.sender == me;
+            let _ = app.emit("message-changed", LiveMessage { message: m, mine });
+        }
         realtime::Event::Invite { id, from_user, to_user, title, category, starts_at, inserted, status } => {
             if inserted && to_user == me && status == "pending" && notify_invites() {
                 show_pick_invite(app, id, &category, &title, &starts_at, || friend_name(&state, &from_user));
@@ -1514,6 +1518,25 @@ pub fn chat_messages(state: State<'_, AppState>, conversation: String, after: i6
 pub fn send_message(state: State<'_, AppState>, conversation: String, body: String) -> Res<ChatMessage> {
     let s = live_session(&state)?;
     Client::new().map_err(err)?.send_message(&s, &conversation, &body).map_err(err)
+}
+
+/// Messages edited or reacted to since `since` (RFC 3339), when the live connection is down.
+#[tauri::command(async)]
+pub fn changed_messages(state: State<'_, AppState>, conversation: String, since: String) -> Res<Vec<ChatMessage>> {
+    let s = live_session(&state)?;
+    Client::new().map_err(err)?.changed_messages(&s, &conversation, &since).map_err(err)
+}
+
+#[tauri::command(async)]
+pub fn react_to_message(state: State<'_, AppState>, id: i64, emoji: String) -> Res<serde_json::Value> {
+    let s = live_session(&state)?;
+    Client::new().map_err(err)?.toggle_message_reaction(&s, id, &emoji).map_err(err)
+}
+
+#[tauri::command(async)]
+pub fn edit_message(state: State<'_, AppState>, id: i64, body: String) -> Res<serde_json::Value> {
+    let s = live_session(&state)?;
+    Client::new().map_err(err)?.edit_message(&s, id, &body).map_err(err)
 }
 
 #[tauri::command(async)]

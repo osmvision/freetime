@@ -30,6 +30,8 @@ pub enum Event {
     /// The connection dropped; it will retry.
     Down,
     Message(Message),
+    /// A message of yours or a friend's was edited or got a reaction.
+    MessageChanged(Message),
     /// An invite was created or answered: (id, its from_user, its to_user, status, title, starts_at).
     Invite { id: i64, from_user: String, to_user: String, status: String, title: String, category: String, starts_at: String, inserted: bool },
     /// A profile you may see changed (yours or a friend's): who, and their "free until" (None = not free).
@@ -55,6 +57,7 @@ pub fn join_frame(token: &str, r#ref: u64) -> String {
                 "presence": { "key": "" },
                 "postgres_changes": [
                     { "event": "INSERT", "schema": "public", "table": "messages" },
+                    { "event": "UPDATE", "schema": "public", "table": "messages" },
                     { "event": "*", "schema": "public", "table": "invites" },
                     { "event": "UPDATE", "schema": "public", "table": "profiles" },
                     { "event": "*", "schema": "public", "table": "duels" },
@@ -96,13 +99,18 @@ pub fn parse(text: &str) -> Option<Event> {
     let record = data.get("record")?;
     let text_of = |k: &str| record.get(k).and_then(Value::as_str).map(str::to_string);
     match (data.get("table")?.as_str()?, data.get("type")?.as_str()?) {
-        ("messages", "INSERT") => Some(Event::Message(Message {
-            id: record.get("id")?.as_i64()?,
-            sender: text_of("sender")?,
-            body: text_of("body")?,
-            created_at: text_of("created_at")?,
-            conversation_id: text_of("conversation_id"),
-        })),
+        ("messages", kind @ ("INSERT" | "UPDATE")) => {
+            let m = Message {
+                id: record.get("id")?.as_i64()?,
+                sender: text_of("sender")?,
+                body: text_of("body")?,
+                created_at: text_of("created_at")?,
+                edited_at: text_of("edited_at"),
+                reactions: record.get("reactions").filter(|r| r.is_object()).cloned().unwrap_or_else(|| serde_json::json!({})),
+                conversation_id: text_of("conversation_id"),
+            };
+            Some(if kind == "INSERT" { Event::Message(m) } else { Event::MessageChanged(m) })
+        }
         ("invites", kind @ ("INSERT" | "UPDATE")) => Some(Event::Invite {
             id: record.get("id")?.as_i64()?,
             from_user: text_of("from_user")?,
@@ -232,7 +240,7 @@ mod tests {
         let join: Value = serde_json::from_str(&join_frame("TOKEN", 1)).unwrap();
         assert_eq!(join["event"], "phx_join");
         assert_eq!(join["payload"]["access_token"], "TOKEN");
-        assert_eq!(join["payload"]["config"]["postgres_changes"].as_array().unwrap().len(), 5);
+        assert_eq!(join["payload"]["config"]["postgres_changes"].as_array().unwrap().len(), 6);
     }
 
     #[test]
@@ -242,6 +250,18 @@ mod tests {
             Some(Event::Message(m)) => {
                 assert_eq!((m.id, m.body.as_str()), (42, "hi"));
                 assert_eq!(m.conversation_id.as_deref(), Some("3f0c1a2b-1111-4222-8333-444455556666"));
+                assert_eq!((m.edited_at, m.reactions), (None, serde_json::json!({})));
+            }
+            other => panic!("{other:?}"),
+        }
+        // An edit or a reaction arrives as an update of the same message.
+        let changed = frame
+            .replace("INSERT", "UPDATE")
+            .replace(r#""body":"hi""#, r#""body":"hi!","edited_at":"2026-11-18T19:01:00+00:00","reactions":{"heart":["b"]}"#);
+        match parse(&changed) {
+            Some(Event::MessageChanged(m)) => {
+                assert_eq!((m.id, m.body.as_str(), m.edited_at.as_deref()), (42, "hi!", Some("2026-11-18T19:01:00+00:00")));
+                assert_eq!(m.reactions, serde_json::json!({ "heart": ["b"] }));
             }
             other => panic!("{other:?}"),
         }

@@ -898,7 +898,7 @@ impl Client {
     /// Messages after `after` (an id), oldest first; with `after` = 0, the latest 100.
     pub fn messages(&self, s: &Session, conversation: &str, after: i64) -> Result<Vec<Message>> {
         ensure_uuid(conversation)?;
-        let cols = "id,sender,body,created_at";
+        let cols = MESSAGE_COLUMNS;
         let path = if after <= 0 {
             format!("/rest/v1/messages?conversation_id=eq.{conversation}&select={cols}&order=id.desc&limit=100")
         } else {
@@ -915,13 +915,39 @@ impl Client {
         let body = clean_message(body)?;
         let v = self.call(
             "POST",
-            "/rest/v1/messages?select=id,sender,body,created_at",
+            &format!("/rest/v1/messages?select={MESSAGE_COLUMNS}"),
             Some(&s.access_token),
             Some(&json!({ "conversation_id": conversation, "body": body })),
             Some("return=representation"),
         )?;
         let mut list: Vec<Message> = serde_json::from_value(v).context("unexpected response")?;
         list.pop().ok_or_else(|| anyhow!("the message wasn't sent"))
+    }
+
+    /// Messages edited or reacted to after `since` (RFC 3339), to catch up without the live connection.
+    pub fn changed_messages(&self, s: &Session, conversation: &str, since: &str) -> Result<Vec<Message>> {
+        ensure_uuid(conversation)?;
+        let since = chrono::DateTime::parse_from_rfc3339(since).map_err(|_| anyhow!("unexpected time"))?.to_rfc3339();
+        let path = format!(
+            "/rest/v1/messages?conversation_id=eq.{conversation}&changed_at=gt.{}&select={MESSAGE_COLUMNS}&order=id.asc&limit=200",
+            url_encode(&since)
+        );
+        let v = self.call("GET", &path, Some(&s.access_token), None, None)?;
+        serde_json::from_value(v).context("unexpected messages response")
+    }
+
+    /// Turns a reaction on or off on a message of your chat. Returns the message's reactions.
+    pub fn toggle_message_reaction(&self, s: &Session, id: i64, emoji: &str) -> Result<Value> {
+        if !MESSAGE_REACTIONS.contains(&emoji) {
+            bail!("unknown reaction");
+        }
+        self.call("POST", "/rest/v1/rpc/toggle_message_reaction", Some(&s.access_token), Some(&json!({ "p_id": id, "p_emoji": emoji })), None)
+    }
+
+    /// Fixes a message you sent (within 15 minutes). Returns { id, body, edited_at }.
+    pub fn edit_message(&self, s: &Session, id: i64, body: &str) -> Result<Value> {
+        let body = clean_message(body)?;
+        self.call("POST", "/rest/v1/rpc/edit_message", Some(&s.access_token), Some(&json!({ "p_id": id, "p_body": body })), None)
     }
 
     pub fn mark_read(&self, s: &Session, conversation: &str, up_to: i64) -> Result<()> {
@@ -1090,15 +1116,29 @@ pub struct ConversationEntry {
     pub unread: i64,
 }
 
+/// What a message carries; the reactions are { "heart": ["<user id>", ...], ... }.
+const MESSAGE_COLUMNS: &str = "id,sender,body,created_at,edited_at,reactions";
+/// The reactions a message can get (the database checks the same list).
+pub const MESSAGE_REACTIONS: [&str; 6] = ["heart", "laugh", "thumbs_up", "wow", "sad", "fire"];
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Message {
     pub id: i64,
     pub sender: String,
     pub body: String,
     pub created_at: String,
+    /// When it was last edited (shown as "edited"), if ever.
+    #[serde(default)]
+    pub edited_at: Option<String>,
+    #[serde(default = "no_reactions")]
+    pub reactions: Value,
     /// Set on messages that arrive live (see `realtime`); absent when loading a chat.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub conversation_id: Option<String>,
+}
+
+fn no_reactions() -> Value {
+    json!({})
 }
 
 /// Same limits as the database: 1 to 2,000 characters, line breaks and tabs allowed.
