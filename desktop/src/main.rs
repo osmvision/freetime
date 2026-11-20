@@ -117,6 +117,7 @@ fn main() {
             support::send_support_ticket,
             support::support_is_admin,
             support::support_tickets,
+            support::support_ticket_photos,
             support::update_support_ticket,
             updates::update_status,
             updates::set_auto_update,

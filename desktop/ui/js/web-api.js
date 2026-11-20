@@ -82,9 +82,10 @@ async function rpc(cmd, args = {}, signal, applyPatch = true) {
   const current = await session();
   const headers = { 'Content-Type': 'application/json' };
   if (current) headers.Authorization = `Bearer ${current.access_token}`;
+  const ticket = cmd === 'send_support_ticket';
   const response = await fetch('/api/invoke', {
     method: 'POST', headers, signal,
-    body: JSON.stringify({ cmd, args, state: read(), keys: keys() }),
+    body: JSON.stringify({ cmd, args, state: ticket ? {} : read(), keys: ticket ? {} : keys() }),
   });
   const result = await response.json();
   if (!response.ok) throw new Error(result.error || 'The request failed. Try again.');

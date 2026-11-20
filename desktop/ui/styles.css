@@ -6260,6 +6260,35 @@ body[data-view="messages"] .assistant-panel {
   gap: 10px;
 }
 
+.problem-photos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.problem-photos:empty {
+  display: none;
+}
+
+.problem-photo {
+  display: flex;
+  align-items: start;
+  gap: 4px;
+}
+
+.problem-photo img {
+  width: 64px;
+  height: 48px;
+  object-fit: contain;
+  border: 1px solid var(--rule-soft);
+  border-radius: var(--r-control);
+  background: var(--stock);
+}
+
+.problem-body .problem-error {
+  color: var(--red);
+}
+
 .tickets {
   display: grid;
   gap: 14px;
@@ -6317,6 +6346,26 @@ body[data-view="messages"] .assistant-panel {
   font-weight: 600;
   overflow-wrap: anywhere;
   user-select: text;
+}
+
+.ticket-photos summary {
+  width: fit-content;
+  padding: 6px 0;
+  cursor: pointer;
+}
+
+.ticket-photos-content {
+  display: grid;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.ticket-photos-content img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  border: 1px solid var(--rule-soft);
+  border-radius: var(--r-control);
 }
 
 .ticket-actions {

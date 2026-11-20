@@ -378,11 +378,20 @@ impl Client {
     /// Sends a problem report to the freetime team. Works signed out (`s` = None); signed in, the
     /// ticket is linked to the account. Returns the ticket's number.
     pub fn send_ticket(&self, s: Option<&Session>, ticket: &crate::support::NewTicket) -> Result<i64> {
-        let ticket = ticket.checked()?;
-        let body = serde_json::to_value(&ticket)?;
+        let mut ticket = ticket.checked()?;
+        let photos = std::mem::take(&mut ticket.photos);
+        let with_photos = !photos.is_empty();
+        // Older support functions reject this envelope before writing a text-only report.
+        let body = if with_photos { json!({ "ticket": ticket, "photos": photos }) } else { serde_json::to_value(&ticket)? };
         let v = self
             .call("POST", "/functions/v1/support", s.map(|s| s.access_token.as_str()), Some(&body), None)
-            .map_err(|e| crate::support::send_error(&e))?;
+            .map_err(|e| {
+                if with_photos && e.to_string().contains("(HTTP 400)") {
+                    anyhow!("Photo attachments are unavailable right now.")
+                } else {
+                    crate::support::send_error(&e)
+                }
+            })?;
         v["id"].as_i64().ok_or_else(|| anyhow!("unexpected answer from freetime's server"))
     }
 
@@ -399,9 +408,24 @@ impl Client {
             Some(_) => bail!("unknown ticket status"),
             None => String::new(),
         };
-        let path = format!("/rest/v1/support_tickets?select={}&order=created_at.desc&limit=200{filter}", crate::support::TICKET_COLUMNS);
-        let v = self.call("GET", &path, Some(&s.access_token), None, None)?;
+        let list = |columns: &str| {
+            let path = format!("/rest/v1/support_tickets?select={columns}&order=created_at.desc&limit=200{filter}");
+            self.call("GET", &path, Some(&s.access_token), None, None)
+        };
+        let v = match list(&format!("{},photo_count", crate::support::TICKET_COLUMNS)) {
+            Err(e) if e.to_string().contains("photo_count") && e.to_string().contains("(HTTP 400)") => list(crate::support::TICKET_COLUMNS)?,
+            result => result?,
+        };
         serde_json::from_value(v).context("unexpected ticket list")
+    }
+
+    pub fn ticket_photos(&self, s: &Session, id: i64) -> Result<Vec<crate::support::TicketPhoto>> {
+        if id <= 0 {
+            bail!("unknown ticket");
+        }
+        let path = format!("/rest/v1/support_ticket_photos?select=image&ticket_id=eq.{id}&order=position");
+        let photos = self.call("GET", &path, Some(&s.access_token), None, None)?;
+        serde_json::from_value(photos).context("unexpected ticket photos")
     }
 
     /// An admin changes a ticket's status and note.

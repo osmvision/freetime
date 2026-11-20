@@ -888,6 +888,38 @@ test('support tickets: values are checked, senders are rate limited, deleted acc
     assert.deepEqual([left.n, left.linked], [5, 0], 'the tickets stay, without the account');
   });
 });
+test('support ticket photos are private, saved atomically, and deleted with the ticket', async () => {
+  const image = readFileSync(join(here, '..', '..', 'desktop', 'ui', 'img', 'ideas', 'advent-of-code.jpg')).toString('base64');
+  const submit = (q, photos, who = ALICE) => q.one(
+    "select public.support_submit_with_photos($1, $2, 'bug', 'There is a screenshot of the problem.', null, null, null, null, null, $3) as id",
+    [who, ipHash(25), photos],
+  );
+  await withPeople(async ({ step }) => {
+    await db.query('insert into private.admins (user_id) values ($1)', [BOB]);
+    await step(ALICE, async (q) => {
+      await fails(submit(q, [image]), /permission denied/);
+    });
+    await serviceFails((q) => submit(q, [image, 'invalid']), /check constraint/);
+    await serviceFails((q) => submit(q, [image, image, image, image]), /one to three photos/);
+    assert.equal((await db.query('select count(*)::int as n from public.support_tickets')).rows[0].n, 0);
+    const { id } = await asService((q) => submit(q, [image, image]));
+    const { id: anonymousTicket } = await asService((q) => submit(q, [image], null));
+    const { id: textTicket } = await asService((q) => fileTicket(q, ALICE, ipHash(26)));
+    const counts = await step(BOB, (q) => q.rows('select id, photo_count from public.support_tickets order by id'));
+    assert.deepEqual(counts, [{ id, photo_count: 2 }, { id: anonymousTicket, photo_count: 1 }, { id: textTicket, photo_count: 0 }]);
+    assert.deepEqual(await step(BOB, (q) => q.rows('select position, image from public.support_ticket_photos where ticket_id = $1 order by position', [id])),
+      [{ position: 1, image }, { position: 2, image }]);
+    assert.deepEqual(await step(ALICE, (q) => q.rows('select image from public.support_ticket_photos')), []);
+    await step(BOB, async (q) => {
+      await fails(q.rows('delete from public.support_ticket_photos where ticket_id = $1', [id]), /permission denied/);
+    });
+    await step(null, async (q) => {
+      await fails(q.rows('select image from public.support_ticket_photos'), /permission denied/);
+    });
+    await db.query('delete from public.support_tickets where id = $1', [id]);
+    assert.deepEqual(await step(BOB, (q) => q.rows('select image from public.support_ticket_photos where ticket_id = $1', [id])), []);
+  });
+});
 // ---------------------------------------------------------------- meet
 
 test('meet: only people who chose to be visible, never friends, yourself or blocked people', async () => {

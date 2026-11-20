@@ -67,6 +67,7 @@ pub fn invoke(
             Value::Null
         }
         "support_tickets" => json!(client.tickets(&session, arg::<Option<String>>(args, "status")?.as_deref())?),
+        "support_ticket_photos" => json!(client.ticket_photos(&session, arg(args, "id")?)?),
         "update_support_ticket" => {
             client.update_ticket(&session, arg::<i64>(args, "id")?, &text("status")?, &text("note")?)?;
             Value::Null

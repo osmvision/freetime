@@ -100,6 +100,7 @@ export const api = {
   sendSupportTicket: (ticket) => invoke('send_support_ticket', { ticket }),
   supportIsAdmin: () => invoke('support_is_admin'),
   supportTickets: (status = null) => invoke('support_tickets', { status }),
+  supportTicketPhotos: (id) => invoke('support_ticket_photos', { id }),
   updateSupportTicket: (id, status, note) => invoke('update_support_ticket', { id, status, note }),
   socialOverview: () => invoke('social_overview'),
   friendRequest: (tag) => invoke('friend_request', { tag }),

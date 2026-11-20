@@ -3,6 +3,7 @@
 //   POST /functions/v1/support
 //   { "category": "bug|account|idea|other", "message": "…", "contact"?, "appVersion"?,
 //     "platform"?: "desktop|web", "lang"?, "screen"? }
+//   With attachments: { "ticket": { …same fields… }, "photos": ["…base64 JPEG…"] }
 //   → { "id": 42 }
 //
 // Public on purpose (deployed with verify_jwt = false): people who can't sign in must be able to
@@ -15,6 +16,7 @@
 
 import { createClient } from 'npm:@supabase/supabase-js@2.45.4';
 import { clientAddress, keyedHash } from './address.js';
+import { readTicketJson, validTicketPhoto } from './photos.js';
 
 const CATEGORIES = new Set(['bug', 'account', 'idea', 'other']);
 const PLATFORMS = new Set(['desktop', 'web']);
@@ -34,9 +36,21 @@ type Ticket = {
 
 Deno.serve(async (req) => {
   if (req.method !== 'POST') return reply(405, { error: 'method', message: 'POST only' });
-  const ticket = clean(await req.json().catch(() => null));
+  let body;
+  try {
+    body = await readTicketJson(req);
+  } catch (e) {
+    if (e instanceof RangeError) return reply(413, { error: 'too_large', message: 'The attached photos are too large.' });
+    body = null;
+  }
+  const withPhotos = body != null && Object.hasOwn(body, 'ticket');
+  const ticket = clean(withPhotos ? body.ticket : body);
   if (!ticket) {
     return reply(400, { error: 'invalid', message: 'Describe the problem in 10 to 4000 characters and pick a category.' });
+  }
+  const photos = withPhotos ? body.photos : [];
+  if (withPhotos && (!Array.isArray(photos) || photos.length < 1 || photos.length > 3 || !photos.every(validTicketPhoto))) {
+    return reply(422, { error: 'invalid_photos', message: 'One or more photos could not be attached.' });
   }
 
   try {
@@ -45,7 +59,7 @@ Deno.serve(async (req) => {
     const { data: auth } = token ? await db.auth.getUser(token) : { data: { user: null } };
     const ip = clientAddress(req.headers);
 
-    const { data: id, error } = await db.rpc('support_submit', {
+    const { data: id, error } = await db.rpc(withPhotos ? 'support_submit_with_photos' : 'support_submit', {
       p_user: auth?.user?.id ?? null,
       p_ip_hash: ip ? await keyedHash(ip, IP_HASH_KEY) : null,
       p_category: ticket.category,
@@ -55,6 +69,7 @@ Deno.serve(async (req) => {
       p_platform: ticket.platform,
       p_lang: ticket.lang,
       p_screen: ticket.screen,
+      ...(withPhotos ? { p_photos: photos } : {}),
     });
     if (error) {
       if (error.code === '54000') return reply(429, { error: 'too_many', message: error.message });
