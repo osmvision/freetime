@@ -6,6 +6,7 @@ mod book;
 mod commands;
 mod duels;
 mod feed;
+mod plans;
 mod quiz;
 mod ranked;
 mod share;
@@ -82,6 +83,18 @@ fn main() {
             duels::leave_match,
             duels::hide_match,
             duels::hide_finished_matches,
+            plans::head_to_head,
+            plans::create_evening,
+            plans::answer_evening,
+            plans::settle_evening,
+            plans::cancel_evening,
+            plans::my_evenings,
+            plans::remind,
+            plans::not_now,
+            plans::save_preferences,
+            plans::load_preferences,
+            plans::preferences_status,
+            plans::forget_preferences,
             feed::friend_feed,
             feed::share_post,
             feed::delete_post,

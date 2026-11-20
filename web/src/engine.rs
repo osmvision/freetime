@@ -341,6 +341,7 @@ pub fn invoke(call: Call, token: Option<&str>) -> Result<Value> {
         keys,
     } = call;
     if state.history.entries.len() > 500
+        || state.history.dismissals.len() > 300
         || state.friends.len() > 50
         || state.online.len() > 1000
         || state.shown.len() > 1000
@@ -358,6 +359,7 @@ pub fn invoke(call: Call, token: Option<&str>) -> Result<Value> {
         .entries
         .iter()
         .any(|e| e.minutes.is_some_and(|m| m > 600) || e.ts < 0 || e.ts > 4_102_444_800)
+        || state.history.dismissals.iter().any(|d| d.ts < 0 || d.ts > 4_102_444_800 || d.idea_minutes > 1440 || d.free_minutes > 600 || d.id.len() > 200)
         || state
             .online
             .iter()
@@ -671,6 +673,36 @@ pub fn invoke(call: Call, token: Option<&str>) -> Result<Value> {
                 "enabled": enabled,
                 "games": state.library.as_ref().map_or(0, |l|l.games.len())
             })
+        }
+        // "Too long", "already done", "another time" about an idea on screen.
+        "not_now" => {
+            let id: String = arg(&args, "id")?;
+            let item = state.shown.iter().chain(state.online.iter()).find(|s| s.id == id).cloned().context("Refresh your picks to find this idea")?;
+            let reason: history::NotNow = arg(&args, "reason")?;
+            state.history.not_now(&item, reason, arg(&args, "minutes")?, history::now());
+            patch["history"] = json!(state.history);
+            Value::Null
+        }
+        // Preferences on all your devices, only when asked: shortcuts and context come from the page,
+        // what tunes the picks from the history kept in this browser.
+        "save_preferences" => {
+            let client = account::Client::new()?;
+            let session = client.browser_session(token.context("Sign in first")?, history::now())?;
+            let extra: Value = args.get("extra").cloned().unwrap_or(Value::Null);
+            json!(client.save_my_preferences(&session, &json!({ "version": 1, "extra": extra, "tuning": state.history.tuning() }))?)
+        }
+        "load_preferences" => {
+            let client = account::Client::new()?;
+            let session = client.browser_session(token.context("Sign in first")?, history::now())?;
+            let saved = client.my_preferences(&session)?;
+            if saved.is_null() {
+                Value::Null
+            } else {
+                let tuning: history::Tuning = serde_json::from_value(saved["data"]["tuning"].clone()).unwrap_or_default();
+                let added = state.history.merge_tuning(tuning);
+                patch["history"] = json!(state.history);
+                json!({ "extra": saved["data"]["extra"], "saved_at": saved["saved_at"], "added": added })
+            }
         }
         "assistant_models" => json!(assistant::KNOWN_MODELS),
         "assistant_stop" => {

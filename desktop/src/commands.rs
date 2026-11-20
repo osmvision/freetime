@@ -49,7 +49,7 @@ pub(crate) const ONLINE_WAIT: Duration = Duration::from_secs(15);
 pub struct AppState {
     online: Mutex<OnlineSlot>,
     /// Every suggestion sent to the UI, so `pick` can find it again by id.
-    shown: Mutex<HashMap<String, Suggestion>>,
+    pub(crate) shown: Mutex<HashMap<String, Suggestion>>,
     /// The signed-in session (opt-in). Only in memory; the refresh token is in Credential Manager.
     pub(crate) account: Mutex<Option<Session>>,
     /// Friends' shared game lists (None = they don't share), with when they were fetched.

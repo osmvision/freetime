@@ -65,13 +65,14 @@ pub fn score(
         || s.cost > req.budget
         || (s.outdoor && !req.can_go_out)
         || prefs.disliked.contains(&s.id)
+        || prefs.resting.contains(&s.id)
         || req.minutes * 2 < s.min_minutes
     {
         return None;
     }
     let mut reasons = Vec::new();
 
-    let time = if req.minutes < s.min_minutes {
+    let mut time = if req.minutes < s.min_minutes {
         (req.minutes as f64 / s.min_minutes as f64).powi(2)
     } else if req.minutes > s.max_minutes * 3 {
         0.75
@@ -80,6 +81,10 @@ pub fn score(
     } else {
         1.0
     };
+    // You said ideas this long felt too long for the time you had.
+    if prefs.too_long.is_some_and(|share| s.min_minutes as f64 >= share * req.minutes as f64) {
+        time *= 0.5;
+    }
 
     // Doing something calmer than your energy is fine; something harder when you're tired isn't.
     let diff = s.energy.level() - req.energy.level();
@@ -223,6 +228,40 @@ mod tests {
         let rainy = weather(63, 12.0);
         assert!(s(&run, &r, Some(&sunny)) >= s(&gym, &r, Some(&sunny)));
         assert!(s(&run, &r, Some(&rainy)).unwrap() < 0.5 * s(&gym, &r, Some(&rainy)).unwrap());
+    }
+
+    #[test]
+    fn not_now_answers_are_heard() {
+        use crate::history::{History, NotNow};
+        let r = req(); // 60 minutes
+        let now = 1_000_000;
+        let mut short = item("short", Energy::High, false);
+        short.min_minutes = 15;
+        let mut long = item("long", Energy::High, false);
+        long.min_minutes = 55; // 55 of 60 minutes: past the 90% said to be too long below
+        let base = |p: &Prefs, i: &Suggestion| score(i, &r, None, p, 1.0).map(|x| x.0);
+        let before = History::default().prefs(now);
+        let long_before = base(&before, &long).unwrap();
+
+        // "Too long" for a 45-minute idea with 50 minutes free: long ideas drop, short ones don't.
+        let mut h = History::default();
+        let mut too_long = item("walk", Energy::High, false);
+        too_long.min_minutes = 45;
+        h.not_now(&too_long, NotNow::TooLong, 50, now);
+        let p = h.prefs(now);
+        assert!(base(&p, &long).unwrap() < 0.6 * long_before);
+        assert_eq!(base(&p, &short), base(&before, &short));
+
+        // "Another time" rests an idea for 3 days, "already done" for two weeks.
+        h.not_now(&short, NotNow::AnotherTime, 60, now);
+        assert!(base(&h.prefs(now), &short).is_none());
+        assert!(base(&h.prefs(now + 4 * 86_400), &short).is_some());
+        h.not_now(&short, NotNow::AlreadyDone, 60, now);
+        assert_eq!(h.dismissals.iter().filter(|d| d.id == "short").count(), 1, "the new answer replaces the old one");
+        assert!(base(&h.prefs(now + 4 * 86_400), &short).is_none());
+        assert!(base(&h.prefs(now + 15 * 86_400), &short).is_some());
+        // Old "too long" answers stop counting.
+        assert_eq!(h.prefs(now + 61 * 86_400).too_long, None);
     }
 
     #[test]

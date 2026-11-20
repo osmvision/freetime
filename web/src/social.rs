@@ -2,7 +2,7 @@ use crate::engine::arg;
 use anyhow::{bail, Context, Result};
 use chrono::{DateTime, Local};
 use freetime_core::{
-    account::{Client, NewInvite, ProfileEdit},
+    account::{Client, NewEvening, NewInvite, ProfileEdit},
     duel,
     history::History,
     quiz::{self, QuizLog},
@@ -144,6 +144,29 @@ pub fn invoke(
         "my_matches" => client.my_matches(&session)?,
         "game_leaderboard" => client.game_leaderboard(&session, &text("game")?, &text("scope")?)?,
         "leave_match" => json!(client.leave_match(&session, &text("id")?)?),
+        "head_to_head" => client.head_to_head(&session, &text("other")?, arg::<Option<String>>(args, "game").ok().flatten().as_deref())?,
+        "create_evening" => json!(client.create_evening(&session, &arg::<NewEvening>(args, "evening")?)?),
+        "answer_evening" => {
+            client.answer_evening(&session, arg(args, "id")?, &arg::<Vec<bool>>(args, "slots")?, arg::<Option<u8>>(args, "activity").ok().flatten())?;
+            Value::Null
+        }
+        "settle_evening" => {
+            client.settle_evening(&session, arg(args, "id")?, arg(args, "slot")?, arg(args, "activity")?)?;
+            Value::Null
+        }
+        "cancel_evening" => {
+            client.cancel_evening(&session, arg(args, "id")?)?;
+            Value::Null
+        }
+        "my_evenings" => client.my_evenings(&session)?,
+        "preferences_status" => {
+            let v = client.my_preferences(&session)?;
+            if v.is_null() { Value::Null } else { json!({ "saved_at": v["saved_at"] }) }
+        }
+        "forget_preferences" => {
+            client.forget_my_preferences(&session)?;
+            Value::Null
+        }
         "hide_match" => {
             client.hide_match(&session, &text("id")?)?;
             Value::Null

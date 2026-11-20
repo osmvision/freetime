@@ -282,7 +282,7 @@ mod tests {
         let cat = catalog::load();
         let now = at(2026, 11, 19, 20);
         let t = now.timestamp();
-        let h = History {
+        let h = History { dismissals: Vec::new(),
             entries: vec![
                 entry("idea:run-5k", Category::Sport, t - 3600, Some(1)),
                 entry("idea:run-5k", Category::Sport, t - 7200, None),
@@ -312,7 +312,7 @@ mod tests {
         let mon = at(2026, 11, 16, 10).timestamp();
         let last_week = at(2026, 11, 12, 10).timestamp();
         let daily_today = daily(&cat, now.date_naive()).unwrap().clone();
-        let h = History {
+        let h = History { dismissals: Vec::new(),
             entries: vec![
                 entry("idea:run-5k", Category::Sport, last_week, Some(1)),
                 entry("idea:run-5k", Category::Sport, mon, Some(1)),
@@ -343,7 +343,7 @@ mod tests {
         for (id, title, _, target) in CHALLENGES {
             assert!(!id.is_empty() && !title.is_empty() && target > 0);
         }
-        let b = book(&History { entries: vec![] }, &catalog::load(), at(2026, 1, 5, 9));
+        let b = book(&History { dismissals: Vec::new(), entries: vec![] }, &catalog::load(), at(2026, 1, 5, 9));
         assert!(b.badges.iter().all(|x| !x.earned && x.target > 0 && !x.how.is_empty()));
         assert_eq!(b.stamped, 0);
     }

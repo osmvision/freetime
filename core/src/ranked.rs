@@ -43,7 +43,7 @@ fn end_of(day: NaiveDate) -> DateTime<Local> {
 }
 
 fn up_to(history: &History, last: Option<NaiveDate>) -> History {
-    History {
+    History { dismissals: Vec::new(),
         entries: history
             .entries
             .iter()
@@ -219,7 +219,7 @@ mod tests {
         let cat = catalog::load();
         let day = NaiveDate::from_ymd_opt(2026, 11, 18).unwrap();
         let daily = book::daily(&cat, day).unwrap().clone();
-        let mut h = History {
+        let mut h = History { dismissals: Vec::new(),
             entries: vec![
                 e("idea:run-5k", Category::Sport, at(2026, 11, 10, 9)), // older: not new on the 18th
                 e("idea:run-5k", Category::Sport, at(2026, 11, 18, 9)),
@@ -253,7 +253,7 @@ mod tests {
     fn first_ticket_badge_counts_once() {
         let cat = catalog::load();
         let d1 = NaiveDate::from_ymd_opt(2026, 11, 16).unwrap();
-        let h = History { entries: vec![e("idea:hike", Category::Sport, at(2026, 11, 16, 10)), e("idea:swim", Category::Sport, at(2026, 11, 17, 10))] };
+        let h = History { dismissals: Vec::new(), entries: vec![e("idea:hike", Category::Sport, at(2026, 11, 16, 10)), e("idea:swim", Category::Sport, at(2026, 11, 17, 10))] };
         let p1 = day_points(&h, &cat, &QuizLog::default(), d1);
         assert_eq!(p1.badges, 5, "First ticket, earned on the 16th: {p1:?}");
         let p2 = day_points(&h, &cat, &QuizLog::default(), d1.succ_opt().unwrap());

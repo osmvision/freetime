@@ -146,7 +146,7 @@ mod tests {
 
     #[test]
     fn a_month_in_figures() {
-        let h = History {
+        let h = History { dismissals: Vec::new(),
             entries: vec![
                 e("idea:run-5k", Category::Sport, at(10, 20), Some(1)), // October: before
                 e("idea:run-5k", Category::Sport, at(11, 2), Some(1)),

@@ -650,7 +650,7 @@ impl Client {
 
     /// The completed multiplayer results for one game, ranked by points.
     pub fn game_leaderboard(&self, s: &Session, game: &str, scope: &str) -> Result<Value> {
-        if !matches!(game, "four" | "gomoku" | "draughts" | "dots" | "torpedoes" | "quiz-duel")
+        if !matches!(game, "four" | "gomoku" | "draughts" | "dots" | "torpedoes" | "chess" | "quiz-duel")
             || !matches!(scope, "friends" | "global")
         {
             bail!("unknown game leaderboard");
@@ -682,6 +682,83 @@ impl Client {
     pub fn hide_finished_matches(&self, s: &Session) -> Result<u32> {
         let v = self.call("POST", "/rest/v1/rpc/hide_finished_matches", Some(&s.access_token), Some(&json!({})), None)?;
         Ok(v.as_u64().unwrap_or(0) as u32)
+    }
+
+    /// Your record against one friend (wins, draws, losses, the last five results), for one game
+    /// or all of them.
+    pub fn head_to_head(&self, s: &Session, other: &str, game: Option<&str>) -> Result<Value> {
+        ensure_uuid(other)?;
+        if game.is_some_and(|g| !matches!(g, "four" | "gomoku" | "draughts" | "dots" | "torpedoes" | "chess")) {
+            bail!("unknown game");
+        }
+        self.call("POST", "/rest/v1/rpc/head_to_head", Some(&s.access_token), Some(&json!({ "p_other": other, "p_game": game })), None)
+    }
+
+    // ------------------------------------------------------------ evenings
+
+    /// Invites friends to an evening (one or two times, one to three things to do). Returns its id.
+    pub fn create_evening(&self, s: &Session, e: &NewEvening) -> Result<i64> {
+        let e = e.checked()?;
+        let v = self.call(
+            "POST",
+            "/rest/v1/rpc/create_evening",
+            Some(&s.access_token),
+            Some(&json!({ "p_slots": e.slots, "p_activities": e.activities, "p_note": e.note, "p_guests": e.guests })),
+            None,
+        )?;
+        v.as_i64().ok_or_else(|| anyhow!("unexpected response"))
+    }
+
+    /// A guest's answer: yes or no for each time, and the activity they'd rather do (or none).
+    pub fn answer_evening(&self, s: &Session, id: i64, slots: &[bool], activity: Option<u8>) -> Result<()> {
+        if slots.is_empty() || slots.len() > 2 || activity.is_some_and(|a| a > 2) {
+            bail!("answer for each time");
+        }
+        self.call("POST", "/rest/v1/rpc/answer_evening", Some(&s.access_token), Some(&json!({ "p_id": id, "p_slots": slots, "p_activity": activity })), None)?;
+        Ok(())
+    }
+
+    /// The host settles on a time and an activity.
+    pub fn settle_evening(&self, s: &Session, id: i64, slot: u8, activity: u8) -> Result<()> {
+        if slot > 1 || activity > 2 {
+            bail!("pick one of the times and one of the activities");
+        }
+        self.call("POST", "/rest/v1/rpc/settle_evening", Some(&s.access_token), Some(&json!({ "p_id": id, "p_slot": slot, "p_activity": activity })), None)?;
+        Ok(())
+    }
+
+    pub fn cancel_evening(&self, s: &Session, id: i64) -> Result<()> {
+        self.call("POST", "/rest/v1/rpc/cancel_evening", Some(&s.access_token), Some(&json!({ "p_id": id })), None)?;
+        Ok(())
+    }
+
+    /// Evenings you host or were invited to, soonest first.
+    pub fn my_evenings(&self, s: &Session) -> Result<Value> {
+        self.call("POST", "/rest/v1/rpc/my_evenings", Some(&s.access_token), Some(&json!({})), None)
+    }
+
+    // ------------------------------------------------------------ preferences on all your devices
+
+    /// Saves your preferences to your account (replacing the saved ones). Returns when.
+    pub fn save_my_preferences(&self, s: &Session, data: &Value) -> Result<String> {
+        if !data.is_object() {
+            bail!("nothing to save");
+        }
+        if data.to_string().len() > 60_000 {
+            bail!("your preferences are too big to save: clear some history first");
+        }
+        let v = self.call("POST", "/rest/v1/rpc/save_my_preferences", Some(&s.access_token), Some(&json!({ "p_data": data })), None)?;
+        v.as_str().map(str::to_string).ok_or_else(|| anyhow!("unexpected response"))
+    }
+
+    /// The preferences saved to your account: { data, saved_at }, or null.
+    pub fn my_preferences(&self, s: &Session) -> Result<Value> {
+        self.call("POST", "/rest/v1/rpc/my_preferences", Some(&s.access_token), Some(&json!({})), None)
+    }
+
+    pub fn forget_my_preferences(&self, s: &Session) -> Result<()> {
+        self.call("POST", "/rest/v1/rpc/forget_my_preferences", Some(&s.access_token), Some(&json!({})), None)?;
+        Ok(())
     }
 
     /// Deletes your shared list from the server.
@@ -902,6 +979,62 @@ pub struct Invite {
     /// "pending", "accepted", "declined" or "cancelled".
     pub status: String,
     pub created_at: String,
+}
+
+/// One thing to do at an evening.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EveningActivity {
+    pub idea_id: String,
+    pub title: String,
+    pub category: String,
+}
+
+/// An evening to propose. Same limits as the database, checked here for clear messages.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NewEvening {
+    /// One or two times, RFC 3339.
+    pub slots: Vec<String>,
+    pub activities: Vec<EveningActivity>,
+    #[serde(default)]
+    pub note: String,
+    pub guests: Vec<String>,
+}
+
+impl NewEvening {
+    pub fn checked(&self) -> Result<NewEvening> {
+        if self.slots.is_empty() || self.slots.len() > 2 {
+            bail!("pick one or two times");
+        }
+        for t in &self.slots {
+            chrono::DateTime::parse_from_rfc3339(t).map_err(|_| anyhow!("pick a valid time"))?;
+        }
+        if self.activities.is_empty() || self.activities.len() > 3 {
+            bail!("pick one to three things to do");
+        }
+        let activities = self
+            .activities
+            .iter()
+            .map(|a| {
+                let title: String = a.title.chars().filter(|c| !c.is_control()).collect::<String>().trim().chars().take(120).collect();
+                let id_ok = a.idea_id.len() <= 80
+                    && a.idea_id.split_once(':').is_some_and(|(k, rest)| {
+                        !k.is_empty() && k.chars().all(|c| c.is_ascii_lowercase()) && !rest.is_empty() && rest.chars().all(|c| c.is_ascii_alphanumeric() || "_.-".contains(c))
+                    });
+                if !id_ok || title.is_empty() || !crate::model::Category::from_id(&a.category).is_some_and(|c| c.id() == a.category) {
+                    bail!("one of the things to do is not valid");
+                }
+                Ok(EveningActivity { idea_id: a.idea_id.clone(), title, category: a.category.clone() })
+            })
+            .collect::<Result<Vec<_>>>()?;
+        if self.guests.is_empty() || self.guests.len() > 8 {
+            bail!("invite one to eight friends");
+        }
+        for g in &self.guests {
+            ensure_uuid(g)?;
+        }
+        let note: String = self.note.chars().filter(|c| !c.is_control()).collect::<String>().trim().chars().take(140).collect();
+        Ok(NewEvening { slots: self.slots.clone(), activities, note, guests: self.guests.clone() })
+    }
 }
 
 /// A pick to send to a friend. Same limits as the database, checked here for clear messages.
