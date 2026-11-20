@@ -1188,6 +1188,8 @@ export const exact = {
   'A gift box': 'Un paquet cadeau',
   'A bouquet of roses with a ring in the middle': 'Un bouquet de roses avec une bague au milieu',
   'A surprise': 'Une surprise',
+  // The highway code gift.
+  'A highway code book': 'Un livre du code de la route',
 };
 
 export const patterns = [
@@ -1365,6 +1367,7 @@ export const patterns = [
   ['Wow · {n0}', 'Waouh · {0}'],
   ['Sad · {n0}', 'Triste · {0}'],
   ['Fire · {n0}', 'Génial · {0}'],
+
 
 ];
 

@@ -28,6 +28,7 @@ function gradients() {
     s('linearGradient', { id: 'sp-gem', x1: 0, y1: 0, x2: 1, y2: 1 }, s('stop', { offset: 0, 'stop-color': '#ffffff' }), s('stop', { offset: 0.5, 'stop-color': '#d9f1ff' }), s('stop', { offset: 1, 'stop-color': '#9fd3f5' })),
     s('linearGradient', { id: 'sp-paper', x1: 0, y1: 0, x2: 1, y2: 0 }, s('stop', { offset: 0, 'stop-color': '#f3e3c8' }), s('stop', { offset: 0.5, 'stop-color': '#fbf1df' }), s('stop', { offset: 1, 'stop-color': '#e6cfa8' })),
     s('radialGradient', { id: 'sp-rose', cx: 0.4, cy: 0.35, r: 0.75 }, s('stop', { offset: 0, 'stop-color': '#ff5f7e' }), s('stop', { offset: 0.6, 'stop-color': '#d81f45' }), s('stop', { offset: 1, 'stop-color': '#8c0d2a' })),
+    s('linearGradient', { id: 'sp-cover', x1: 0, y1: 0, x2: 1, y2: 1 }, s('stop', { offset: 0, 'stop-color': '#2f6fd6' }), s('stop', { offset: 1, 'stop-color': '#1b4aa0' })),
     s('radialGradient', { id: 'sp-satin', cx: 0.4, cy: 0.3, r: 0.8 }, s('stop', { offset: 0, 'stop-color': '#ffffff' }), s('stop', { offset: 0.6, 'stop-color': '#ffe1e8' }), s('stop', { offset: 1, 'stop-color': '#f6b7c7' })),
     s('radialGradient', { id: 'sp-glow', cx: 0.5, cy: 0.5, r: 0.5 }, s('stop', { offset: 0, 'stop-color': '#fff6d6', 'stop-opacity': 0.95 }), s('stop', { offset: 1, 'stop-color': '#fff6d6', 'stop-opacity': 0 })),
   );
@@ -139,6 +140,72 @@ function bouquet() {
   );
 }
 
+/** A regular polygon (for the stop sign). */
+function polygon(cx, cy, r, sides, rotation = 0) {
+  return Array.from({ length: sides }, (_, i) => {
+    const a = rotation + (i / sides) * Math.PI * 2;
+    return `${(cx + Math.cos(a) * r).toFixed(1)},${(cy + Math.sin(a) * r).toFixed(1)}`;
+  }).join(' ');
+}
+
+/**
+ * The other reward: a "Code de la route" book standing up out of the box, its cover blue, with
+ * three road signs (speed limit, warning, stop), page edges, and a bookmark ribbon.
+ */
+function codeBook() {
+  const x = 78;
+  const y = 52;
+  const w = 144;
+  const hgt = 176;
+  const label = (text, ty, size) =>
+    s('text', { x: x + w / 2 + 1, y: ty, 'text-anchor': 'middle', fill: '#ffffff', 'font-size': size, 'font-weight': 800, 'letter-spacing': 1.2, style: 'font-family:var(--display),Impact,sans-serif', translate: 'no' }, text);
+  return s(
+    'g',
+    { class: 'sp-bouquet sp-book', transform: 'rotate(-3 150 220)' },
+    // Pages (bottom and right edge), then the cover on top.
+    s('rect', { x: x + 8, y: y + 8, width: w, height: hgt, rx: 5, fill: '#efe6d2', stroke: '#cdbf9f', 'stroke-width': 1 }),
+    s('path', { d: `M ${x + 12} ${y + hgt + 4} H ${x + w + 4} M ${x + 12} ${y + hgt + 1} H ${x + w + 4}`, stroke: '#c9ba97', 'stroke-width': 0.8 }),
+    s('rect', { x, y, width: w, height: hgt, rx: 6, fill: 'url(#sp-cover)', stroke: '#12346e', 'stroke-width': 1.5 }),
+    // The spine, with a lighter edge.
+    s('rect', { x, y, width: 15, height: hgt, rx: 6, fill: '#173f87' }),
+    s('rect', { x: x + 13, y, width: 2, height: hgt, fill: '#4a7bd0', opacity: 0.8 }),
+    // A white label with the title.
+    s('rect', { x: x + 24, y: y + 14, width: w - 52, height: 46, rx: 4, fill: '#12346e', stroke: '#ffffff', 'stroke-width': 1.5 }),
+    label('CODE DE', y + 36, 17),
+    label('LA ROUTE', y + 54, 17),
+    // Three road signs.
+    s(
+      'g',
+      { transform: `translate(${x + 56} ${y + 108})` },
+      // Speed limit: a red ring around "50".
+      s('circle', { r: 21, fill: '#ffffff', stroke: '#d4202b', 'stroke-width': 6 }),
+      s('text', { y: 7, 'text-anchor': 'middle', 'font-size': 20, 'font-weight': 800, fill: '#111', style: 'font-family:var(--display),Impact,sans-serif', translate: 'no' }, '50'),
+    ),
+    s(
+      'g',
+      { transform: `translate(${x + 103} ${y + 106})` },
+      // Warning: a red-edged triangle with an exclamation mark.
+      s('path', { d: 'M 0 -21 L 22 17 L -22 17 Z', fill: '#ffffff', stroke: '#d4202b', 'stroke-width': 5, 'stroke-linejoin': 'round' }),
+      s('rect', { x: -2, y: -9, width: 4, height: 14, rx: 1, fill: '#111' }),
+      s('circle', { cy: 10, r: 2.4, fill: '#111' }),
+    ),
+    s(
+      'g',
+      { transform: `translate(${x + 80} ${y + 150})` },
+      // Stop: a red octagon.
+      s('polygon', { points: polygon(0, 0, 17, 8, Math.PI / 8), fill: '#d4202b', stroke: '#ffffff', 'stroke-width': 1.8 }),
+      s('text', { y: 3.6, 'text-anchor': 'middle', 'font-size': 9.5, 'font-weight': 800, fill: '#ffffff', style: 'font-family:var(--display),Impact,sans-serif', translate: 'no' }, 'STOP'),
+    ),
+    // A bookmark ribbon hanging from the top.
+    s('path', { d: `M ${x + w - 22} ${y - 6} V ${y + 38} L ${x + w - 15} ${y + 31} L ${x + w - 8} ${y + 38} V ${y - 6} Z`, fill: '#e2b24c', stroke: '#b68a2c', 'stroke-width': 1 }),
+    s('circle', { class: 'sp-glow', cx: x + w / 2, cy: y + hgt / 2, r: 80, fill: 'url(#sp-glow)' }),
+    sparkle(x + 10, y + 10, 7, 0),
+    sparkle(x + w - 6, y + 70, 5, 0.6),
+    sparkle(x + 30, y + hgt - 12, 4, 1.1),
+    sparkle(x + w + 6, y + hgt - 30, 4, 1.5),
+  );
+}
+
 /** The gift box: base, ribbon, and a lid with a bow that flies off. */
 function giftBox() {
   return [
@@ -176,7 +243,8 @@ export function showSurprise(surprise, { preview = false } = {}) {
   return new Promise((resolve) => {
     const previousFocus = document.activeElement;
     let opened = false;
-    const art = s('svg', { class: 'sp-art', viewBox: '0 0 300 340', role: 'img', 'aria-label': 'A gift box' }, gradients(), bouquet(), giftBox());
+    const isBook = surprise.kind === 'code';
+    const art = s('svg', { class: 'sp-art', viewBox: '0 0 300 340', role: 'img', 'aria-label': 'A gift box' }, gradients(), isBook ? codeBook() : bouquet(), giftBox());
     const words = h(
       'div',
       { class: 'sp-words', 'aria-live': 'polite' },
@@ -191,14 +259,14 @@ export function showSurprise(surprise, { preview = false } = {}) {
       previousFocus?.focus?.();
       resolve();
     };
-    const closeBtn = h('button', { type: 'button', class: 'btn primary sp-close', onclick: close }, '❤');
+    const closeBtn = h('button', { type: 'button', class: 'btn primary sp-close', onclick: close }, surprise.kind === 'code' ? '👍' : '❤');
     closeBtn.setAttribute('aria-label', 'Close');
     const open = async () => {
       if (opened) return;
       opened = true;
       if (!preview) api.surpriseSeen(surprise.id).catch(() => {});
       stage.classList.add('sp-open');
-      art.setAttribute('aria-label', 'A bouquet of roses with a ring in the middle');
+      art.setAttribute('aria-label', isBook ? 'A highway code book' : 'A bouquet of roses with a ring in the middle');
       openBtn.remove();
       if (!reducedMotion()) await wait(1900);
       stage.classList.add('sp-done');
@@ -216,7 +284,8 @@ export function showSurprise(surprise, { preview = false } = {}) {
     const onKey = (e) => {
       if (e.key === 'Escape' && opened) close();
     };
-    const backdrop = h('div', { class: 'sp-backdrop' }, h('div', { class: 'sp-petals', 'aria-hidden': 'true' }, petals()), stage);
+    // Petals fall for the roses; the book has none.
+    const backdrop = h('div', { class: 'sp-backdrop' }, isBook ? null : h('div', { class: 'sp-petals', 'aria-hidden': 'true' }, petals()), stage);
     document.body.append(backdrop);
     document.addEventListener('keydown', onKey);
     openBtn.focus();

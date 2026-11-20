@@ -1902,7 +1902,7 @@ test('surprise: only its person gets it, once; nobody can add or read one from t
     const mine = (who) => step(who, async (q) => (await q.one('select public.my_surprise() as s')).s);
     assert.equal(await mine(ALICE), null, 'not Alice’s');
     assert.equal(await mine(CAROL), null);
-    assert.deepEqual(await mine(BOB), { id: Number(id), title: '', message: '' });
+    assert.deepEqual(await mine(BOB), { id: Number(id), title: '', message: '', kind: 'roses' }, 'the roses unless said otherwise');
     // Not readable, writable or markable by anybody else.
     await step(ALICE, async (q) => {
       await fails(q.rows('select * from public.surprises'), /permission denied/);
@@ -1923,5 +1923,17 @@ test('surprise: only its person gets it, once; nobody can add or read one from t
     // Deleted with the account.
     await step(BOB, (q) => q.one('select public.delete_my_account()'));
     assert.equal((await db.query('select count(*)::int as n from public.surprises')).rows[0].n, 0);
+  });
+});
+
+test('surprise: the highway code book is a kind of its own, and nothing else is accepted', async () => {
+  await withPeople(async ({ step }) => {
+    const { id } = (await db.query("insert into public.surprises (user_id, kind) values ($1, 'code') returning id", [CAROL])).rows[0];
+    const mine = (who) => step(who, async (q) => (await q.one('select public.my_surprise() as s')).s);
+    assert.deepEqual(await mine(CAROL), { id: Number(id), title: '', message: '', kind: 'code' });
+    assert.equal(await mine(BOB), null, 'only Carol gets it');
+    // An unknown kind can't be stored.
+    await assert.rejects(db.query("insert into public.surprises (user_id, kind) values ($1, 'spam')", [BOB]), /surprises_kind_check|check constraint/);
+    await db.exec('rollback to savepoint s').catch(() => {});
   });
 });
