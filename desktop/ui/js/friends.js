@@ -247,7 +247,7 @@ function myCodePanel(mine, ctx) {
         icon('gamepad-2'),
         m.games
           ? `The ids of your ${m.games} Steam games`
-          : h('span', {}, 'No Steam games yet: ', h('button', { type: 'button', class: 'link', onclick: () => ctx.goto('settings') }, 'import them in Settings'), ' to find games you both own'),
+          : 'No Steam games shared yet',
       ),
       h('li', {}, icon('heart'), 'Your taste per kind of idea, learned from your ratings'),
       h('li', {}, icon('palette'), 'Your name, avatar icon and color'),

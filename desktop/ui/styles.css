@@ -1700,11 +1700,15 @@ button.tag:hover {
 
 /* ---------------------------------------------------------------- settings */
 
+/* Columns that fill from the top: sections of different heights leave no blank under the short ones. */
 .settings {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
-  gap: 18px;
-  align-items: start;
+  columns: 380px;
+  column-gap: 18px;
+}
+
+.settings > .section {
+  break-inside: avoid;
+  margin-bottom: 18px;
 }
 
 .section {
@@ -3360,7 +3364,7 @@ button.tag:hover {
   }
 
   .settings {
-    grid-template-columns: minmax(0, 1fr);
+    columns: 1;
   }
 }
 
@@ -5465,7 +5469,7 @@ body[data-view="messages"] .assistant-panel {
   .bar-tags .tag { min-width: 0; }
   .bar-tags .tag-label { display: inline; min-width: 0; white-space: normal; overflow-wrap: anywhere; }
   .view { padding-left: max(24px, var(--safe-left)); padding-right: max(24px, var(--safe-right)); }
-  .settings { grid-template-columns: repeat(auto-fit, minmax(min(380px, 100%), 1fr)); }
+  .settings { columns: min(380px, 100%); }
   .chat-layout { height: calc(var(--viewport-height, 100dvh) - var(--header-height) - var(--nav-height) - 64px); min-height: 260px; }
 
   /* All ticket information stays readable as columns narrow. */
