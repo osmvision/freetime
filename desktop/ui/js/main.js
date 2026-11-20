@@ -18,6 +18,7 @@ import * as ticketsView from './tickets.js';
 import * as gamesView from './games.js';
 import { watchGameInvites } from './game-invites.js';
 import { watchReminders } from './evenings.js';
+import { checkSurprise } from './surprise.js';
 
 initDisplay();
 initViewport();
@@ -260,6 +261,8 @@ async function start() {
   document.body.dataset.view = 'discover';
   mountAssistant(ctx);
   refreshAdmin();
+  // A surprise left for this account (shown once, over the app).
+  checkSurprise();
   if (after === 'profile') goto('settings', { focus: 'profile' });
   await listen('unread-updated', (n) => ctx.setUnread(n));
   // The live connection: messages and invites as soon as they're saved.

@@ -1539,6 +1539,19 @@ pub fn edit_message(state: State<'_, AppState>, id: i64, body: String) -> Res<se
     Client::new().map_err(err)?.edit_message(&s, id, &body).map_err(err)
 }
 
+/// A surprise left for this account, if any (signed out: none).
+#[tauri::command(async)]
+pub fn my_surprise(state: State<'_, AppState>) -> Res<serde_json::Value> {
+    let Ok(s) = live_session(&state) else { return Ok(serde_json::Value::Null) };
+    Client::new().map_err(err)?.my_surprise(&s).map_err(err)
+}
+
+#[tauri::command(async)]
+pub fn surprise_seen(state: State<'_, AppState>, id: i64) -> Res<()> {
+    let s = live_session(&state)?;
+    Client::new().map_err(err)?.surprise_seen(&s, id).map_err(err)
+}
+
 #[tauri::command(async)]
 pub fn mark_read(state: State<'_, AppState>, conversation: String, up_to: i64) -> Res<()> {
     let s = live_session(&state)?;

@@ -7825,3 +7825,303 @@ body[data-view="messages"] .assistant-panel {
     height: 40px;
   }
 }
+
+/* ---------------------------------------------------------------- a surprise for one person */
+
+.sp-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+  padding: 24px 16px;
+  overflow: auto;
+  background: radial-gradient(circle at 50% 40%, #4a1430 0%, #1d0c22 55%, #0b0814 100%);
+  color: #fff7f2;
+  animation: sp-fade 0.5s ease both;
+}
+
+.sp-backdrop.sp-leaving {
+  animation: sp-fade-out 0.4s ease both;
+}
+
+.sp-stage {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  justify-items: center;
+  gap: 14px;
+  width: min(440px, 100%);
+  text-align: center;
+}
+
+.sp-gift {
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+}
+
+.sp-open .sp-gift {
+  cursor: default;
+}
+
+.sp-art {
+  display: block;
+  width: min(320px, 78vw, 52vh);
+  height: auto;
+  overflow: visible;
+}
+
+.sp-art g {
+  transform-box: fill-box;
+}
+
+/* Closed: the gift waits, with a small wobble. */
+.sp-box,
+.sp-lid {
+  transform-origin: 50% 100%;
+  animation: sp-wobble 2.6s ease-in-out infinite;
+}
+
+.sp-bouquet {
+  opacity: 0;
+  transform-box: view-box;
+  transform-origin: 150px 300px;
+  transform: translateY(95px) scale(0.7);
+}
+
+.sp-rose {
+  transform-origin: center;
+  transform: scale(0.2);
+}
+
+.sp-sparkle,
+.sp-glow {
+  opacity: 0;
+}
+
+.sp-open-btn {
+  min-width: 220px;
+  background: #d81f45;
+  border-color: #d81f45;
+  color: #fff;
+}
+
+/* Open: the lid flies off, the bouquet rises, the roses open, the ring shines. */
+.sp-open .sp-box {
+  animation: none;
+}
+
+.sp-open .sp-lid {
+  animation: sp-lid 0.9s cubic-bezier(0.3, 0.7, 0.3, 1) forwards;
+}
+
+.sp-open .sp-bouquet {
+  animation: sp-rise 1.2s cubic-bezier(0.2, 0.8, 0.2, 1) 0.35s forwards;
+}
+
+.sp-open .sp-rose {
+  animation: sp-bloom 0.7s cubic-bezier(0.3, 1.4, 0.5, 1) calc(0.8s + var(--d)) forwards;
+}
+
+.sp-open .sp-glow {
+  animation: sp-glow 2.4s ease-in-out 1.4s infinite;
+}
+
+.sp-open .sp-sparkle {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: sp-twinkle 1.8s ease-in-out calc(1.6s + var(--d)) infinite;
+}
+
+.sp-words {
+  display: grid;
+  gap: 8px;
+  max-width: 100%;
+  opacity: 0;
+  transform: translateY(10px);
+  transition: opacity 0.8s ease, transform 0.8s ease;
+}
+
+.sp-done .sp-words {
+  opacity: 1;
+  transform: none;
+}
+
+.sp-title {
+  margin: 0;
+  font: 700 clamp(26px, 6vw, 38px) / 1.1 var(--display);
+  letter-spacing: 0.02em;
+  color: #ffe3ea;
+  overflow-wrap: anywhere;
+}
+
+.sp-message {
+  margin: 0;
+  font-size: 18px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.sp-actions {
+  visibility: hidden;
+}
+
+.sp-done .sp-actions {
+  visibility: visible;
+}
+
+.sp-close {
+  min-width: 64px;
+  background: #d81f45;
+  border-color: #d81f45;
+  color: #fff;
+  font-size: 20px;
+}
+
+/* Petals falling once it's open. */
+.sp-petals {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.sp-petal {
+  position: absolute;
+  top: -20px;
+  left: var(--x);
+  width: 14px;
+  height: 10px;
+  border-radius: 70% 0 70% 0;
+  background: #e8395d;
+  opacity: 0;
+}
+
+.sp-backdrop:has(.sp-open) .sp-petal {
+  animation: sp-fall var(--t) linear calc(1.2s + var(--d)) infinite;
+}
+
+@keyframes sp-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes sp-fade-out {
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes sp-wobble {
+  0%,
+  70%,
+  100% {
+    transform: rotate(0);
+  }
+  76% {
+    transform: rotate(-3deg);
+  }
+  82% {
+    transform: rotate(3deg);
+  }
+  88% {
+    transform: rotate(-2deg);
+  }
+  94% {
+    transform: rotate(1deg);
+  }
+}
+
+@keyframes sp-lid {
+  to {
+    transform: translate(-40px, -170px) rotate(-28deg);
+    opacity: 0;
+  }
+}
+
+@keyframes sp-rise {
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes sp-bloom {
+  to {
+    transform: scale(1);
+  }
+}
+
+@keyframes sp-glow {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@keyframes sp-twinkle {
+  0%,
+  100% {
+    opacity: 0;
+    transform: scale(0.3);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes sp-fall {
+  0% {
+    opacity: 0;
+    transform: translate(0, 0) rotate(var(--r));
+  }
+  10% {
+    opacity: 0.9;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(40px, 105vh) rotate(calc(var(--r) + 360deg));
+  }
+}
+
+/* Reduced motion: no movement, the open state shows as it is. */
+@media (prefers-reduced-motion: reduce) {
+  .sp-backdrop,
+  .sp-box,
+  .sp-lid,
+  .sp-open .sp-lid,
+  .sp-open .sp-bouquet,
+  .sp-open .sp-rose,
+  .sp-open .sp-glow,
+  .sp-open .sp-sparkle,
+  .sp-backdrop:has(.sp-open) .sp-petal {
+    animation: none;
+  }
+
+  .sp-open .sp-lid {
+    opacity: 0;
+  }
+
+  .sp-open .sp-bouquet,
+  .sp-open .sp-rose {
+    opacity: 1;
+    transform: none;
+  }
+
+  .sp-open .sp-glow,
+  .sp-open .sp-sparkle {
+    opacity: 0.8;
+  }
+
+  .sp-words {
+    transition: none;
+  }
+}

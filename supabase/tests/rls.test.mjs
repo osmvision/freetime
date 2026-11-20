@@ -1819,3 +1819,36 @@ test('editing a message: not once blocked', async () => {
     });
   });
 });
+
+// ---------------------------------------------------------------- a surprise for one person
+
+test('surprise: only its person gets it, once; nobody can add or read one from the app', async () => {
+  await withPeople(async ({ step }) => {
+    // Added by the team (as the database owner here).
+    const { id } = (await db.query("insert into public.surprises (user_id) values ($1) returning id", [BOB])).rows[0];
+    const mine = (who) => step(who, async (q) => (await q.one('select public.my_surprise() as s')).s);
+    assert.equal(await mine(ALICE), null, 'not Alice’s');
+    assert.equal(await mine(CAROL), null);
+    assert.deepEqual(await mine(BOB), { id: Number(id), title: '', message: '' });
+    // Not readable, writable or markable by anybody else.
+    await step(ALICE, async (q) => {
+      await fails(q.rows('select * from public.surprises'), /permission denied/);
+    });
+    await step(ALICE, async (q) => {
+      await fails(q.rows('insert into public.surprises (user_id) values ($1)', [ALICE]), /permission denied/);
+    });
+    await step(null, async (q) => {
+      await fails(q.one('select public.my_surprise()'), /permission denied/);
+    });
+    await step(ALICE, (q) => q.one('select public.surprise_seen($1)', [id]));
+    assert.ok(await mine(BOB), 'Alice can’t mark Bob’s surprise as seen');
+    // Bob's export doesn't spoil it; once opened, it's there and doesn't show again.
+    assert.deepEqual((await step(BOB, (q) => q.one('select public.export_my_data() as d'))).d.surprises_you_opened, []);
+    await step(BOB, (q) => q.one('select public.surprise_seen($1)', [id]));
+    assert.equal(await mine(BOB), null);
+    assert.equal((await step(BOB, (q) => q.one('select public.export_my_data() as d'))).d.surprises_you_opened.length, 1);
+    // Deleted with the account.
+    await step(BOB, (q) => q.one('select public.delete_my_account()'));
+    assert.equal((await db.query('select count(*)::int as n from public.surprises')).rows[0].n, 0);
+  });
+});

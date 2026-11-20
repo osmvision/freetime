@@ -128,6 +128,8 @@ fn main() {
             commands::changed_messages,
             commands::react_to_message,
             commands::edit_message,
+            commands::my_surprise,
+            commands::surprise_seen,
             commands::mark_read,
             assistant::assistant_status,
             assistant::assistant_models,

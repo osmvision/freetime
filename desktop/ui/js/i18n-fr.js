@@ -1148,6 +1148,11 @@ export const exact = {
   'you can\'t react in this chat any more': 'tu ne peux plus réagir dans cette conversation',
   'you can\'t write in this chat any more': 'tu ne peux plus écrire dans cette conversation',
   'a message has 1 to 2,000 characters': 'un message fait de 1 à 2 000 caractères',
+  // A surprise for one person.
+  'Open your gift': 'Ouvre ton cadeau',
+  'A gift box': 'Un paquet cadeau',
+  'A bouquet of roses with a ring in the middle': 'Un bouquet de roses avec une bague au milieu',
+  'A surprise': 'Une surprise',
 };
 
 export const patterns = [
@@ -1325,6 +1330,7 @@ export const patterns = [
   ['Wow · {n0}', 'Waouh · {0}'],
   ['Sad · {n0}', 'Triste · {0}'],
   ['Fire · {n0}', 'Génial · {0}'],
+
 ];
 
 /** Game and video details: also safe inside titles and descriptions. */

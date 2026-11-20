@@ -950,6 +950,16 @@ impl Client {
         self.call("POST", "/rest/v1/rpc/edit_message", Some(&s.access_token), Some(&json!({ "p_id": id, "p_body": body })), None)
     }
 
+    /// A surprise the team left for this account (shown once): { id, title, message }, or null.
+    pub fn my_surprise(&self, s: &Session) -> Result<Value> {
+        self.call("POST", "/rest/v1/rpc/my_surprise", Some(&s.access_token), Some(&json!({})), None)
+    }
+
+    pub fn surprise_seen(&self, s: &Session, id: i64) -> Result<()> {
+        self.call("POST", "/rest/v1/rpc/surprise_seen", Some(&s.access_token), Some(&json!({ "p_id": id })), None)?;
+        Ok(())
+    }
+
     pub fn mark_read(&self, s: &Session, conversation: &str, up_to: i64) -> Result<()> {
         ensure_uuid(conversation)?;
         ensure_uuid(&s.user_id)?;

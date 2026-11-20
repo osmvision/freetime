@@ -47,6 +47,9 @@ To work, the app contacts these services, and only for what you see on screen:
   "edited", and its earlier versions are kept apart, readable only by the freetime team, so that
   a report can't be emptied by editing. They are deleted with the message or your account.
 - Reports you make.
+- Rarely, a surprise the freetime team leaves for your account only (shown once when you open the
+  app): its words, if any, and when you opened it. It is part of your data export once opened, and
+  deleted with your account.
 - If you use the free assistant: how many messages you sent today, for the daily limit. Older
   days are deleted.
 - For the ranking: your points per day (at most 20), how many tickets you stamped, the badges you
