@@ -14,6 +14,7 @@ pub mod net;
 pub mod model;
 pub mod open;
 pub mod party;
+pub mod places;
 pub mod providers;
 pub mod quiz;
 pub mod ranked;
