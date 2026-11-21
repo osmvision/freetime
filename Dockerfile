@@ -5,7 +5,7 @@
 #   docker run --rm -p 10000:10000 freetime-web      ->  http://localhost:10000
 
 # 1. The browser side: the sign-in bundle, the service worker and the offline file list.
-FROM node:22-bookworm-slim AS ui
+FROM node:26-bookworm-slim AS ui
 WORKDIR /app
 COPY desktop/ui desktop/ui
 COPY web web
