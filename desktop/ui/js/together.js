@@ -25,9 +25,10 @@ export const invitable = (c) => /^[a-z]+:[A-Za-z0-9_.-]+$/.test(c.id ?? '') && c
 
 /**
  * Renders who's free and the "I'm free" button into `box`. `minutes()` gives the free time
- * picked on Discover. Returns { refresh, friends } so the caller can update it and reuse the list.
+ * picked on Discover; `onRefreshed(friends)` runs after each refresh. Returns { refresh, friends }
+ * so the caller can update it and reuse the list.
  */
-export function freeStrip(box, minutes, onFriendsChanged = () => {}) {
+export function freeStrip(box, minutes, onFriendsChanged = () => {}, onRefreshed = () => {}) {
   let mine = null;
   let friends = [];
   let known = 0;
@@ -56,6 +57,7 @@ export function freeStrip(box, minutes, onFriendsChanged = () => {}) {
       mine = acc.profile.free_until && new Date(acc.profile.free_until) > new Date() ? acc.profile.free_until : null;
       draw();
       changed();
+      onRefreshed(friends);
     } catch {
       // Offline or session ended: hide the strip rather than show an error on Discover.
       box.replaceChildren();
@@ -135,6 +137,26 @@ export function invitePanel(c, friends, onDone) {
     );
   paintPeople();
 
+  const groupPicker = h('select', { class: 'input', 'aria-label': 'Select friends from a group', hidden: true });
+  if (sorted.length) {
+    const accepted = new Set(sorted.map((f) => f.user_id));
+    api.friendGroups().then((groups) => {
+      const available = groups.map((group) => ({
+        ...group, friends: group.members.map((member) => member.user_id).filter((id) => accepted.has(id)),
+      })).filter((group) => group.friends.length);
+      if (!available.length) return;
+      fill(groupPicker, h('option', { value: '' }, 'Select friends from a group'),
+        available.map((group) => h('option', { value: group.conversation_id, translate: 'no' }, group.name)));
+      groupPicker.hidden = false;
+      groupPicker.addEventListener('change', () => {
+        const group = available.find((item) => item.conversation_id === groupPicker.value);
+        for (const id of group?.friends ?? []) chosen.add(id);
+        groupPicker.value = '';
+        paintPeople();
+      });
+    }).catch(() => {});
+  }
+
   const now = new Date();
   const tonight = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 21, 0);
   const times = [
@@ -175,6 +197,7 @@ export function invitePanel(c, friends, onDone) {
     'div',
     { class: 'invite-panel' },
     h('strong', {}, 'Invite friends to this'),
+    groupPicker,
     sorted.length ? people : h('p', { class: 'hint' }, 'Add friends in the Friends tab to invite them.'),
     h('span', { class: 'field-label' }, 'When'),
     timeBox,
@@ -193,7 +216,7 @@ const linkFor = (id) => {
 };
 
 /** Renders the invites panel (incoming and outgoing) into `box`; hides it when there are none. */
-export async function invitesPanel(box, ctx) {
+export async function invitesPanel(box, ctx, inviteId) {
   let list;
   try {
     list = await api.invites();
@@ -239,11 +262,13 @@ export async function invitesPanel(box, ctx) {
               ]
           : [
               h('span', { class: `invite-state ${i.status}` }, statusText[i.status]),
+              // Accepted: both sides get the button to launch it.
+              i.status === 'accepted' && link ? btn({ label: 'Open', icon: 'play', small: true, kind: 'primary', onclick: () => api.open(link).catch((e) => toast(errText(e), 'error')) }) : null,
               i.status === 'pending' || i.status === 'accepted' ? btn({ label: 'Cancel', kind: 'quiet', small: true, onclick: () => act(api.cancelInvite(i.id), 'Invite cancelled') }) : null,
             ];
         return h(
           'div',
-          { class: 'invite-row' },
+          { class: 'invite-row', id: `pick-invite-${i.id}`, tabindex: -1 },
           avatar({ icon: i.other_icon, color: i.other_color }),
           h(
             'div',
@@ -257,4 +282,7 @@ export async function invitesPanel(box, ctx) {
       }),
     ),
   );
+  if (inviteId && box.isConnected && !box.closest('[hidden]')) {
+    document.getElementById(`pick-invite-${inviteId}`)?.focus();
+  }
 }

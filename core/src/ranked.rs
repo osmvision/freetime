@@ -43,7 +43,7 @@ fn end_of(day: NaiveDate) -> DateTime<Local> {
 }
 
 fn up_to(history: &History, last: Option<NaiveDate>) -> History {
-    History {
+    History { dismissals: Vec::new(),
         entries: history
             .entries
             .iter()
@@ -220,7 +220,7 @@ mod tests {
         let cat = catalog::load();
         let day = NaiveDate::from_ymd_opt(2026, 11, 18).unwrap();
         let daily = book::daily(&cat, day).unwrap().clone();
-        let mut h = History {
+        let mut h = History { dismissals: Vec::new(),
             entries: vec![
                 e("idea:run-5k", Category::Sport, at(2026, 11, 10, 9)), // older: not new on the 18th
                 e("idea:run-5k", Category::Sport, at(2026, 11, 18, 9)),

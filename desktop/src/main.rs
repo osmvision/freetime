@@ -6,6 +6,7 @@ mod book;
 mod commands;
 mod duels;
 mod feed;
+mod plans;
 mod quiz;
 mod ranked;
 mod share;
@@ -63,6 +64,7 @@ fn main() {
             commands::sign_in,
             commands::sign_out,
             commands::get_account,
+            commands::profile_photos,
             commands::save_profile,
             commands::reset_friend_tag,
             commands::live_status,
@@ -85,9 +87,23 @@ fn main() {
             duels::drop_duel,
             duels::game_action,
             duels::my_matches,
+            duels::game_leaderboard,
             duels::leave_match,
             duels::hide_match,
             duels::hide_finished_matches,
+            plans::play_now,
+            plans::head_to_head,
+            plans::create_evening,
+            plans::answer_evening,
+            plans::settle_evening,
+            plans::cancel_evening,
+            plans::my_evenings,
+            plans::remind,
+            plans::not_now,
+            plans::save_preferences,
+            plans::load_preferences,
+            plans::preferences_status,
+            plans::forget_preferences,
             feed::friend_feed,
             feed::share_post,
             feed::delete_post,
@@ -115,8 +131,15 @@ fn main() {
             commands::unfriend,
             commands::block_user,
             commands::open_chat,
+            commands::friend_groups,
+            commands::manage_friend_group,
             commands::chat_messages,
             commands::send_message,
+            commands::changed_messages,
+            commands::react_to_message,
+            commands::edit_message,
+            commands::my_surprise,
+            commands::surprise_seen,
             commands::mark_read,
             assistant::assistant_status,
             assistant::assistant_models,
@@ -125,6 +148,7 @@ fn main() {
             support::send_support_ticket,
             support::support_is_admin,
             support::support_tickets,
+            support::support_ticket_photos,
             support::update_support_ticket,
             updates::update_status,
             updates::set_auto_update,

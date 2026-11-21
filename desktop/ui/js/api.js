@@ -48,6 +48,7 @@ export const api = {
   signIn: (provider) => invoke('sign_in', { provider }),
   signOut: () => invoke('sign_out'),
   account: () => invoke('get_account'),
+  profilePhotos: (ids) => invoke('profile_photos', { ids }),
   saveProfile: (edit) => invoke('save_profile', { edit }),
   resetFriendTag: () => invoke('reset_friend_tag'),
   liveStatus: () => invoke('live_status'),
@@ -76,9 +77,26 @@ export const api = {
   // Two-player games with friends (moves are checked on the server).
   gameAction: (request) => invoke('game_action', { request }),
   myMatches: () => invoke('my_matches'),
+  gameLeaderboard: (game, scope) => invoke('game_leaderboard', { game, scope }),
   leaveMatch: (id) => invoke('leave_match', { id }),
   hideMatch: (id) => invoke('hide_match', { id }),
   hideFinishedMatches: () => invoke('hide_finished_matches'),
+  playNow: (req, mate) => invoke('play_now', { req, mate }),
+  headToHead: (other, game = null) => invoke('head_to_head', { other, game }),
+  // Evenings: two times, up to three things to do, answers in one click.
+  myEvenings: () => invoke('my_evenings'),
+  createEvening: (evening) => invoke('create_evening', { evening }),
+  answerEvening: (id, slots, activity = null) => invoke('answer_evening', { id, slots, activity }),
+  settleEvening: (id, slot, activity) => invoke('settle_evening', { id, slot, activity }),
+  cancelEvening: (id) => invoke('cancel_evening', { id }),
+  remind: (title, body) => invoke('remind', { title, body }),
+  // "Too long" / "already done" / "another time" about an idea on Discover.
+  notNow: (id, reason, minutes) => invoke('not_now', { id, reason, minutes }),
+  // Preferences on all your devices, only when asked.
+  savePreferences: (extra) => invoke('save_preferences', { extra }),
+  loadPreferences: () => invoke('load_preferences'),
+  preferencesStatus: () => invoke('preferences_status'),
+  forgetPreferences: () => invoke('forget_preferences'),
   // Friends' feed and social settings.
   friendFeed: () => invoke('friend_feed'),
   sharePost: (post) => invoke('share_post', { post }),
@@ -98,6 +116,8 @@ export const api = {
   answerInvite: (id, accept) => invoke('answer_invite', { id, accept }),
   cancelInvite: (id) => invoke('cancel_invite', { id }),
   getNotifyMessages: () => invoke('get_notify_messages'),
+  getNotifyInvites: () => invoke('get_notify_invites'),
+  setNotifyInvites: (enabled) => invoke('set_notify_invites', { enabled }),
   // Updates: GitHub releases, signed (src/updates.rs).
   updateStatus: () => invoke('update_status'),
   setAutoUpdate: (enabled) => invoke('set_auto_update', { enabled }),
@@ -111,6 +131,7 @@ export const api = {
   sendSupportTicket: (ticket) => invoke('send_support_ticket', { ticket }),
   supportIsAdmin: () => invoke('support_is_admin'),
   supportTickets: (status = null) => invoke('support_tickets', { status }),
+  supportTicketPhotos: (id) => invoke('support_ticket_photos', { id }),
   updateSupportTicket: (id, status, note) => invoke('update_support_ticket', { id, status, note }),
   socialOverview: () => invoke('social_overview'),
   friendRequest: (tag) => invoke('friend_request', { tag }),
@@ -118,8 +139,16 @@ export const api = {
   unfriend: (userId) => invoke('unfriend', { userId }),
   blockUser: (userId) => invoke('block_user', { userId }),
   openChat: (friend) => invoke('open_chat', { friend }),
+  friendGroups: () => invoke('friend_groups'),
+  manageFriendGroup: (edit) => invoke('manage_friend_group', { edit }),
   chatMessages: (conversation, after = 0) => invoke('chat_messages', { conversation, after }),
   sendMessage: (conversation, body) => invoke('send_message', { conversation, body }),
+  // A surprise made for this account only (shown once).
+  mySurprise: () => invoke('my_surprise'),
+  surpriseSeen: (id) => invoke('surprise_seen', { id }),
+  changedMessages: (conversation, since) => invoke('changed_messages', { conversation, since }),
+  reactToMessage: (id, emoji) => invoke('react_to_message', { id, emoji }),
+  editMessage: (id, body) => invoke('edit_message', { id, body }),
   markRead: (conversation, upTo) => invoke('mark_read', { conversation, upTo }),
   // The chat assistant (Mistral, opt-in). The key never comes back to the UI.
   assistantStatus: () => invoke('assistant_status'),

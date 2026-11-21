@@ -253,7 +253,7 @@ function into(answers, categories) {
 function games() {
   if (!inTauri) return [
     h('h2', { class: 'welcome-step' }, 'Your Steam games'),
-    h('p', { class: 'welcome-lead' }, 'You can import your public Steam library in Settings with your profile and a Web API key. Built-in ideas are ready now.'),
+    h('p', { class: 'welcome-lead' }, 'Importing your Steam library is done in the Windows app. Built-in ideas are ready now.'),
   ];
   const status = h('div', { class: 'city-status', 'aria-live': 'polite' });
   const pick = h('div', { class: 'row' });
@@ -281,7 +281,7 @@ function games() {
         if (scan.chosen) return finishImport(scan.chosen, go);
         if (!scan.found) {
           status.className = 'city-status warn';
-          status.textContent = 'Steam isn’t installed on this PC. You can connect your account later in Settings.';
+          status.textContent = 'Steam isn’t installed on this PC.';
           return;
         }
         if (!scan.accounts.length) {

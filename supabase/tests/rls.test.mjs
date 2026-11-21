@@ -55,8 +55,16 @@ async function withPeople(fn) {
 }
 
 const fails = async (promise, pattern) => {
-  await assert.rejects(promise, pattern);
+  let error = null;
+  try {
+    await promise;
+  } catch (e) {
+    error = e;
+  }
+  // Undo first, so a wrong message is reported as such rather than as an aborted transaction.
   await db.exec('rollback to savepoint s');
+  assert.ok(error, `expected an error matching ${pattern}`);
+  assert.match(String(error), pattern);
 };
 
 test('a new account gets a neutral profile with a friend tag', async () => {
@@ -98,6 +106,56 @@ test('you can edit your own profile, within limits, and nobody else’s', async 
     await step(ALICE, async (q) => {
       await fails(q.rows('insert into public.profiles (id) values ($1)', [CAROL]), /permission denied/);
     });
+  });
+});
+
+test('profile photos: upload, replace, remove, and follow profile visibility', async () => {
+  // Valid 160×160 grayscale PNGs and a 1×1 PNG used to test the size check.
+  const first = 'iVBORw0KGgoAAAANSUhEUgAAAKAAAACgCAAAAACupDjxAAAAq0lEQVR4nO3OMQEAIAzAsEnDvyok7MgBR6Mgcz43rwObgqqgKqgKqoKqoCqoCqqCqqAqqAqqgqqgKqgKqoKqoCqoCqqCqqAqqAqqgqqgKqgKqoKqoCqoCqqCqqAqqAqqgqqgKqgKqoKqoCqoCqqCqqAqqAqqgqqgKqgKqoKqoCqoCqqCqqAqqAqqgqqgKqgKqoKqoCqoCqqCqqAqqAqqgqqgKqgKqoKqoCqoLhwmAXgB4UisAAAAAElFTkSuQmCC';
+  const replacement = 'iVBORw0KGgoAAAANSUhEUgAAAKAAAACgCAAAAACupDjxAAAAqklEQVR4nO3OMQEAIAzAsElHOhJ25ICjUZA5n5vXgU1BVVAVVAVVQVVQFVQFVUFVUBVUBVVBVVAVVAVVQVVQFVQFVUFVUBVUBVVBVVAVVAVVQVVQFVQFVUFVUBVUBVVBVVAVVAVVQVVQFVQFVUFVUBVUBVVBVVAVVAVVQVVQFVQFVUFVUBVUBVVBVVAVVAVVQVVQFVQX050C76n7tDUAAAAASUVORK5CYII=';
+  const wrongSize = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAAAAAA6fptVAAAACklEQVR4nGNQAAAAIgAh4+9nCwAAAABJRU5ErkJggg==';
+  await withPeople(async ({ step }) => {
+    const photos = (who) => step(who, (q) => q.rows('select image from public.profile_photos where user_id = $1', [ALICE]));
+    const save = (q, name, image) => q.one(
+      "select public.save_profile_with_photo($1, 2::smallint, 1::smallint, '', '', $2) as profile", [name, image],
+    );
+    assert.equal((await step(ALICE, (q) => save(q, 'Alice', first))).profile.id, ALICE);
+    assert.deepEqual(await photos(ALICE), [{ image: first }]);
+    assert.deepEqual(await photos(BOB), []);
+    await step(null, async (q) => {
+      await fails(q.rows('select * from public.profile_photos'), /permission denied/);
+    });
+    await step(ALICE, async (q) => {
+      await fails(save(q, 'Invalid edit', wrongSize), /profile_photo_format/);
+    });
+    assert.equal((await step(ALICE, (q) => q.one('select display_name from public.profiles where id = $1', [ALICE]))).display_name, 'Alice');
+    assert.deepEqual(await photos(ALICE), [{ image: first }]);
+
+    await befriend(ALICE, BOB);
+    assert.deepEqual(await photos(BOB), [{ image: first }]);
+    assert.deepEqual(await step(BOB, (q) => q.rows('update public.profile_photos set image = $2 where user_id = $1 returning user_id', [ALICE, replacement])), []);
+    await step(BOB, async (q) => {
+      await fails(q.rows('insert into public.profile_photos (user_id, image) values ($1, $2)', [ALICE, replacement]), /row-level security/);
+    });
+    await step(ALICE, (q) => q.rows('update public.profiles set show_in_global = true where id = $1', [ALICE]));
+    assert.deepEqual(await photos(CAROL), [{ image: first }]);
+    await step(CAROL, (q) => q.rows('insert into public.blocks (blocker, blocked) values ($1, $2)', [CAROL, ALICE]));
+    assert.deepEqual(await photos(CAROL), []);
+
+    await step(ALICE, (q) => save(q, 'Alice', replacement));
+    assert.deepEqual(await photos(BOB), [{ image: replacement }]);
+    await step(ALICE, (q) => q.rows("update public.profiles set bio = 'Updated bio' where id = $1", [ALICE]));
+    assert.deepEqual(await photos(ALICE), [{ image: replacement }]);
+    const exported = (who) => step(who, async (q) => (await q.one('select public.export_my_data() as data')).data.profile_photo);
+    assert.equal(await exported(ALICE), `data:image/png;base64,${replacement}`);
+    assert.equal(await exported(BOB), null);
+
+    await step(ALICE, (q) => save(q, 'Alice', null));
+    assert.deepEqual(await photos(ALICE), []);
+    assert.deepEqual(await photos(BOB), []);
+    await step(ALICE, (q) => save(q, 'Alice', first));
+    await step(ALICE, (q) => q.one('select public.delete_my_account()'));
+    assert.deepEqual((await db.query('select user_id from public.profile_photos')).rows, []);
   });
 });
 
@@ -248,6 +306,79 @@ test('members read and post; nobody else can read, post or pose as someone', asy
     await step(null, async (q) => {
       await fails(q.rows('select * from public.messages'), /permission denied/);
     });
+  });
+});
+
+test('friend groups enforce membership, history, blocking and owner transfer', async () => {
+  const outsider = '00000000-0000-4000-8000-00000000000d';
+  await withPeople(async ({ step }) => {
+    await db.query('insert into auth.users (id, email) values ($1, $2)', [outsider, 'outsider@test']);
+    await befriend(ALICE, BOB);
+    const manage = (q, action, id, name, add = [], remove = []) =>
+      q.one('select public.manage_friend_group($1,$2,$3,$4,$5) as id', [action, id, name, add, remove]);
+    const groups = (who) => step(who, async (q) => (await q.one('select public.my_friend_groups() as groups')).groups);
+    const messages = (who, id) =>
+      step(who, (q) => q.rows('select body from public.messages where conversation_id = $1 order by id', [id]));
+    const send = (who, id, body) => step(who, (q) =>
+      q.one('insert into public.messages (conversation_id, body) values ($1, $2) returning id', [id, body]));
+
+    await step(ALICE, async (q) => {
+      await fails(manage(q, 'create', null, 'Friday', [BOB, CAROL]), /only add your friends/);
+    });
+    await befriend(ALICE, CAROL);
+    await step(ALICE, async (q) => {
+      await fails(manage(q, 'create', null, 'Friday', [BOB, BOB]), /at least two friends/);
+    });
+    const { id } = await step(ALICE, (q) => manage(q, 'create', null, 'Friday', [BOB, CAROL]));
+    assert.equal((await groups(ALICE))[0].owned, true);
+    assert.deepEqual(new Set((await groups(BOB))[0].members.map((member) => member.user_id)), new Set([ALICE, BOB, CAROL]));
+    assert.deepEqual(await groups(outsider), []);
+    await step(outsider, async (q) => {
+      await fails(q.rows("insert into public.messages (conversation_id, body) values ($1, 'outside')", [id]), /row-level security/);
+    });
+    await step(BOB, async (q) => {
+      await fails(manage(q, 'update', id, 'Hijacked'), /only the group owner/);
+    });
+    assert.equal((await step(BOB, (q) => q.rows('select * from public.my_conversations()'))).length, 0);
+
+    const first = await send(BOB, id, 'Before the block');
+    assert.equal((await groups(CAROL))[0].unread, 1);
+    assert.deepEqual(await messages(outsider, id), []);
+    await step(CAROL, (q) => q.rows('update public.conversation_members set last_read_id = $1 where conversation_id = $2 and user_id = $3', [first.id, id, CAROL]));
+    assert.equal((await groups(CAROL))[0].unread, 0);
+    await step(BOB, (q) => q.rows('insert into public.blocks (blocker, blocked) values ($1,$2)', [BOB, CAROL]));
+    await send(CAROL, id, 'From Carol');
+    assert.deepEqual(await messages(BOB, id), [{ body: 'Before the block' }]);
+    assert.deepEqual(await messages(CAROL, id), [{ body: 'From Carol' }]);
+    assert.deepEqual(await messages(ALICE, id), [{ body: 'Before the block' }, { body: 'From Carol' }]);
+
+    await step(ALICE, (q) => manage(q, 'update', id, 'Game night', [], [CAROL]));
+    assert.deepEqual(await groups(CAROL), []);
+    assert.deepEqual(await messages(CAROL, id), []);
+    await step(CAROL, async (q) => {
+      await fails(q.rows("insert into public.messages (conversation_id, body) values ($1, 'removed')", [id]), /row-level security/);
+    });
+    const hidden = await send(ALICE, id, 'While Carol was away');
+    await step(ALICE, (q) => manage(q, 'update', id, null, [CAROL]));
+    assert.equal((await groups(CAROL))[0].name, 'Game night');
+    assert.deepEqual(await messages(CAROL, id), []);
+    await step(CAROL, async (q) => {
+      await fails(q.rows("insert into public.reports (target, reason, message_ids) values ($1, 'spam', array[$2]::bigint[])", [ALICE, hidden.id]), /messages can.t be attached/);
+    });
+    await send(ALICE, id, 'After Carol returned');
+    assert.deepEqual(await messages(CAROL, id), [{ body: 'After Carol returned' }]);
+    assert.equal((await groups(CAROL))[0].unread, 1);
+    const data = await step(CAROL, async (q) => (await q.one('select public.export_my_data() as data')).data);
+    assert.equal(data.groups[0].name, 'Game night');
+    assert.ok(!JSON.stringify(data).includes('After Carol returned'));
+
+    await step(ALICE, (q) => manage(q, 'leave', id, null));
+    assert.deepEqual(await groups(ALICE), []);
+    assert.equal((await groups(BOB))[0].owned, true);
+    await step(BOB, (q) => manage(q, 'leave', id, null));
+    assert.equal((await groups(CAROL))[0].owned, true);
+    await step(CAROL, (q) => manage(q, 'leave', id, null));
+    assert.equal((await db.query('select count(*)::int as n from public.conversations where id = $1', [id])).rows[0].n, 0);
   });
 });
 
@@ -888,6 +1019,39 @@ test('support tickets: values are checked, senders are rate limited, deleted acc
     assert.deepEqual([left.n, left.linked], [5, 0], 'the tickets stay, without the account');
   });
 });
+
+test('support ticket photos are private, saved atomically, and deleted with the ticket', async () => {
+  const image = readFileSync(join(here, '..', '..', 'desktop', 'ui', 'img', 'ideas', 'advent-of-code.jpg')).toString('base64');
+  const submit = (q, photos, who = ALICE) => q.one(
+    "select public.support_submit_with_photos($1, $2, 'bug', 'There is a screenshot of the problem.', null, null, null, null, null, $3) as id",
+    [who, ipHash(25), photos],
+  );
+  await withPeople(async ({ step }) => {
+    await db.query('insert into private.admins (user_id) values ($1)', [BOB]);
+    await step(ALICE, async (q) => {
+      await fails(submit(q, [image]), /permission denied/);
+    });
+    await serviceFails((q) => submit(q, [image, 'invalid']), /check constraint/);
+    await serviceFails((q) => submit(q, [image, image, image, image]), /one to three photos/);
+    assert.equal((await db.query('select count(*)::int as n from public.support_tickets')).rows[0].n, 0);
+    const { id } = await asService((q) => submit(q, [image, image]));
+    const { id: anonymousTicket } = await asService((q) => submit(q, [image], null));
+    const { id: textTicket } = await asService((q) => fileTicket(q, ALICE, ipHash(26)));
+    const counts = await step(BOB, (q) => q.rows('select id, photo_count from public.support_tickets order by id'));
+    assert.deepEqual(counts, [{ id, photo_count: 2 }, { id: anonymousTicket, photo_count: 1 }, { id: textTicket, photo_count: 0 }]);
+    assert.deepEqual(await step(BOB, (q) => q.rows('select position, image from public.support_ticket_photos where ticket_id = $1 order by position', [id])),
+      [{ position: 1, image }, { position: 2, image }]);
+    assert.deepEqual(await step(ALICE, (q) => q.rows('select image from public.support_ticket_photos')), []);
+    await step(BOB, async (q) => {
+      await fails(q.rows('delete from public.support_ticket_photos where ticket_id = $1', [id]), /permission denied/);
+    });
+    await step(null, async (q) => {
+      await fails(q.rows('select image from public.support_ticket_photos'), /permission denied/);
+    });
+    await db.query('delete from public.support_tickets where id = $1', [id]);
+    assert.deepEqual(await step(BOB, (q) => q.rows('select image from public.support_ticket_photos where ticket_id = $1', [id])), []);
+  });
+});
 // ---------------------------------------------------------------- meet
 
 test('meet: only people who chose to be visible, never friends, yourself or blocked people', async () => {
@@ -1128,6 +1292,64 @@ async function games(user, body, first = 0) {
 
 const myMatches = (step, who) => step(who, async (q) => (await q.one('select public.my_matches() as m')).m);
 
+test('game rankings: completed results, tied ranks, friends, and worldwide visibility', async () => {
+  await withPeople(async ({ step }) => {
+    await befriend(ALICE, BOB);
+    await db.query("update public.profiles set display_name = case id when $1 then 'Alice' when $2 then 'Bob' else 'Carol' end", [ALICE, BOB]);
+    await db.query(`
+      insert into public.matches (game, player_a, player_b, state, status, result, finished_at)
+      values ('four', $1, $2, '{}', 'done', 'a', now() - interval '90 days'),
+             ('four', $2, $3, '{}', 'done', 'b', now()),
+             ('four', $3, $1, '{}', 'done', 'draw', now()),
+             ('four', $1, $2, '{}', 'active', null, null),
+             ('four', $1, $2, '{}', 'active', null, null),
+             ('four', $1, $2, '{}', 'cancelled', null, now()),
+             ('four', $2, $1, '{}', 'declined', null, now()),
+             ('gomoku', $2, $1, '{}', 'done', 'a', now())
+    `, [ALICE, BOB, CAROL]);
+    await db.exec("update public.matches set updated_at = now() - interval '8 days' where id = (select id from public.matches where status = 'active' limit 1)");
+    await db.query(`
+      insert into public.duels (challenger, opponent, questions, challenger_score, opponent_score, status, finished_at)
+      values ($1, $2, array['q1','q2','q3','q4','q5'], 4, 2, 'done', now()),
+             ($2, $1, array['q1','q2','q3','q4','q5'], 5, 5, 'done', now()),
+             ($1, $2, array['q1','q2','q3','q4','q5'], 5, null, 'open', null)
+    `, [ALICE, BOB]);
+
+    const board = (game, scope, who = ALICE) =>
+      step(who, async (q) => (await q.one('select public.game_leaderboard($1, $2) as board', [game, scope])).board);
+    const fields = ({ rows }) => rows.map((r) => [r.display_name, r.rank, r.points, r.wins, r.draws, r.losses, r.me]);
+    assert.deepEqual(fields(await board('four', 'friends')), [
+      ['Alice', 1, 4, 1, 1, 0, true], ['Bob', 2, 0, 0, 0, 2, false],
+    ]);
+    assert.deepEqual(fields(await board('gomoku', 'friends')), [
+      ['Bob', 1, 3, 1, 0, 0, false], ['Alice', 2, 0, 0, 0, 1, true],
+    ]);
+    assert.deepEqual(fields(await board('quiz-duel', 'friends')), [
+      ['Alice', 1, 4, 1, 1, 0, true], ['Bob', 2, 1, 0, 1, 1, false],
+    ]);
+    assert.deepEqual(await board('four', 'global'), { show_in_global: false, rows: [] });
+
+    await step(CAROL, (q) => q.rows('update public.profiles set show_in_global = true where id = $1', [CAROL]));
+    assert.deepEqual(fields(await board('four', 'global')), [['Carol', 1, 4, 1, 1, 0, false]]);
+    await step(ALICE, (q) => q.rows('update public.profiles set show_in_global = true where id = $1', [ALICE]));
+    const global = await board('four', 'global');
+    assert.equal(global.show_in_global, true);
+    assert.deepEqual(fields(global), [['Alice', 1, 4, 1, 1, 0, true], ['Carol', 1, 4, 1, 1, 0, false]]);
+    assert.deepEqual(Object.keys(global.rows[1]).sort(), ['avatar_color', 'avatar_icon', 'display_name', 'draws', 'losses', 'me', 'points', 'rank', 'wins']);
+    assert.deepEqual(await step(ALICE, (q) => q.rows('select player_a from public.matches where player_a = $1', [BOB])), [{ player_a: BOB }, { player_a: BOB }]);
+
+    await step(ALICE, (q) => q.rows('insert into public.blocks (blocker, blocked) values ($1, $2)', [ALICE, CAROL]));
+    assert.deepEqual(fields(await board('four', 'global')), [['Alice', 1, 4, 1, 1, 0, true]]);
+    assert.deepEqual(fields(await board('four', 'global', CAROL)), [['Carol', 1, 4, 1, 1, 0, true]]);
+    await step(ALICE, async (q) => {
+      await fails(q.one("select public.game_leaderboard('solo', 'global')"), /unknown game leaderboard/);
+    });
+    await step(null, async (q) => {
+      await fails(q.one("select public.game_leaderboard('four', 'global')"), /permission denied/);
+    });
+  });
+});
+
 test('games: only the Edge Function (service role) writes games; players only read their own', async () => {
   await withPeople(async ({ step }) => {
     for (const who of [ALICE, null]) {
@@ -1354,5 +1576,364 @@ test('games: chess online — moves are checked by the real rules, and mate ends
     assert.equal((await myMatches(step, ALICE)).find((m) => m.id === g.id).outcome, 'lost');
     const saved = (await db.query('select pg_column_size(state) as size from public.matches where id = $1', [g.id])).rows[0].size;
     assert.ok(saved < 4000, `the state takes ${saved} bytes`);
+  });
+});
+
+// ---------------------------------------------------------------- end of game: record and chess ranking
+
+test('head to head: your record against one friend, cleared games included, nobody else’s', async () => {
+  await withPeople(async ({ step }) => {
+    await befriend(ALICE, BOB);
+    await db.query(`
+      insert into public.matches (game, player_a, player_b, state, status, result, finished_at, updated_at)
+      values ('four', $1, $2, '{}', 'done', 'a', now(), now() - interval '3 days'),
+             ('four', $2, $1, '{}', 'done', 'a', now(), now() - interval '2 days'),
+             ('chess', $1, $2, '{}', 'done', 'draw', now(), now() - interval '1 day'),
+             ('four', $1, $2, '{}', 'active', null, null, now()),
+             ('four', $1, $3, '{}', 'done', 'a', now(), now())
+    `, [ALICE, BOB, CAROL]);
+    // Clearing a game hides it from the list, not from the record.
+    await db.query("update public.matches set hidden_a = true where game = 'chess'");
+    const h2h = (who, other, game = null) =>
+      step(who, async (q) => (await q.one('select public.head_to_head($1, $2) as r', [other, game])).r);
+    const alice = await h2h(ALICE, BOB);
+    assert.deepEqual([alice.wins, alice.draws, alice.losses], [1, 1, 1]);
+    assert.deepEqual(alice.last.map((g) => [g.game, g.outcome]), [['chess', 'draw'], ['four', 'lost'], ['four', 'won']]);
+    const bob = await h2h(BOB, ALICE, 'four');
+    assert.deepEqual([bob.wins, bob.draws, bob.losses], [1, 0, 1], 'one game only, from Bob’s side');
+    // Carol never played Bob: nothing. Asking about yourself or an unknown game: refused.
+    assert.deepEqual(await h2h(CAROL, BOB), { wins: 0, draws: 0, losses: 0, last: [] });
+    await step(ALICE, async (q) => {
+      await fails(q.one('select public.head_to_head($1)', [ALICE]), /pick a friend/);
+    });
+    await step(ALICE, async (q) => {
+      await fails(q.one('select public.head_to_head($1, $2)', [BOB, 'poker']), /unknown game/);
+    });
+    await step(null, async (q) => {
+      await fails(q.one('select public.head_to_head($1)', [BOB]), /permission denied/);
+    });
+    // Chess is ranked now.
+    const board = await step(BOB, async (q) => (await q.one("select public.game_leaderboard('chess', 'friends') as b")).b);
+    assert.deepEqual(board.rows.map((r) => [r.points, r.draws]), [[1, 1], [1, 1]]);
+    // Blocked: an empty record.
+    await db.query('insert into public.blocks (blocker, blocked) values ($1, $2)', [BOB, ALICE]);
+    assert.equal((await h2h(ALICE, BOB)).last.length, 0);
+  });
+});
+
+// ---------------------------------------------------------------- evenings
+
+test('evenings: two times, three activities, friends only, answers and the final choice', async () => {
+  await withPeople(async ({ step }) => {
+    await befriend(ALICE, BOB);
+    const at = (h) => new Date(Date.now() + h * 3600000).toISOString();
+    const acts = JSON.stringify([
+      { idea_id: 'steam:570', title: 'Dota 2', category: 'game' },
+      { idea_id: 'play:four', title: 'Four in a row', category: 'game' },
+      { idea_id: 'custom:pizza', title: 'Pizza at mine', category: 'food' },
+    ]);
+    const createSql = 'select public.create_evening($1::timestamptz[], $2::jsonb, $3, $4::uuid[]) as id';
+    const create = (who, slots, guests, activities = acts) =>
+      step(who, async (q) => (await q.one(createSql, [slots, activities, 'bring snacks', guests])).id);
+    const list = (who) => step(who, async (q) => (await q.one('select public.my_evenings() as l')).l);
+
+    // Only friends; one to eight guests; one or two different times within two weeks; 1-3 valid activities.
+    await step(ALICE, async (q) => {
+      await fails(q.one(createSql, [[at(2)], acts, '', [CAROL]]), /only invite your friends/);
+    });
+    for (const [slots, activities, pattern] of [
+      [[at(2), at(2)], acts, /different times/],
+      [[at(2), at(3), at(4)], acts, /different times/],
+      [[at(24 * 15)], acts, /two weeks/],
+      [[at(-2)], acts, /two weeks/],
+      [[at(2)], '[]', /one to three/],
+      [[at(2)], JSON.stringify([{ idea_id: 'x', title: 'Bad id', category: 'game' }]), /not valid/],
+      [[at(2)], JSON.stringify([{ idea_id: 'idea:a', title: 'Bad kind', category: 'nap' }]), /not valid/],
+    ]) {
+      await step(ALICE, async (q) => {
+        await fails(q.one(createSql, [slots, activities, '', [BOB]]), pattern);
+      });
+    }
+    await step(ALICE, async (q) => {
+      await fails(q.one(createSql, [[at(2)], acts, '', []]), /one to eight/);
+    });
+    await step(null, async (q) => {
+      await fails(q.one(createSql, [[at(2)], acts, '', [BOB]]), /permission denied/);
+    });
+
+    // The tables themselves are closed.
+    await step(BOB, async (q) => {
+      await fails(q.rows('select * from public.evenings'), /permission denied/);
+    });
+
+    // Times come back earliest first.
+    const id = await create(ALICE, [at(26), at(2)], [BOB]);
+    const [mine] = await list(ALICE);
+    assert.equal(mine.mine, true);
+    assert.ok(new Date(mine.slots[0]) < new Date(mine.slots[1]));
+    assert.equal(mine.activities.length, 3);
+    assert.equal(mine.guests[0].answered, false);
+    assert.equal((await list(CAROL)).length, 0, 'Carol isn’t invited');
+
+    // Bob answers: the first time works, the second doesn't; he'd rather play Four in a row.
+    const answerSql = 'select public.answer_evening($1, $2::boolean[], $3)';
+    await step(BOB, async (q) => {
+      await fails(q.one(answerSql, [id, [true], null]), /each time/);
+    });
+    await step(BOB, async (q) => {
+      await fails(q.one(answerSql, [id, [true, false], 3]), /no such activity/);
+    });
+    await step(CAROL, async (q) => {
+      await fails(q.one(answerSql, [id, [true, false], null]), /no such evening/);
+    });
+    await step(BOB, (q) => q.one(answerSql, [id, [true, false], 1]));
+    const seen = (await list(ALICE))[0].guests[0];
+    assert.deepEqual([seen.slots, seen.activity, seen.answered], [[true, false], 1, true]);
+
+    // Only the host settles, once; then answers are closed.
+    await step(BOB, async (q) => {
+      await fails(q.one('select public.settle_evening($1, 0::smallint, 1::smallint)', [id]), /no such evening/);
+    });
+    await step(ALICE, async (q) => {
+      await fails(q.one('select public.settle_evening($1, 2::smallint, 1::smallint)', [id]), /pick one of the times/);
+    });
+    await step(ALICE, (q) => q.one('select public.settle_evening($1, 0::smallint, 1::smallint)', [id]));
+    const settled = (await list(BOB))[0];
+    assert.deepEqual([settled.status, settled.chosen_slot, settled.chosen_activity], ['set', 0, 1]);
+    await step(BOB, async (q) => {
+      await fails(q.one(answerSql, [id, [false, true], null]), /already decided/);
+    });
+
+    // Cancelled: still listed for a day so Bob knows; only the host can cancel.
+    await step(BOB, async (q) => {
+      await fails(q.one('select public.cancel_evening($1)', [id]), /no such evening/);
+    });
+    await step(ALICE, (q) => q.one('select public.cancel_evening($1)', [id]));
+    assert.equal((await list(BOB))[0].status, 'cancelled');
+    await db.query("update public.evenings set settled_at = now() - interval '2 days' where id = $1", [id]);
+    assert.equal((await list(BOB)).length, 0);
+
+    // Past evenings drop off the list; the export keeps them.
+    const old = await create(ALICE, [at(1)], [BOB]);
+    await db.query("update public.evenings set slots = array[now() - interval '7 hours'] where id = $1", [old]);
+    assert.equal((await list(ALICE)).length, 0);
+    const data = (await step(ALICE, (q) => q.one('select public.export_my_data() as d'))).d;
+    assert.equal(data.evenings_you_hosted.length, 2);
+    const bobData = (await step(BOB, (q) => q.one('select public.export_my_data() as d'))).d;
+    assert.equal(bobData.evening_answers.find((a) => Number(a.evening) === Number(id)).activity, 1);
+
+    // Ten an hour at most; deleting the account removes them.
+    for (let i = 0; i < 8; i++) await create(ALICE, [at(3 + i)], [BOB]);
+    await step(ALICE, async (q) => {
+      await fails(q.one(createSql, [[at(20)], acts, '', [BOB]]), /too many/);
+    });
+    await step(ALICE, (q) => q.one('select public.delete_my_account()'));
+    assert.equal((await db.query('select count(*)::int as n from public.evenings')).rows[0].n, 0);
+    assert.equal((await db.query('select count(*)::int as n from public.evening_guests')).rows[0].n, 0);
+  });
+});
+
+// ---------------------------------------------------------------- preferences on all your devices
+
+test('synced preferences: yours only, size-limited, exported and deleted with the account', async () => {
+  await withPeople(async ({ step }) => {
+    const get = (who) => step(who, async (q) => (await q.one('select public.my_preferences() as p')).p);
+    const save = (who, data) => step(who, (q) => q.one('select public.save_my_preferences($1::jsonb) as at', [data]));
+    assert.equal(await get(ALICE), null);
+    const data = { shortcuts: [{ label: 'Quick game', minutes: 20 }], mood: { minutes: 30 } };
+    assert.ok((await save(ALICE, JSON.stringify(data))).at);
+    assert.deepEqual((await get(ALICE)).data, data);
+    assert.equal(await get(BOB), null, 'Bob sees nothing of Alice’s');
+    await step(BOB, async (q) => {
+      await fails(q.rows('select * from public.synced_preferences'), /permission denied/);
+    });
+    // Saving again replaces them.
+    await save(ALICE, JSON.stringify({ mood: { minutes: 60 } }));
+    assert.deepEqual((await get(ALICE)).data, { mood: { minutes: 60 } });
+    // Not an object, or too big: refused.
+    await step(ALICE, async (q) => {
+      await fails(q.one('select public.save_my_preferences($1::jsonb)', ['[1,2]']), /nothing to save/);
+    });
+    await step(ALICE, async (q) => {
+      await fails(q.one('select public.save_my_preferences($1::jsonb)', [JSON.stringify({ big: 'x'.repeat(70000) })]), /too big/);
+    });
+    await step(null, async (q) => {
+      await fails(q.one('select public.my_preferences()'), /permission denied/);
+    });
+    assert.deepEqual((await step(ALICE, (q) => q.one('select public.export_my_data() as d'))).d.synced_preferences.data, { mood: { minutes: 60 } });
+    await step(ALICE, (q) => q.one('select public.forget_my_preferences()'));
+    assert.equal(await get(ALICE), null);
+    await save(ALICE, '{}');
+    await step(ALICE, (q) => q.one('select public.delete_my_account()'));
+    assert.equal((await db.query('select count(*)::int as n from public.synced_preferences')).rows[0].n, 0);
+  });
+});
+
+// ---------------------------------------------------------------- message reactions and edits
+
+/** Alice and Bob are friends with a chat; returns the conversation and a message from Alice. */
+async function chatWithMessage(step, body = 'Salut, tu viens ce soir ?') {
+  await befriend(ALICE, BOB);
+  const conv = (await step(ALICE, (q) => q.one('select public.open_direct($1) as id', [BOB]))).id;
+  const id = (await step(ALICE, (q) => q.one('insert into public.messages (conversation_id, body) values ($1, $2) returning id', [conv, body]))).id;
+  return { conv, id };
+}
+
+test('message reactions: both people in the chat, toggled, nobody else', async () => {
+  await withPeople(async ({ step }) => {
+    const { id } = await chatWithMessage(step);
+    const react = (who, emoji) => step(who, async (q) => (await q.one('select public.toggle_message_reaction($1, $2) as r', [id, emoji])).r);
+    assert.deepEqual(await react(BOB, 'heart'), { heart: [BOB] });
+    assert.deepEqual(await react(ALICE, 'heart'), { heart: [BOB, ALICE] });
+    assert.deepEqual(await react(BOB, 'laugh'), { heart: [BOB, ALICE], laugh: [BOB] });
+    assert.deepEqual(await react(BOB, 'heart'), { heart: [ALICE], laugh: [BOB] }, 'a second click takes it back');
+    // Both see them on the message; the time of the change is there for catching up.
+    const row = await step(BOB, (q) => q.one('select reactions, changed_at from public.messages where id = $1', [id]));
+    assert.deepEqual(row.reactions, { heart: [ALICE], laugh: [BOB] });
+    assert.ok(row.changed_at);
+
+    // Unknown reactions, strangers, signed-out visitors and direct writes: refused.
+    await step(BOB, async (q) => {
+      await fails(q.one('select public.toggle_message_reaction($1, $2)', [id, 'poop']), /unknown reaction/);
+    });
+    await step(CAROL, async (q) => {
+      await fails(q.one('select public.toggle_message_reaction($1, $2)', [id, 'heart']), /no such message/);
+    });
+    await step(null, async (q) => {
+      await fails(q.one('select public.toggle_message_reaction($1, $2)', [id, 'heart']), /permission denied/);
+    });
+    await step(BOB, async (q) => {
+      await fails(q.rows(`update public.messages set reactions = '{"fire":["x"]}' where id = $1`, [id]), /permission denied/);
+    });
+
+    // The export lists the reactions you gave.
+    const data = (await step(BOB, (q) => q.one('select public.export_my_data() as d'))).d;
+    assert.deepEqual(data.message_reactions_you_gave.map((r) => r.emoji), ['laugh']);
+
+    // Blocked: no more reactions (the history stays readable).
+    await db.query('insert into public.blocks (blocker, blocked) values ($1, $2)', [ALICE, BOB]);
+    await db.query('delete from public.friendships');
+    await step(BOB, async (q) => {
+      await fails(q.one('select public.toggle_message_reaction($1, $2)', [id, 'fire']), /can't react/);
+    });
+  });
+});
+
+test('message reactions: at most 200 clicks an hour', async () => {
+  await withPeople(async ({ step }) => {
+    const { id } = await chatWithMessage(step);
+    await db.query("insert into public.message_reaction_log (user_id, at) select $1, now() from generate_series(1, 200)", [BOB]);
+    await step(BOB, async (q) => {
+      await fails(q.one('select public.toggle_message_reaction($1, $2)', [id, 'heart']), /too many reactions/);
+    });
+    // Older clicks don't count.
+    await db.query("update public.message_reaction_log set at = now() - interval '2 hours'");
+    await step(BOB, (q) => q.one('select public.toggle_message_reaction($1, $2)', [id, 'heart']));
+  });
+});
+
+test('editing a message: yours, within 15 minutes, marked edited, earlier versions kept for the team', async () => {
+  await withPeople(async ({ step }) => {
+    const { id } = await chatWithMessage(step, 'Rendez-vous a 21h');
+    const edit = (who, body) => step(who, async (q) => (await q.one('select public.edit_message($1, $2) as r', [id, body])).r);
+    const r = await edit(ALICE, '  Rendez-vous à 21h  ');
+    assert.equal(r.body, 'Rendez-vous à 21h');
+    assert.ok(r.edited_at);
+    const seen = await step(BOB, (q) => q.one('select body, edited_at, changed_at from public.messages where id = $1', [id]));
+    assert.equal(seen.body, 'Rendez-vous à 21h');
+    assert.ok(seen.edited_at && seen.changed_at);
+    // The same text again changes nothing.
+    await edit(ALICE, 'Rendez-vous à 21h');
+    assert.equal((await db.query('select count(*)::int as n from public.message_edits')).rows[0].n, 1);
+    assert.equal((await db.query('select body from public.message_edits')).rows[0].body, 'Rendez-vous a 21h', 'the earlier version is kept');
+
+    // Nobody but the team reads earlier versions; nobody else edits; nothing empty or too long.
+    await step(BOB, async (q) => {
+      await fails(q.rows('select * from public.message_edits'), /permission denied/);
+    });
+    await step(BOB, async (q) => {
+      await fails(q.one('select public.edit_message($1, $2)', [id, 'Je viens pas']), /no such message/);
+    });
+    await step(ALICE, async (q) => {
+      await fails(q.one('select public.edit_message($1, $2)', [id, ' \n ']), /1 to 2,000/);
+    });
+    await step(ALICE, async (q) => {
+      await fails(q.one('select public.edit_message($1, $2)', [id, 'x'.repeat(2001)]), /1 to 2,000/);
+    });
+    await step(null, async (q) => {
+      await fails(q.one('select public.edit_message($1, $2)', [id, 'hi']), /permission denied/);
+    });
+
+    // Ten edits at most.
+    for (let i = 0; i < 9; i++) await edit(ALICE, `Version ${i}`);
+    await step(ALICE, async (q) => {
+      await fails(q.one('select public.edit_message($1, $2)', [id, 'One more']), /too many times/);
+    });
+
+    // After 15 minutes: too late.
+    await db.query("update public.messages set created_at = now() - interval '16 minutes' where id = $1", [id]);
+    await step(ALICE, async (q) => {
+      await fails(q.one('select public.edit_message($1, $2)', [id, 'Late']), /15 minutes/);
+    });
+
+    // Deleting the message deletes its earlier versions too.
+    await step(ALICE, (q) => q.rows('delete from public.messages where id = $1', [id]));
+    assert.equal((await db.query('select count(*)::int as n from public.message_edits')).rows[0].n, 0);
+  });
+});
+
+test('editing a message: not once blocked', async () => {
+  await withPeople(async ({ step }) => {
+    const { id } = await chatWithMessage(step);
+    await db.query('insert into public.blocks (blocker, blocked) values ($1, $2)', [BOB, ALICE]);
+    await db.query('delete from public.friendships');
+    await step(ALICE, async (q) => {
+      await fails(q.one('select public.edit_message($1, $2)', [id, 'Edited']), /can't write/);
+    });
+  });
+});
+
+// ---------------------------------------------------------------- a surprise for one person
+
+test('surprise: only its person gets it, once; nobody can add or read one from the app', async () => {
+  await withPeople(async ({ step }) => {
+    // Added by the team (as the database owner here).
+    const { id } = (await db.query("insert into public.surprises (user_id) values ($1) returning id", [BOB])).rows[0];
+    const mine = (who) => step(who, async (q) => (await q.one('select public.my_surprise() as s')).s);
+    assert.equal(await mine(ALICE), null, 'not Alice’s');
+    assert.equal(await mine(CAROL), null);
+    assert.deepEqual(await mine(BOB), { id: Number(id), title: '', message: '', kind: 'roses' }, 'the roses unless said otherwise');
+    // Not readable, writable or markable by anybody else.
+    await step(ALICE, async (q) => {
+      await fails(q.rows('select * from public.surprises'), /permission denied/);
+    });
+    await step(ALICE, async (q) => {
+      await fails(q.rows('insert into public.surprises (user_id) values ($1)', [ALICE]), /permission denied/);
+    });
+    await step(null, async (q) => {
+      await fails(q.one('select public.my_surprise()'), /permission denied/);
+    });
+    await step(ALICE, (q) => q.one('select public.surprise_seen($1)', [id]));
+    assert.ok(await mine(BOB), 'Alice can’t mark Bob’s surprise as seen');
+    // Bob's export doesn't spoil it; once opened, it's there and doesn't show again.
+    assert.deepEqual((await step(BOB, (q) => q.one('select public.export_my_data() as d'))).d.surprises_you_opened, []);
+    await step(BOB, (q) => q.one('select public.surprise_seen($1)', [id]));
+    assert.equal(await mine(BOB), null);
+    assert.equal((await step(BOB, (q) => q.one('select public.export_my_data() as d'))).d.surprises_you_opened.length, 1);
+    // Deleted with the account.
+    await step(BOB, (q) => q.one('select public.delete_my_account()'));
+    assert.equal((await db.query('select count(*)::int as n from public.surprises')).rows[0].n, 0);
+  });
+});
+
+test('surprise: the highway code book is a kind of its own, and nothing else is accepted', async () => {
+  await withPeople(async ({ step }) => {
+    const { id } = (await db.query("insert into public.surprises (user_id, kind) values ($1, 'code') returning id", [CAROL])).rows[0];
+    const mine = (who) => step(who, async (q) => (await q.one('select public.my_surprise() as s')).s);
+    assert.deepEqual(await mine(CAROL), { id: Number(id), title: '', message: '', kind: 'code' });
+    assert.equal(await mine(BOB), null, 'only Carol gets it');
+    // An unknown kind can't be stored.
+    await assert.rejects(db.query("insert into public.surprises (user_id, kind) values ($1, 'spam')", [BOB]), /surprises_kind_check|check constraint/);
+    await db.exec('rollback to savepoint s').catch(() => {});
   });
 });

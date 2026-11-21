@@ -3,6 +3,8 @@
 
 import { api } from './api.js';
 import { btn, emptyState, errText, fill, h, icon, pageHead, toast } from './dom.js';
+import { t } from './i18n.js';
+import { ticketPhotoSrc } from './support-photos.js';
 
 const FILTERS = [
   ['open', 'To handle'],
@@ -78,6 +80,35 @@ function when(iso) {
   return Number.isNaN(d.getTime()) ? iso : d.toLocaleString(undefined, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 }
 
+function ticketPhotos(ticket) {
+  const content = h('div', { class: 'ticket-photos-content' });
+  const details = h('details', { class: 'ticket-photos' },
+    h('summary', {}, h('span', {}, 'Attached photos'), ` (${ticket.photo_count})`),
+    content,
+  );
+  let loaded = false;
+  let loading = false;
+  async function load() {
+    if (!details.open || loaded || loading) return;
+    loading = true;
+    fill(content, h('p', { class: 'hint', role: 'status' }, 'Loading…'));
+    try {
+      const photos = await api.supportTicketPhotos(ticket.id);
+      loaded = true;
+      fill(content, photos.length ? photos.map(({ image }) => h('img', {
+        src: ticketPhotoSrc(image), alt: t('Attached photo'), loading: 'lazy', decoding: 'async',
+      })) : h('p', { class: 'hint' }, 'No photos found.'));
+    } catch {
+      fill(content, h('p', { class: 'hint' }, 'Could not load the attached photos.'),
+        btn({ label: 'Try again', small: true, onclick: load }));
+    } finally {
+      loading = false;
+    }
+  }
+  details.addEventListener('toggle', load);
+  return details;
+}
+
 function ticketCard(t, reload) {
   const status = h(
     'select',
@@ -131,6 +162,7 @@ function ticketCard(t, reload) {
     h('div', { class: 'ticket-meta' }, icon('clock'), h('span', { translate: 'no' }, when(t.created_at)), ' · ', ...meta),
     // What the person wrote, as they wrote it.
     h('p', { class: 'ticket-message', translate: 'no' }, t.message),
+    t.photo_count ? ticketPhotos(t) : null,
     t.contact ? h('p', { class: 'ticket-contact' }, icon('message-circle'), h('span', {}, 'Answer at:'), ' ', h('span', { translate: 'no', class: 'ticket-contact-value' }, t.contact)) : null,
     h('div', { class: 'ticket-actions' }, status, note, save),
   );

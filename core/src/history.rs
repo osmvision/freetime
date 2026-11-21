@@ -22,6 +22,13 @@ pub const MAX_PASSES: usize = 600;
 pub const MAX_NEVER: usize = 1000;
 /// How much a "never" weighs on the taste of its category and tags (a 👎 weighs 1).
 const NEVER_WEIGHT: f64 = 0.5;
+const MAX_DISMISSALS: usize = 300;
+/// "Another time": the idea rests this long. "Already done": longer.
+const ANOTHER_TIME_SECS: i64 = 3 * 86_400;
+const ALREADY_DONE_SECS: i64 = 14 * 86_400;
+/// "Too long" answers count for this long, and only the latest few.
+const TOO_LONG_WINDOW_SECS: i64 = 60 * 86_400;
+const TOO_LONG_KEPT: usize = 5;
 /// Tags that every item of a source shares: they say nothing about taste.
 const GENERIC_TAGS: [&str; 6] = ["steam", "store", "youtube", "epic", "free-week", crate::mine::TAG];
 
@@ -34,6 +41,9 @@ pub struct History {
     /// Ideas the user asked never to see again ("Never suggest this"). Undone from Settings.
     #[serde(default)]
     pub never: Vec<Never>,
+    /// Ideas turned down with a reason ("too long", "already done", "another time").
+    #[serde(default)]
+    pub dismissals: Vec<Dismissal>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -52,7 +62,35 @@ pub struct Never {
     pub ts: i64,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+/// Why an idea didn't fit, when you say so.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum NotNow {
+    TooLong,
+    AlreadyDone,
+    AnotherTime,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Dismissal {
+    pub id: String,
+    pub reason: NotNow,
+    pub ts: i64,
+    /// The idea's shortest length and the free time you had, in minutes (for "too long").
+    pub idea_minutes: u32,
+    pub free_minutes: u32,
+}
+
+/// What tunes the recommendations, to carry to another device: rated picks and "not now" answers.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+pub struct Tuning {
+    #[serde(default)]
+    pub ratings: Vec<Entry>,
+    #[serde(default)]
+    pub dismissals: Vec<Dismissal>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Entry {
     pub id: String,
     pub category: Category,
@@ -121,6 +159,11 @@ pub struct Prefs {
     pub never: HashSet<String>,
     /// How many times each idea was passed over lately (within `PASS_WINDOW_SECS`).
     pub passed: HashMap<String, u32>,
+    /// Ideas resting after "another time" or "already done": not suggested for now.
+    pub resting: HashSet<String>,
+    /// From "too long" answers: ideas whose shortest length is at least this share of your free
+    /// time are pushed down (e.g. 0.8 = anything taking 80% of your time or more).
+    pub too_long: Option<f64>,
 }
 
 impl Prefs {
@@ -244,8 +287,90 @@ impl History {
             .collect()
     }
 
+    /// Remembers that an idea didn't fit, and why. A second answer about the same idea replaces
+    /// the first one.
+    pub fn not_now(&mut self, s: &Suggestion, reason: NotNow, free_minutes: u32, now: i64) {
+        self.dismissals.retain(|d| d.id != s.id);
+        self.dismissals.push(Dismissal {
+            id: s.id.clone(),
+            reason,
+            ts: now,
+            idea_minutes: s.min_minutes.clamp(1, 1440),
+            free_minutes: free_minutes.clamp(5, 600),
+        });
+        if self.dismissals.len() > MAX_DISMISSALS {
+            let extra = self.dismissals.len() - MAX_DISMISSALS;
+            self.dismissals.drain(..extra);
+        }
+    }
+
+    /// What to carry to another device (rated picks and "not now" answers).
+    pub fn tuning(&self) -> Tuning {
+        Tuning {
+            ratings: self.entries.iter().filter(|e| matches!(e.rating, Some(r) if r != 0)).cloned().collect(),
+            dismissals: self.dismissals.clone(),
+        }
+    }
+
+    /// Adds what another device learned. Picks already here (same idea, same time) are kept as they
+    /// are; a newer "not now" answer about an idea wins. Returns how many things were new.
+    pub fn merge_tuning(&mut self, t: Tuning) -> usize {
+        let mut added = 0;
+        for e in t.ratings.into_iter().filter(|e| matches!(e.rating, Some(r) if (-1..=1).contains(&r) && r != 0)) {
+            if !self.entries.iter().any(|x| x.id == e.id && x.ts == e.ts) {
+                self.entries.push(e);
+                added += 1;
+            }
+        }
+        self.entries.sort_by_key(|e| e.ts);
+        if self.entries.len() > MAX_ENTRIES {
+            let extra = self.entries.len() - MAX_ENTRIES;
+            self.entries.drain(..extra);
+        }
+        for d in t.dismissals {
+            match self.dismissals.iter_mut().find(|x| x.id == d.id) {
+                Some(x) if x.ts >= d.ts => {}
+                Some(x) => {
+                    *x = d;
+                    added += 1;
+                }
+                None => {
+                    self.dismissals.push(d);
+                    added += 1;
+                }
+            }
+        }
+        self.dismissals.sort_by_key(|d| d.ts);
+        if self.dismissals.len() > MAX_DISMISSALS {
+            let extra = self.dismissals.len() - MAX_DISMISSALS;
+            self.dismissals.drain(..extra);
+        }
+        added
+    }
+
     pub fn prefs(&self, now: i64) -> Prefs {
         let mut p = Prefs::default();
+        let mut too_long: Vec<f64> = Vec::new();
+        for d in self.dismissals.iter().rev() {
+            let age = now - d.ts;
+            match d.reason {
+                NotNow::AnotherTime if age < ANOTHER_TIME_SECS => {
+                    p.resting.insert(d.id.clone());
+                }
+                NotNow::AlreadyDone if age < ALREADY_DONE_SECS => {
+                    p.resting.insert(d.id.clone());
+                }
+                NotNow::TooLong if age < TOO_LONG_WINDOW_SECS && too_long.len() < TOO_LONG_KEPT => {
+                    too_long.push(d.idea_minutes as f64 / d.free_minutes.max(1) as f64);
+                }
+                _ => {}
+            }
+        }
+        if !too_long.is_empty() {
+            // Mean of the latest answers, never below half your time: a 10-minute idea is never
+            // "too long" for an hour, whatever was said once.
+            p.too_long = Some((too_long.iter().sum::<f64>() / too_long.len() as f64).max(0.5));
+        }
         let mut cat: HashMap<Category, (f64, f64)> = HashMap::new();
         let mut tag: HashMap<String, (f64, f64)> = HashMap::new();
         for e in &self.entries {
@@ -442,7 +567,7 @@ mod tests {
     #[test]
     fn learns_likes_and_dislikes() {
         let now = 1_000_000;
-        let h = History {
+        let h = History { dismissals: Vec::new(),
             entries: vec![
                 entry("a", Category::Sport, Some(1), now - 10 * 86_400),
                 entry("b", Category::Sport, Some(1), now - 9 * 86_400),
@@ -458,9 +583,36 @@ mod tests {
     }
 
     #[test]
+    fn tuning_travels_between_devices() {
+        let now = 1_000_000;
+        let idea = |id: &str| Suggestion { id: id.into(), min_minutes: 30, ..crate::catalog::load().remove(0) };
+        let mut laptop = History::default();
+        laptop.entries.push(entry("a", Category::Sport, Some(1), now - 500));
+        laptop.entries.push(entry("b", Category::Food, None, now - 400)); // not rated: stays here
+        laptop.entries.push(entry("c", Category::Food, Some(0), now - 300)); // skipped: stays here
+        laptop.not_now(&idea("x"), NotNow::AnotherTime, 60, now - 200);
+        let t = laptop.tuning();
+        assert_eq!(t.ratings.len(), 1);
+        assert_eq!(t.dismissals.len(), 1);
+
+        let mut phone = History::default();
+        phone.entries.push(entry("a", Category::Sport, Some(1), now - 500)); // already there
+        phone.not_now(&idea("x"), NotNow::TooLong, 60, now - 100); // newer: wins
+        assert_eq!(phone.merge_tuning(t.clone()), 0);
+        assert_eq!(phone.entries.len(), 1);
+        assert_eq!(phone.dismissals[0].reason, NotNow::TooLong);
+
+        let mut fresh = History::default();
+        assert_eq!(fresh.merge_tuning(t.clone()), 2);
+        assert_eq!(fresh.merge_tuning(t), 0, "twice changes nothing");
+        assert!(fresh.prefs(now).liked.contains("a"));
+        assert!(fresh.prefs(now).resting.contains("x"));
+    }
+
+    #[test]
     fn unrated_newest_first() {
         let now = 1_000_000;
-        let h = History {
+        let h = History { dismissals: Vec::new(),
             entries: vec![
                 entry("old", Category::Sport, None, now - 20 * 86_400),
                 entry("a", Category::Sport, None, now - 7200),

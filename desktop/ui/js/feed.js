@@ -66,7 +66,7 @@ function postCard(p, ctx, reload) {
     h(
       'div',
       { class: 'feed-head' },
-      avatar({ icon: p.avatar_icon, color: p.avatar_color }, 'sm'),
+      avatar({ icon: p.avatar_icon, color: p.avatar_color, userId: p.author }, 'sm'),
       h('span', { class: 'feed-who', translate: 'no' }, p.own ? '' : p.display_name),
       p.own ? h('span', { class: 'feed-who' }, 'You') : null,
       h('span', { class: 'feed-when' }, ago(p.created_at)),

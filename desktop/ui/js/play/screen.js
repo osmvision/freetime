@@ -277,10 +277,16 @@ export function playOnline(match, onChange = () => {}) {
     ui.status.replaceChildren(...parts);
     const myTurn = !over && s.turn === m.me && !busy;
     const placing = s.game === 'torpedoes' && s.phase === 'setup' && s.turn === m.me && !s.ready[m.me] && !over;
+    const finished = ['won', 'lost', 'draw'].includes(m.outcome);
+    if (finished && !endBox) endBox = gameEnd(m, name);
     ui.area.replaceChildren(
       placing ? fleetEditor({ randomFleet, onReady: (fleet) => send({ fleet }) }) : board(s, { me: m.me, active: myTurn, onMove: send, secret: m.my_secret }),
+      finished ? endBox : null,
     );
     const tools = [];
+    if (finished) {
+      tools.push(btn({ label: 'Rematch', icon: 'rotate-ccw', small: true, kind: 'primary', onclick: () => rematch(m, name, ui.close, onChange) }));
+    }
     if (!over) {
       const label = !m.b_moved ? (m.me === 1 ? 'Decline' : 'Cancel') : 'Resign';
       const b = btn({ label, icon: m.b_moved ? 'flag' : 'x', small: true, kind: 'quiet' });
@@ -298,9 +304,73 @@ export function playOnline(match, onChange = () => {}) {
       });
       tools.push(b);
     }
-    tools.push(btn({ label: 'Close', small: true, kind: over ? 'primary' : '', onclick: ui.close }));
+    tools.push(btn({ label: 'Close', small: true, kind: over && !finished ? 'primary' : '', onclick: ui.close }));
     ui.tools.replaceChildren(...tools);
   }
 
+  let endBox = null;
   draw();
+}
+
+// ---------------------------------------------------------------- the end of a game with a friend
+
+/** Starts the same game again with the same friend, in one click. */
+function rematch(m, name, close, onChange) {
+  close();
+  challenge(m.game, { user_id: m.other.id, display_name: name }, onChange);
+}
+
+const POINTS = { won: 3, draw: 1, lost: 0 };
+
+/**
+ * Under the finished board: your record against this friend (this game, all time) with the last
+ * results, and what the game did to your place in the friends' ranking for this game.
+ */
+function gameEnd(m, name) {
+  const box = h('div', { class: 'game-end', 'aria-live': 'polite' }, h('div', { class: 'ghost', style: 'height:64px' }));
+  Promise.all([api.headToHead(m.other.id, m.game).catch(() => null), api.gameLeaderboard(m.game, 'friends').catch(() => null)]).then(([record, board]) => {
+    const parts = [];
+    if (record && record.wins + record.draws + record.losses > 0) {
+      // Symbols rather than letters: they read the same in every language.
+      const mark = { won: '✓', draw: '=', lost: '✗' };
+      parts.push(
+        h(
+          'div',
+          { class: 'game-end-row' },
+          icon('swords'),
+          h(
+            'div',
+            {},
+            h('strong', {}, h('span', {}, 'Against'), ' ', h('span', { translate: 'no' }, name)),
+            h('span', { class: 'game-end-record' }, `${record.wins} won · ${record.draws} drawn · ${record.losses} lost`),
+            h(
+              'span',
+              { class: 'game-end-last', 'aria-label': 'Last games' },
+              record.last.map((g) => h('span', { class: `game-end-dot ${g.outcome}`, title: { won: 'Won', draw: 'Draw', lost: 'Lost' }[g.outcome] }, mark[g.outcome])),
+            ),
+          ),
+        ),
+      );
+    }
+    const me = board?.rows?.find((r) => r.me);
+    if (me) {
+      const gained = POINTS[m.outcome] ?? 0;
+      parts.push(
+        h(
+          'div',
+          { class: 'game-end-row' },
+          icon('trophy'),
+          h(
+            'div',
+            {},
+            h('strong', {}, gained ? `+${gained} ranking points` : 'No points this time'),
+            h('span', { class: 'game-end-record' }, `Friends’ ranking: #${me.rank} with ${me.points} points`),
+          ),
+        ),
+      );
+    }
+    if (parts.length) box.replaceChildren(...parts);
+    else box.remove();
+  });
+  return box;
 }

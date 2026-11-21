@@ -2,7 +2,7 @@ use crate::engine::arg;
 use anyhow::{bail, Context, Result};
 use chrono::{DateTime, Local};
 use freetime_core::{
-    account::{Client, NewInvite, ProfileEdit},
+    account::{Client, NewEvening, NewInvite, ProfileEdit},
     duel,
     history::History,
     quiz::{self, QuizLog},
@@ -50,6 +50,7 @@ pub fn invoke(
         "save_profile" => {
             json!(client.update_profile(&session, &arg::<ProfileEdit>(args, "edit")?)?)
         }
+        "profile_photos" => json!(client.profile_photos(&session, &arg::<Vec<String>>(args, "ids")?)?),
         "reset_friend_tag" => json!(client.reset_friend_tag(&session)?),
         "export_my_data" => client.export_my_data(&session)?,
         "delete_my_account" => {
@@ -67,6 +68,7 @@ pub fn invoke(
             Value::Null
         }
         "support_tickets" => json!(client.tickets(&session, arg::<Option<String>>(args, "status")?.as_deref())?),
+        "support_ticket_photos" => json!(client.ticket_photos(&session, arg(args, "id")?)?),
         "update_support_ticket" => {
             client.update_ticket(&session, arg::<i64>(args, "id")?, &text("status")?, &text("note")?)?;
             Value::Null
@@ -88,11 +90,21 @@ pub fn invoke(
             Value::Null
         }
         "open_chat" => json!(client.open_direct(&session, &text("friend")?)?),
+        "friend_groups" => json!(client.friend_groups(&session)?),
+        "manage_friend_group" => json!(client.manage_friend_group(&session, &arg(args, "edit")?)?),
         "chat_messages" => {
             json!(client.messages(&session, &text("conversation")?, arg(args, "after")?)?)
         }
         "send_message" => {
             json!(client.send_message(&session, &text("conversation")?, &text("body")?)?)
+        }
+        "changed_messages" => json!(client.changed_messages(&session, &text("conversation")?, &text("since")?)?),
+        "react_to_message" => client.toggle_message_reaction(&session, arg(args, "id")?, &text("emoji")?)?,
+        "edit_message" => client.edit_message(&session, arg(args, "id")?, &text("body")?)?,
+        "my_surprise" => client.my_surprise(&session)?,
+        "surprise_seen" => {
+            client.surprise_seen(&session, arg(args, "id")?)?;
+            Value::Null
         }
         "mark_read" => {
             client.mark_read(&session, &text("conversation")?, arg(args, "upTo")?)?;
@@ -140,7 +152,31 @@ pub fn invoke(
         }
         "game_action" => client.game_action(&session, &arg::<Value>(args, "request")?)?,
         "my_matches" => client.my_matches(&session)?,
+        "game_leaderboard" => client.game_leaderboard(&session, &text("game")?, &text("scope")?)?,
         "leave_match" => json!(client.leave_match(&session, &text("id")?)?),
+        "head_to_head" => client.head_to_head(&session, &text("other")?, arg::<Option<String>>(args, "game").ok().flatten().as_deref())?,
+        "create_evening" => json!(client.create_evening(&session, &arg::<NewEvening>(args, "evening")?)?),
+        "answer_evening" => {
+            client.answer_evening(&session, arg(args, "id")?, &arg::<Vec<bool>>(args, "slots")?, arg::<Option<u8>>(args, "activity").ok().flatten())?;
+            Value::Null
+        }
+        "settle_evening" => {
+            client.settle_evening(&session, arg(args, "id")?, arg(args, "slot")?, arg(args, "activity")?)?;
+            Value::Null
+        }
+        "cancel_evening" => {
+            client.cancel_evening(&session, arg(args, "id")?)?;
+            Value::Null
+        }
+        "my_evenings" => client.my_evenings(&session)?,
+        "preferences_status" => {
+            let v = client.my_preferences(&session)?;
+            if v.is_null() { Value::Null } else { json!({ "saved_at": v["saved_at"] }) }
+        }
+        "forget_preferences" => {
+            client.forget_my_preferences(&session)?;
+            Value::Null
+        }
         "hide_match" => {
             client.hide_match(&session, &text("id")?)?;
             Value::Null

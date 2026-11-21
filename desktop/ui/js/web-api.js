@@ -34,6 +34,8 @@ function emit(name, payload) {
   for (const listener of listeners.get(name) ?? []) listener(payload);
 }
 
+const notifyInvites = () => read().config?.notify_invites !== false;
+
 export function listen(name, callback) {
   if (!listeners.has(name)) listeners.set(name, new Set());
   listeners.get(name).add(callback);
@@ -62,13 +64,33 @@ async function connectRealtime(session) {
   if (channel) { await auth.removeChannel(channel); channel = null; }
   emit('live-status', false);
   if (!session) return;
-  channel = auth.channel(`freetime-${session.user.id}`)
+  const me = session.user.id;
+  const invite = (kind, { eventType, new: row }, incoming) => {
+    if (eventType === 'INSERT' && incoming(row) && notifyInvites()) {
+      emit('game-invite-new', { kind, id: String(row.id) });
+    }
+  };
+  channel = auth.channel(`freetime-${me}`)
     .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, ({ new: message }) => {
       emit('message-new', { message, mine: message.sender === session.user.id });
     })
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'invites' }, () => emit('invites-changed', null))
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'duels' }, () => emit('duels-changed', null))
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'matches' }, () => emit('matches-changed', null))
+    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'messages' }, ({ new: message }) => {
+      emit('message-changed', { message, mine: message.sender === session.user.id });
+    })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'invites' }, (change) => {
+      invite('pick', change, (row) => row.to_user === me && row.status === 'pending' && row.category === 'game');
+      emit('invites-changed', null);
+    })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'duels' }, (change) => {
+      invite('duel', change, (row) => row.opponent === me && row.status === 'open');
+      emit('duels-changed', null);
+      if (change.eventType === 'UPDATE' && change.new.status === 'done') emit('game-ranking-changed', 'quiz-duel');
+    })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'matches' }, (change) => {
+      invite('match', change, (row) => row.player_b === me && row.status === 'active');
+      emit('matches-changed', null);
+      if (change.eventType === 'UPDATE' && change.new.status === 'done') emit('game-ranking-changed', change.new.game);
+    })
     .subscribe((status) => emit('live-status', status === 'SUBSCRIBED'));
 }
 
@@ -82,9 +104,10 @@ async function rpc(cmd, args = {}, signal, applyPatch = true) {
   const current = await session();
   const headers = { 'Content-Type': 'application/json' };
   if (current) headers.Authorization = `Bearer ${current.access_token}`;
+  const ticket = cmd === 'send_support_ticket';
   const response = await fetch('/api/invoke', {
     method: 'POST', headers, signal,
-    body: JSON.stringify({ cmd, args, state: read(), keys: keys() }),
+    body: JSON.stringify({ cmd, args, state: ticket ? {} : read(), keys: ticket ? {} : keys() }),
   });
   const result = await response.json();
   if (!response.ok) throw new Error(result.error || 'The request failed. Try again.');
@@ -111,9 +134,15 @@ function download(value) {
 }
 
 const MUTATIONS = new Set(['pick', 'pass_idea', 'hide_idea', 'unhide_idea', 'add_my_idea', 'remove_my_idea', 'rate', 'finish_quiz', 'save_settings', 'set_city', 'finish_welcome',
-  'my_friend_code', 'add_friend', 'remove_friend', 'steam_import', 'steam_forget', 'set_share_library', 'set_notify_messages']);
+  'my_friend_code', 'add_friend', 'remove_friend', 'steam_import', 'steam_forget', 'set_share_library', 'set_notify_messages', 'set_notify_invites',
+  'not_now', 'load_preferences']);
 
 async function dispatch(cmd, args) {
+  if (cmd === 'get_notify_invites') return notifyInvites();
+  if (cmd === 'set_notify_invites') {
+    save({ config: { ...read().config, notify_invites: args.enabled } });
+    return;
+  }
   if (cmd === 'account_status') return { signed_in: Boolean(await session()) };
   if (cmd === 'sign_in') {
     if (!window.isSecureContext) throw new Error('Open the HTTPS test link to sign in.');
@@ -130,6 +159,12 @@ async function dispatch(cmd, args) {
     const url = new URL(args.url);
     if (!['https:', 'http:', 'steam:'].includes(url.protocol)) throw new Error('Unsupported link');
     window.open(url.href, '_blank', 'noopener,noreferrer');
+    return;
+  }
+  if (cmd === 'remind') {
+    // The browser's own notification when allowed; otherwise the app shows a message itself.
+    if ('Notification' in window && Notification.permission === 'granted') new Notification(args.title, { body: args.body });
+    else throw new Error('notifications are off');
     return;
   }
   if (cmd === 'live_status') return false; // Polling also covers reconnects and tab suspension.

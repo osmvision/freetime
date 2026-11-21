@@ -12,10 +12,11 @@ control.
 
 ## On your PC (always)
 
-Settings, your picks history and ratings, imported Steam games, cached store and video lists, and
-friends added by code are stored in your Windows user folders (`%APPDATA%\freetime`). They never
-leave your PC unless you send something yourself. "Open data folder" in Settings shows them;
-deleting that folder removes them.
+Settings, your picks history and ratings, your "not now" answers on Discover ("too long",
+"already done", "another time"), your Discover shortcuts, imported Steam games, cached store and
+video lists, evening reminders, and friends added by code are stored in your Windows user folders
+(`%APPDATA%\freetime`). They never leave your PC unless you send something yourself. "Open data
+folder" in Settings shows them; deleting that folder removes them.
 
 To work, the app contacts these services, and only for what you see on screen:
 
@@ -38,10 +39,19 @@ To work, the app contacts these services, and only for what you see on screen:
 
 - From Google: an account ID and your email address. The email is only visible to you and is used
   to run your account. Your real name and Google photo are not copied.
-- What you choose to share: display name, avatar icon and color, bio, status, and your friend tag.
+- What you choose to share: display name, avatar icon and color, an optional profile photo, bio,
+  status, and your friend tag. A profile photo is stored as a resized square image. You can replace
+  or remove it in your profile settings.
 - Your friend requests, friendships and blocks.
-- Your messages and the conversations you are part of.
+- Your messages and the conversations you are part of (including the names and memberships of
+  private groups), with the reactions you and your friend put
+  on them (which emoji, and who). You can edit a message you sent for 15 minutes; it then shows
+  "edited", and its earlier versions are kept apart, readable only by the freetime team, so that
+  a report can't be emptied by editing. They are deleted with the message or your account.
 - Reports you make.
+- Rarely, a surprise the freetime team leaves for your account only (shown once when you open the
+  app): its words, if any, and when you opened it. It is part of your data export once opened, and
+  deleted with your account.
 - If you use the free assistant: how many messages you sent today, for the daily limit. Older
   days are deleted.
 - For the ranking: your points per day (at most 20), how many tickets you stamped, the badges you
@@ -55,7 +65,16 @@ To work, the app contacts these services, and only for what you see on screen:
 - Games you play with friends (Four in a row, Draughts, Chess, Torpedoes...): the board, whose turn it
   is and the result, and for Torpedoes where you placed your ships. Games against the computer
   stay on your PC. You can clear a finished game, or all of them, from your list: that hides them
-  for you only (the other player keeps theirs); they are deleted with your account.
+  for you only (the other player keeps theirs); they are deleted with your account. At the end of
+  a game, the app shows your record against that friend, counted from these same games.
+- Evenings you organise or are invited to: the one or two times, the things to do (up to three),
+  your note, who is invited, each guest's answer (which times work, what they'd rather do) and the
+  final choice. They show in the app until a few hours after the evening; they are part of your
+  data export and deleted with your account. The optional reminder stays on your PC.
+- Only if you press "Save to my account" (Settings → On all your devices): a copy of your Discover
+  shortcuts, your usual Discover context, your rated picks and your "not now" answers, so another
+  device can bring them back. Nothing is sent otherwise. You can delete this copy at any time; it
+  is part of your data export and deleted with your account.
 
 **The free assistant**
 
@@ -68,13 +87,15 @@ on your PC.
 
 "Report a problem" (in Settings) works with or without an account. A report holds what you write,
 the way to answer you if you leave one, the app's version, its language and the screen you were
-on, and your account if you are signed in. Only the two freetime admins can read reports. To limit
+on, any photos you choose to attach, and your account if you are signed in. Attached images are
+resized and saved with the report. Only the two freetime admins can read reports and their photos. To limit
 abuse, your network address is kept as a one-way keyed fingerprint for one day, never in clear.
-Closed reports are deleted after one year; deleting your account unlinks your reports from it.
+Closed reports and their photos are deleted after one year. Deleting your account unlinks your reports from it.
 
 **Who sees what**
 
 - Your friends, and people you have a pending request with, see your name, avatar, bio and status.
+- Your profile photo follows the same visibility as your avatar.
 - Your friends see what you share in the feed, and which reactions you gave. Only you see how
   many reactions your posts got.
 - Your friends see your ranking card: points this season, tier, tickets stamped, badges and best
@@ -88,7 +109,10 @@ Closed reports are deleted after one year; deleting your account unlinks your re
   other player.
 - In a game with a friend, you both see the board. In Torpedoes, the other player never sees your
   ships, only where their own shots landed.
-- Only the two people in a conversation can read it. Messages are encrypted in transit and stored
+- In an evening, the host and every guest see who is invited and each guest's answers. Nobody
+  else sees it. The copy made by "Save to my account" is seen by you only.
+- Only participants can read a conversation. In groups, members receive messages from the time
+  they join. Messages are encrypted in transit and stored
   encrypted on disk by our hosting provider, but they are **not end-to-end encrypted**: the people
   who run freetime could technically access them. We only do so to handle a report you or the other
   person made, or when the law requires it.

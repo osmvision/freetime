@@ -63,8 +63,8 @@ function visibility(visible, reload) {
     h(
       'div',
       { class: 'strip-text' },
-      h('label', { class: 'check' }, box, h('strong', {}, 'Let others find me (here and on the global ranking)')),
-      h('span', {}, 'Others then see your name, avatar, tier, points and badges, and can send you a friend request. Never your email, bio or status. Messages stay between friends.'),
+      h('label', { class: 'check' }, box, h('strong', {}, 'Let others find me (in Discover, here and on the global ranking)')),
+      h('span', {}, 'Anyone can see your card, find you in Discover and add you in one tap. Only your friends see your bio and status.'),
     ),
   );
 }
@@ -104,7 +104,7 @@ function personCard(p, ctx) {
     h(
       'button',
       { type: 'button', class: 'meet-who', title: 'See their card', onclick: () => openCard(p.user_id, ctx) },
-      avatar({ icon: p.avatar_icon, color: p.avatar_color }, 'lg'),
+      avatar({ icon: p.avatar_icon, color: p.avatar_color, userId: p.user_id }, 'lg'),
       h('strong', { translate: 'no' }, p.display_name),
       h(
         'span',

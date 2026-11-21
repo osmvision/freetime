@@ -255,6 +255,11 @@ impl Party {
         self.common.len()
     }
 
+    /// Whether this idea is a Steam game everyone here owns.
+    pub fn is_common(&self, id: &str) -> bool {
+        steam_appid(id).is_some_and(|appid| self.common_ids.contains(&appid))
+    }
+
     /// The games everyone owns, most played first (to look up how they can be played together).
     pub fn common_ids(&self, limit: usize) -> Vec<u32> {
         self.common.iter().take(limit).map(|(id, _)| *id).collect()
@@ -594,6 +599,26 @@ mod tests {
         assert_ne!(ranked[0].s.id, "steam:99", "a game only you own shouldn't lead");
         let top = ranked.iter().find(|r| r.s.id == "steam:730").unwrap();
         assert_eq!(top.reasons[0], "Julian and Sam own it too");
+    }
+
+    #[test]
+    fn play_now_offers_only_games_you_both_own() {
+        let lib = library(&[(570, "Dota 2"), (730, "Counter-Strike 2"), (99, "Solo Game")]);
+        let req = Request { minutes: 40, energy: Energy::Medium, with_friends: false, can_go_out: true, budget: Cost::Paid, categories: vec![Category::Food] };
+        let cfg = crate::config::Config::default();
+        let online = crate::providers::Online::default();
+
+        let lea = Party::new(vec![friend("Léa", &[570, 730, 5])], Some(&lib));
+        let found = crate::play_now(&cfg, &req, &online, &Default::default(), &lea);
+        assert_eq!(found.common, 2);
+        assert!(!found.picks.is_empty() && found.picks.len() <= 3);
+        assert!(found.picks.iter().all(|r| lea.is_common(&r.s.id)), "only games you both own");
+        assert!(found.picks.iter().all(|r| r.s.category == Category::Game), "games, whatever kinds the request asked for");
+
+        // A friend with no game list in common: nothing to propose from Steam.
+        let sam = Party::new(vec![friend("Sam", &[5])], Some(&lib));
+        let none = crate::play_now(&cfg, &req, &online, &Default::default(), &sam);
+        assert_eq!((none.common, none.picks.len()), (0, 0));
     }
 
     #[test]

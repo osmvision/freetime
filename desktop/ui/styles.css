@@ -1424,6 +1424,70 @@ button.tag:hover {
   transition: opacity 0.25s, transform 0.25s;
 }
 
+.game-invite-toast {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: start;
+  width: 380px;
+  max-width: calc(100vw - 48px);
+  padding: 12px;
+  border: 1px solid var(--lavender-line);
+  border-inline-start: 4px solid var(--purple);
+  background: var(--coupon);
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+
+.game-invite-icon {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--r-control);
+  background: var(--lavender);
+}
+
+.game-invite-toast .icon {
+  color: var(--purple);
+}
+
+.game-invite-copy {
+  min-width: 0;
+}
+
+.game-invite-detail {
+  margin: 2px 0 8px;
+  color: var(--text-2);
+}
+
+.game-invite-toast .btn {
+  min-height: 36px;
+}
+
+.game-invite-toast .btn.square {
+  min-width: 36px;
+}
+
+body:has(> .quiz-backdrop) .game-invite-toast {
+  display: none;
+}
+
+@media (pointer: coarse) {
+  .game-invite-toast .btn {
+    min-height: 44px;
+  }
+
+  .game-invite-toast .btn.square {
+    min-width: 44px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .game-invite-toast {
+    animation: none;
+  }
+}
+
 /* ---------------------------------------------------------------- city search */
 
 .city-picker {
@@ -1722,11 +1786,15 @@ button.tag:hover {
 
 /* ---------------------------------------------------------------- settings */
 
+/* Columns that fill from the top: sections of different heights leave no blank under the short ones. */
 .settings {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
-  gap: 18px;
-  align-items: start;
+  columns: 380px;
+  column-gap: 18px;
+}
+
+.settings > .section {
+  break-inside: avoid;
+  margin-bottom: 18px;
 }
 
 .section {
@@ -2793,6 +2861,19 @@ select.input {
   text-transform: uppercase;
 }
 
+.chat-list-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px 8px;
+  padding: 0 6px 8px;
+}
+
+.chat-list-head .chat-list-title {
+  margin: 0;
+}
+
 .chat-row {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
@@ -2866,6 +2947,62 @@ select.input {
 
 .chat-pane > .chat-compose {
   grid-row: 4;
+}
+
+.group-editor {
+  grid-row: 1 / -1;
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  min-width: 0;
+  min-height: 0;
+  padding: 18px;
+  overflow-y: auto;
+}
+
+.group-editor h2,
+.group-editor p {
+  margin: 0;
+}
+
+.group-editor [role="status"]:empty {
+  display: none;
+}
+
+.group-picker,
+.group-member-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr));
+  gap: 6px;
+  max-height: 35vh;
+  margin: 0;
+  padding: 2px;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.group-member-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  min-width: 0;
+  padding: 4px 8px;
+  border: 1px solid var(--rule-soft);
+  border-radius: var(--r-control);
+}
+
+.group-member-name {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.bubble-author {
+  margin-bottom: 3px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--purple);
 }
 
 .chat-pane > .empty,
@@ -3064,6 +3201,14 @@ select.input {
 .avatar .icon {
   width: 22px;
   height: 22px;
+}
+
+.avatar-photo {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  object-fit: cover;
 }
 
 .avatar.lg {
@@ -3432,7 +3577,7 @@ select.input {
   }
 
   .settings {
-    grid-template-columns: minmax(0, 1fr);
+    columns: 1;
   }
 }
 
@@ -4121,7 +4266,8 @@ body[data-view="messages"] .assistant-panel {
   color: var(--text);
 }
 
-.seg-btn[aria-selected="true"] {
+.seg-btn[aria-selected="true"],
+.game-board-controls .seg-btn[aria-pressed="true"] {
   background: var(--coupon);
   color: var(--text);
   box-shadow: var(--shadow);
@@ -5069,6 +5215,59 @@ body[data-view="messages"] .assistant-panel {
   background: var(--lavender);
 }
 
+.game-board-controls,
+.game-board-name,
+.game-board-stats {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.game-board-controls,
+.game-board-stats {
+  flex-wrap: wrap;
+}
+
+.game-board-controls .input {
+  width: auto;
+  max-width: 100%;
+}
+
+.game-board-body .global-switch {
+  margin-bottom: 12px;
+}
+
+.game-board .board-row {
+  gap: clamp(6px, 2vw, 14px);
+  padding-inline: clamp(4px, 2vw, 14px);
+  cursor: inherit;
+}
+
+.game-board .board-row:not(.me):hover {
+  background: transparent;
+}
+
+.game-board-player {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.game-board-stats {
+  margin-top: 3px;
+  gap: 2px 10px;
+  font-size: 13px;
+  color: var(--text-2);
+}
+
+.game-board-stats > span,
+.game-board .board-points {
+  white-space: nowrap;
+}
+
+.game-board-rule {
+  margin-bottom: 0;
+}
+
 .place {
   display: grid;
   place-items: center;
@@ -5546,7 +5745,7 @@ body[data-view="messages"] .assistant-panel {
   .bar-tags .tag { min-width: 0; }
   .bar-tags .tag-label { display: inline; min-width: 0; white-space: normal; overflow-wrap: anywhere; }
   .view { padding-left: max(24px, var(--safe-left)); padding-right: max(24px, var(--safe-right)); }
-  .settings { grid-template-columns: repeat(auto-fit, minmax(min(380px, 100%), 1fr)); }
+  .settings { columns: min(380px, 100%); }
   .chat-layout { height: calc(var(--viewport-height, 100dvh) - var(--header-height) - var(--nav-height) - 64px); min-height: 260px; }
 
   /* All ticket information stays readable as columns narrow. */
@@ -6337,6 +6536,35 @@ body[data-view="messages"] .assistant-panel {
   gap: 10px;
 }
 
+.problem-photos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.problem-photos:empty {
+  display: none;
+}
+
+.problem-photo {
+  display: flex;
+  align-items: start;
+  gap: 4px;
+}
+
+.problem-photo img {
+  width: 64px;
+  height: 48px;
+  object-fit: contain;
+  border: 1px solid var(--rule-soft);
+  border-radius: var(--r-control);
+  background: var(--stock);
+}
+
+.problem-body .problem-error {
+  color: var(--red);
+}
+
 .tickets {
   display: grid;
   gap: 14px;
@@ -6394,6 +6622,26 @@ body[data-view="messages"] .assistant-panel {
   font-weight: 600;
   overflow-wrap: anywhere;
   user-select: text;
+}
+
+.ticket-photos summary {
+  width: fit-content;
+  padding: 6px 0;
+  cursor: pointer;
+}
+
+.ticket-photos-content {
+  display: grid;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.ticket-photos-content img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  border: 1px solid var(--rule-soft);
+  border-radius: var(--r-control);
 }
 
 .ticket-actions {
@@ -7155,4 +7403,875 @@ body[data-view="messages"] .assistant-panel {
   font: 700 13px/1.5 var(--display);
   letter-spacing: 0.08em;
   text-transform: uppercase;
+}
+
+/* ---------------------------------------------------------------- Discover shortcuts */
+
+.shortcuts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: -10px 0 22px;
+}
+
+.shortcut {
+  display: inline-flex;
+  align-items: center;
+  border: 1.5px solid var(--rule-soft);
+  border-radius: 20px;
+  background: var(--coupon);
+}
+
+.shortcut-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 36px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 20px;
+  background: none;
+  color: var(--text);
+  font: 600 14px/1.2 var(--body);
+}
+
+.shortcut-btn .icon {
+  width: 16px;
+  height: 16px;
+  color: var(--purple);
+}
+
+.shortcut-btn[aria-pressed="true"] {
+  background: var(--lavender);
+  color: var(--purple);
+}
+
+.shortcut.own .shortcut-btn {
+  padding-right: 6px;
+}
+
+.shortcut-remove {
+  display: inline-grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  margin-right: 3px;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: var(--text-3);
+}
+
+.shortcut-remove:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+
+.shortcut-remove .icon {
+  width: 14px;
+  height: 14px;
+}
+
+.shortcut-add {
+  border: 1.5px dashed var(--lavender-line);
+  color: var(--text-2);
+}
+
+.shortcut-form {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.shortcut-name {
+  width: min(240px, 100%);
+  height: 36px;
+}
+
+/* ---------------------------------------------------------------- "Not this one: why?" */
+
+.strip.not-now .strip-text strong {
+  font-size: 16px;
+}
+
+/* ---------------------------------------------------------------- "Shall we play now?" */
+
+.play-now-list {
+  display: grid;
+  gap: 12px;
+  margin: -8px 0 22px;
+}
+
+.play-now {
+  display: grid;
+  gap: 12px;
+  padding: 14px 16px;
+  border: 1.5px solid var(--lavender-line);
+  border-left: 5px solid var(--good);
+  border-radius: var(--r-ticket);
+  background: var(--coupon);
+  animation: issue 0.35s var(--ease) backwards;
+}
+
+.play-now-head {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+}
+
+.play-now-text strong {
+  display: block;
+  font-size: 16px;
+  line-height: 1.3;
+}
+
+.play-now-ask {
+  color: var(--good);
+  font: 700 15px/1.2 var(--display);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.play-now-sub {
+  color: var(--text-2);
+  font-size: 14px;
+}
+
+.play-now-pick {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--stock);
+}
+
+.play-now-pick > .icon {
+  width: 20px;
+  height: 20px;
+  color: var(--purple);
+}
+
+.play-now-label {
+  color: var(--text-2);
+  font-size: 14px;
+}
+
+.play-now-title {
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.play-now-why,
+.play-now-state {
+  color: var(--text-3);
+  font-size: 13px;
+}
+
+.play-now-actions {
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* ---------------------------------------------------------------- evenings */
+
+.coming-up .strip {
+  margin-bottom: 12px;
+}
+
+.coming-up {
+  margin-bottom: 22px;
+}
+
+.evenings-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.evenings-head h2 {
+  margin: 0;
+}
+
+.evening {
+  display: grid;
+  gap: 8px;
+  padding: 14px 0;
+  border-bottom: 1px dashed var(--line-soft);
+}
+
+.evening:last-child {
+  border-bottom: 0;
+}
+
+.evening .field-label {
+  margin-top: 4px;
+}
+
+.evening-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.evening-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 0 12px;
+  border: 1.5px solid var(--rule-soft);
+  border-radius: 20px;
+  background: var(--coupon);
+  color: var(--text);
+  font-size: 14px;
+  text-align: left;
+}
+
+.evening-option .icon {
+  width: 16px;
+  height: 16px;
+  color: var(--text-3);
+}
+
+.evening-option[aria-pressed="true"] {
+  border-color: var(--purple);
+  background: var(--lavender);
+  color: var(--purple);
+  font-weight: 700;
+}
+
+.evening-option[aria-pressed="true"] .icon {
+  color: var(--purple);
+}
+
+.evening-count {
+  padding: 2px 7px;
+  border-radius: 10px;
+  background: var(--stock);
+  color: var(--text-2);
+  font: 600 12px/1.3 var(--figures);
+}
+
+.evening-final {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  font-size: 17px;
+}
+
+.evening-final .icon {
+  width: 20px;
+  height: 20px;
+  color: var(--good);
+}
+
+.evening-actions {
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+
+.evening-time {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.evening-time .input {
+  width: min(260px, 100%);
+}
+
+.evening-picked {
+  display: grid;
+  gap: 4px;
+  margin: 0 0 8px;
+  padding: 0;
+  list-style: none;
+}
+
+.evening-picked li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 4px 4px 4px 12px;
+  border-radius: 8px;
+  background: var(--stock);
+  font-weight: 600;
+}
+
+.evening-picked li.hint {
+  padding: 8px 12px;
+  background: none;
+  font-weight: 400;
+}
+
+.problem-form .evening-offer {
+  margin-bottom: 8px;
+}
+
+.problem-form .evening-offer button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.problem-form .evening-offer button .icon {
+  width: 14px;
+  height: 14px;
+}
+
+.evening-form .field > .btn {
+  justify-self: start;
+}
+
+.problem-form .evening-offer button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.evening-form .row .input {
+  flex: 1 1 200px;
+}
+
+/* ---------------------------------------------------------------- the end of a game */
+
+.game-end {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+  padding: 12px 14px;
+  border: 1.5px solid var(--lavender-line);
+  border-radius: 8px;
+  background: var(--stock);
+}
+
+.game-end-row {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr);
+  align-items: start;
+  gap: 10px;
+}
+
+.game-end-row > .icon {
+  width: 20px;
+  height: 20px;
+  margin-top: 2px;
+  color: var(--purple);
+}
+
+.game-end-row strong,
+.game-end-record {
+  display: block;
+}
+
+.game-end-record {
+  color: var(--text-2);
+  font-size: 14px;
+}
+
+.game-end-last {
+  display: flex;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+.game-end-dot {
+  display: inline-grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  font: 700 13px/1 var(--figures);
+}
+
+.game-end-dot.won {
+  background: var(--good);
+  color: var(--on-ink, #fff);
+}
+
+.game-end-dot.draw {
+  background: var(--rule-soft);
+  color: var(--text);
+}
+
+.game-end-dot.lost {
+  background: var(--red);
+  color: var(--on-red);
+}
+
+@media (max-width: 560px) {
+  .shortcut-btn,
+  .evening-option {
+    min-height: 44px;
+  }
+
+  .play-now-head {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+  }
+}
+
+/* ---------------------------------------------------------------- reactions and edits on messages */
+
+.msg {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  align-self: flex-start;
+  max-width: min(78%, 640px);
+}
+
+.msg.mine {
+  flex-direction: row-reverse;
+  align-self: flex-end;
+}
+
+.msg-col {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-width: 0;
+}
+
+.msg.mine .msg-col {
+  align-items: flex-end;
+}
+
+.msg .bubble {
+  max-width: 100%;
+}
+
+.msg-editing {
+  width: min(560px, 70vw);
+  gap: 8px;
+}
+
+.msg-editing .row {
+  flex-wrap: wrap;
+}
+
+.msg-editing .msg-edit-input {
+  width: 100%;
+}
+
+.bubble-edited {
+  margin-right: 6px;
+  font-style: italic;
+}
+
+.msg-reactions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: -6px;
+  padding: 0 6px;
+}
+
+.msg-reaction {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  min-height: 28px;
+  padding: 0 8px;
+  border: 1.5px solid var(--rule-soft);
+  border-radius: 14px;
+  background: var(--coupon);
+  color: var(--text);
+  font-size: 14px;
+}
+
+.msg-reaction b {
+  font-size: 12px;
+}
+
+.msg-reaction[aria-pressed="true"] {
+  border-color: var(--purple);
+  background: var(--lavender);
+  color: var(--purple);
+}
+
+.msg-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  margin-top: 4px;
+  padding: 4px;
+  border: 1.5px solid var(--rule-soft);
+  border-radius: 20px;
+  background: var(--coupon);
+  box-shadow: var(--shadow);
+}
+
+.msg-picker[hidden] {
+  display: none;
+}
+
+.msg-pick {
+  width: 36px;
+  height: 36px;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  font-size: 20px;
+  line-height: 1;
+}
+
+.msg-pick:hover,
+.msg-pick[aria-pressed="true"] {
+  background: var(--lavender);
+}
+
+.msg-tools {
+  display: flex;
+  gap: 2px;
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+
+.msg:hover .msg-tools,
+.msg:focus-within .msg-tools {
+  opacity: 1;
+}
+
+.msg-tool {
+  display: inline-grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: var(--text-3);
+}
+
+.msg-tool:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+
+.msg-tool .icon {
+  width: 18px;
+  height: 18px;
+}
+
+/* Touch screens have no hover: the buttons stay visible. */
+@media (hover: none) {
+  .msg-tools {
+    opacity: 1;
+  }
+
+  .msg-tool {
+    width: 40px;
+    height: 40px;
+  }
+}
+
+/* ---------------------------------------------------------------- a surprise for one person */
+
+.sp-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+  padding: 24px 16px;
+  overflow: auto;
+  background: radial-gradient(circle at 50% 40%, #4a1430 0%, #1d0c22 55%, #0b0814 100%);
+  color: #fff7f2;
+  animation: sp-fade 0.5s ease both;
+}
+
+.sp-backdrop.sp-leaving {
+  animation: sp-fade-out 0.4s ease both;
+}
+
+.sp-stage {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  justify-items: center;
+  gap: 14px;
+  width: min(440px, 100%);
+  text-align: center;
+}
+
+.sp-gift {
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+}
+
+.sp-open .sp-gift {
+  cursor: default;
+}
+
+.sp-art {
+  display: block;
+  width: min(320px, 78vw, 52vh);
+  height: auto;
+  overflow: visible;
+}
+
+.sp-art g {
+  transform-box: fill-box;
+}
+
+/* Closed: the gift waits, with a small wobble. */
+.sp-box,
+.sp-lid {
+  transform-origin: 50% 100%;
+  animation: sp-wobble 2.6s ease-in-out infinite;
+}
+
+.sp-bouquet {
+  opacity: 0;
+  transform-box: view-box;
+  transform-origin: 150px 300px;
+  transform: translateY(95px) scale(0.7);
+}
+
+.sp-rose {
+  transform-origin: center;
+  transform: scale(0.2);
+}
+
+.sp-sparkle,
+.sp-glow {
+  opacity: 0;
+}
+
+.sp-open-btn {
+  min-width: 220px;
+  background: #d81f45;
+  border-color: #d81f45;
+  color: #fff;
+}
+
+/* Open: the lid flies off, the bouquet rises, the roses open, the ring shines. */
+.sp-open .sp-box {
+  animation: none;
+}
+
+.sp-open .sp-lid {
+  animation: sp-lid 0.9s cubic-bezier(0.3, 0.7, 0.3, 1) forwards;
+}
+
+.sp-open .sp-bouquet {
+  animation: sp-rise 1.2s cubic-bezier(0.2, 0.8, 0.2, 1) 0.35s forwards;
+}
+
+.sp-open .sp-rose {
+  animation: sp-bloom 0.7s cubic-bezier(0.3, 1.4, 0.5, 1) calc(0.8s + var(--d)) forwards;
+}
+
+.sp-open .sp-glow {
+  animation: sp-glow 2.4s ease-in-out 1.4s infinite;
+}
+
+.sp-open .sp-sparkle {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: sp-twinkle 1.8s ease-in-out calc(1.6s + var(--d)) infinite;
+}
+
+.sp-words {
+  display: grid;
+  gap: 8px;
+  max-width: 100%;
+  opacity: 0;
+  transform: translateY(10px);
+  transition: opacity 0.8s ease, transform 0.8s ease;
+}
+
+.sp-done .sp-words {
+  opacity: 1;
+  transform: none;
+}
+
+.sp-title {
+  margin: 0;
+  font: 700 clamp(26px, 6vw, 38px) / 1.1 var(--display);
+  letter-spacing: 0.02em;
+  color: #ffe3ea;
+  overflow-wrap: anywhere;
+}
+
+.sp-message {
+  margin: 0;
+  font-size: 18px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.sp-actions {
+  visibility: hidden;
+}
+
+.sp-done .sp-actions {
+  visibility: visible;
+}
+
+.sp-close {
+  min-width: 64px;
+  background: #d81f45;
+  border-color: #d81f45;
+  color: #fff;
+  font-size: 20px;
+}
+
+/* Petals falling once it's open. */
+.sp-petals {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.sp-petal {
+  position: absolute;
+  top: -20px;
+  left: var(--x);
+  width: 14px;
+  height: 10px;
+  border-radius: 70% 0 70% 0;
+  background: #e8395d;
+  opacity: 0;
+}
+
+.sp-backdrop:has(.sp-open) .sp-petal {
+  animation: sp-fall var(--t) linear calc(1.2s + var(--d)) infinite;
+}
+
+@keyframes sp-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes sp-fade-out {
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes sp-wobble {
+  0%,
+  70%,
+  100% {
+    transform: rotate(0);
+  }
+  76% {
+    transform: rotate(-3deg);
+  }
+  82% {
+    transform: rotate(3deg);
+  }
+  88% {
+    transform: rotate(-2deg);
+  }
+  94% {
+    transform: rotate(1deg);
+  }
+}
+
+@keyframes sp-lid {
+  to {
+    transform: translate(-40px, -170px) rotate(-28deg);
+    opacity: 0;
+  }
+}
+
+@keyframes sp-rise {
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes sp-bloom {
+  to {
+    transform: scale(1);
+  }
+}
+
+@keyframes sp-glow {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@keyframes sp-twinkle {
+  0%,
+  100% {
+    opacity: 0;
+    transform: scale(0.3);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes sp-fall {
+  0% {
+    opacity: 0;
+    transform: translate(0, 0) rotate(var(--r));
+  }
+  10% {
+    opacity: 0.9;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(40px, 105vh) rotate(calc(var(--r) + 360deg));
+  }
+}
+
+/* Reduced motion: no movement, the open state shows as it is. */
+@media (prefers-reduced-motion: reduce) {
+  .sp-backdrop,
+  .sp-box,
+  .sp-lid,
+  .sp-open .sp-lid,
+  .sp-open .sp-bouquet,
+  .sp-open .sp-rose,
+  .sp-open .sp-glow,
+  .sp-open .sp-sparkle,
+  .sp-backdrop:has(.sp-open) .sp-petal {
+    animation: none;
+  }
+
+  .sp-open .sp-lid {
+    opacity: 0;
+  }
+
+  .sp-open .sp-bouquet,
+  .sp-open .sp-rose {
+    opacity: 1;
+    transform: none;
+  }
+
+  .sp-open .sp-glow,
+  .sp-open .sp-sparkle {
+    opacity: 0.8;
+  }
+
+  .sp-words {
+    transition: none;
+  }
 }

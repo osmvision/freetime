@@ -3,7 +3,7 @@
 use crate::commands::{err, live_session, lock, AppState, Res};
 use freetime_core::{
     account::{self, Client, Session},
-    support::{NewTicket, Ticket},
+    support::{NewTicket, Ticket, TicketPhoto},
 };
 use tauri::State;
 
@@ -36,6 +36,12 @@ pub fn support_is_admin(state: State<'_, AppState>) -> bool {
 pub fn support_tickets(state: State<'_, AppState>, status: Option<String>) -> Res<Vec<Ticket>> {
     let s = live_session(&state)?;
     Client::new().map_err(err)?.tickets(&s, status.as_deref()).map_err(err)
+}
+
+#[tauri::command(async)]
+pub fn support_ticket_photos(state: State<'_, AppState>, id: i64) -> Res<Vec<TicketPhoto>> {
+    let s = live_session(&state)?;
+    Client::new().map_err(err)?.ticket_photos(&s, id).map_err(err)
 }
 
 #[tauri::command(async)]

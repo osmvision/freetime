@@ -325,7 +325,17 @@ impl Client {
 
     pub fn update_profile(&self, s: &Session, edit: &ProfileEdit) -> Result<OnlineProfile> {
         ensure_uuid(&s.user_id)?;
-        let body = serde_json::to_value(edit.checked()?)?;
+        let edit = edit.checked()?;
+        if let Some(photo) = &edit.photo {
+            let body = json!({
+                "p_display_name": edit.display_name, "p_avatar_icon": edit.avatar_icon,
+                "p_avatar_color": edit.avatar_color, "p_bio": edit.bio,
+                "p_status_text": edit.status_text, "p_image": photo.image,
+            });
+            let saved = self.call("POST", "/rest/v1/rpc/save_profile_with_photo", Some(&s.access_token), Some(&body), None)?;
+            return serde_json::from_value(saved).context("unexpected profile response");
+        }
+        let body = serde_json::to_value(edit)?;
         let v = self.call(
             "PATCH",
             &format!("/rest/v1/profiles?id=eq.{}&select={PROFILE_COLUMNS}", s.user_id),
@@ -334,6 +344,21 @@ impl Client {
             Some("return=representation"),
         )?;
         first_profile(v)
+    }
+
+    pub fn profile_photos(&self, s: &Session, ids: &[String]) -> Result<Vec<ProfilePhoto>> {
+        if ids.is_empty() {
+            return Ok(Vec::new());
+        }
+        if ids.len() > 12 {
+            bail!("too many profile photos requested");
+        }
+        for id in ids {
+            ensure_uuid(id)?;
+        }
+        let path = format!("/rest/v1/profile_photos?user_id=in.({})&select=user_id,image", ids.join(","));
+        let photos = self.call("GET", &path, Some(&s.access_token), None, None)?;
+        serde_json::from_value(photos).context("unexpected profile photos response")
     }
 
     pub fn reset_friend_tag(&self, s: &Session) -> Result<String> {
@@ -378,11 +403,20 @@ impl Client {
     /// Sends a problem report to the freetime team. Works signed out (`s` = None); signed in, the
     /// ticket is linked to the account. Returns the ticket's number.
     pub fn send_ticket(&self, s: Option<&Session>, ticket: &crate::support::NewTicket) -> Result<i64> {
-        let ticket = ticket.checked()?;
-        let body = serde_json::to_value(&ticket)?;
+        let mut ticket = ticket.checked()?;
+        let photos = std::mem::take(&mut ticket.photos);
+        let with_photos = !photos.is_empty();
+        // Older support functions reject this envelope before writing a text-only report.
+        let body = if with_photos { json!({ "ticket": ticket, "photos": photos }) } else { serde_json::to_value(&ticket)? };
         let v = self
             .call("POST", "/functions/v1/support", s.map(|s| s.access_token.as_str()), Some(&body), None)
-            .map_err(|e| crate::support::send_error(&e))?;
+            .map_err(|e| {
+                if with_photos && e.to_string().contains("(HTTP 400)") {
+                    anyhow!("Photo attachments are unavailable right now.")
+                } else {
+                    crate::support::send_error(&e)
+                }
+            })?;
         v["id"].as_i64().ok_or_else(|| anyhow!("unexpected answer from freetime's server"))
     }
 
@@ -399,9 +433,24 @@ impl Client {
             Some(_) => bail!("unknown ticket status"),
             None => String::new(),
         };
-        let path = format!("/rest/v1/support_tickets?select={}&order=created_at.desc&limit=200{filter}", crate::support::TICKET_COLUMNS);
-        let v = self.call("GET", &path, Some(&s.access_token), None, None)?;
+        let list = |columns: &str| {
+            let path = format!("/rest/v1/support_tickets?select={columns}&order=created_at.desc&limit=200{filter}");
+            self.call("GET", &path, Some(&s.access_token), None, None)
+        };
+        let v = match list(&format!("{},photo_count", crate::support::TICKET_COLUMNS)) {
+            Err(e) if e.to_string().contains("photo_count") && e.to_string().contains("(HTTP 400)") => list(crate::support::TICKET_COLUMNS)?,
+            result => result?,
+        };
         serde_json::from_value(v).context("unexpected ticket list")
+    }
+
+    pub fn ticket_photos(&self, s: &Session, id: i64) -> Result<Vec<crate::support::TicketPhoto>> {
+        if id <= 0 {
+            bail!("unknown ticket");
+        }
+        let path = format!("/rest/v1/support_ticket_photos?select=image&ticket_id=eq.{id}&order=position");
+        let photos = self.call("GET", &path, Some(&s.access_token), None, None)?;
+        serde_json::from_value(photos).context("unexpected ticket photos")
     }
 
     /// An admin changes a ticket's status and note.
@@ -599,6 +648,22 @@ impl Client {
         self.call("POST", "/rest/v1/rpc/my_matches", Some(&s.access_token), Some(&json!({})), None)
     }
 
+    /// The completed multiplayer results for one game, ranked by points.
+    pub fn game_leaderboard(&self, s: &Session, game: &str, scope: &str) -> Result<Value> {
+        if !matches!(game, "four" | "gomoku" | "draughts" | "dots" | "torpedoes" | "chess" | "quiz-duel")
+            || !matches!(scope, "friends" | "global")
+        {
+            bail!("unknown game leaderboard");
+        }
+        self.call(
+            "POST",
+            "/rest/v1/rpc/game_leaderboard",
+            Some(&s.access_token),
+            Some(&json!({ "p_game": game, "p_scope": scope })),
+            None,
+        )
+    }
+
     /// Declines, cancels or resigns a game. Returns "declined", "cancelled" or "resigned".
     pub fn leave_match(&self, s: &Session, id: &str) -> Result<String> {
         ensure_uuid(id)?;
@@ -617,6 +682,83 @@ impl Client {
     pub fn hide_finished_matches(&self, s: &Session) -> Result<u32> {
         let v = self.call("POST", "/rest/v1/rpc/hide_finished_matches", Some(&s.access_token), Some(&json!({})), None)?;
         Ok(v.as_u64().unwrap_or(0) as u32)
+    }
+
+    /// Your record against one friend (wins, draws, losses, the last five results), for one game
+    /// or all of them.
+    pub fn head_to_head(&self, s: &Session, other: &str, game: Option<&str>) -> Result<Value> {
+        ensure_uuid(other)?;
+        if game.is_some_and(|g| !matches!(g, "four" | "gomoku" | "draughts" | "dots" | "torpedoes" | "chess")) {
+            bail!("unknown game");
+        }
+        self.call("POST", "/rest/v1/rpc/head_to_head", Some(&s.access_token), Some(&json!({ "p_other": other, "p_game": game })), None)
+    }
+
+    // ------------------------------------------------------------ evenings
+
+    /// Invites friends to an evening (one or two times, one to three things to do). Returns its id.
+    pub fn create_evening(&self, s: &Session, e: &NewEvening) -> Result<i64> {
+        let e = e.checked()?;
+        let v = self.call(
+            "POST",
+            "/rest/v1/rpc/create_evening",
+            Some(&s.access_token),
+            Some(&json!({ "p_slots": e.slots, "p_activities": e.activities, "p_note": e.note, "p_guests": e.guests })),
+            None,
+        )?;
+        v.as_i64().ok_or_else(|| anyhow!("unexpected response"))
+    }
+
+    /// A guest's answer: yes or no for each time, and the activity they'd rather do (or none).
+    pub fn answer_evening(&self, s: &Session, id: i64, slots: &[bool], activity: Option<u8>) -> Result<()> {
+        if slots.is_empty() || slots.len() > 2 || activity.is_some_and(|a| a > 2) {
+            bail!("answer for each time");
+        }
+        self.call("POST", "/rest/v1/rpc/answer_evening", Some(&s.access_token), Some(&json!({ "p_id": id, "p_slots": slots, "p_activity": activity })), None)?;
+        Ok(())
+    }
+
+    /// The host settles on a time and an activity.
+    pub fn settle_evening(&self, s: &Session, id: i64, slot: u8, activity: u8) -> Result<()> {
+        if slot > 1 || activity > 2 {
+            bail!("pick one of the times and one of the activities");
+        }
+        self.call("POST", "/rest/v1/rpc/settle_evening", Some(&s.access_token), Some(&json!({ "p_id": id, "p_slot": slot, "p_activity": activity })), None)?;
+        Ok(())
+    }
+
+    pub fn cancel_evening(&self, s: &Session, id: i64) -> Result<()> {
+        self.call("POST", "/rest/v1/rpc/cancel_evening", Some(&s.access_token), Some(&json!({ "p_id": id })), None)?;
+        Ok(())
+    }
+
+    /// Evenings you host or were invited to, soonest first.
+    pub fn my_evenings(&self, s: &Session) -> Result<Value> {
+        self.call("POST", "/rest/v1/rpc/my_evenings", Some(&s.access_token), Some(&json!({})), None)
+    }
+
+    // ------------------------------------------------------------ preferences on all your devices
+
+    /// Saves your preferences to your account (replacing the saved ones). Returns when.
+    pub fn save_my_preferences(&self, s: &Session, data: &Value) -> Result<String> {
+        if !data.is_object() {
+            bail!("nothing to save");
+        }
+        if data.to_string().len() > 60_000 {
+            bail!("your preferences are too big to save: clear some history first");
+        }
+        let v = self.call("POST", "/rest/v1/rpc/save_my_preferences", Some(&s.access_token), Some(&json!({ "p_data": data })), None)?;
+        v.as_str().map(str::to_string).ok_or_else(|| anyhow!("unexpected response"))
+    }
+
+    /// The preferences saved to your account: { data, saved_at }, or null.
+    pub fn my_preferences(&self, s: &Session) -> Result<Value> {
+        self.call("POST", "/rest/v1/rpc/my_preferences", Some(&s.access_token), Some(&json!({})), None)
+    }
+
+    pub fn forget_my_preferences(&self, s: &Session) -> Result<()> {
+        self.call("POST", "/rest/v1/rpc/forget_my_preferences", Some(&s.access_token), Some(&json!({})), None)?;
+        Ok(())
     }
 
     /// Deletes your shared list from the server.
@@ -753,10 +895,33 @@ impl Client {
         serde_json::from_value(v).context("unexpected conversations response")
     }
 
+    pub fn friend_groups(&self, s: &Session) -> Result<Vec<FriendGroup>> {
+        let groups = self.call("POST", "/rest/v1/rpc/my_friend_groups", Some(&s.access_token), Some(&json!({})), None)?;
+        serde_json::from_value(groups).context("unexpected friend groups response")
+    }
+
+    pub fn manage_friend_group(&self, s: &Session, edit: &GroupEdit) -> Result<String> {
+        if let Some(id) = &edit.id {
+            ensure_uuid(id)?;
+        }
+        if edit.add.len() > 19 || edit.remove.len() > 19 {
+            bail!("a group can have up to 20 members");
+        }
+        for id in edit.add.iter().chain(&edit.remove) {
+            ensure_uuid(id)?;
+        }
+        let body = json!({
+            "p_action": edit.action, "p_id": edit.id, "p_name": edit.name,
+            "p_add": edit.add, "p_remove": edit.remove,
+        });
+        let value = self.call("POST", "/rest/v1/rpc/manage_friend_group", Some(&s.access_token), Some(&body), None)?;
+        value.as_str().map(str::to_string).ok_or_else(|| anyhow!("unexpected friend group response"))
+    }
+
     /// Messages after `after` (an id), oldest first; with `after` = 0, the latest 100.
     pub fn messages(&self, s: &Session, conversation: &str, after: i64) -> Result<Vec<Message>> {
         ensure_uuid(conversation)?;
-        let cols = "id,sender,body,created_at";
+        let cols = MESSAGE_COLUMNS;
         let path = if after <= 0 {
             format!("/rest/v1/messages?conversation_id=eq.{conversation}&select={cols}&order=id.desc&limit=100")
         } else {
@@ -773,13 +938,49 @@ impl Client {
         let body = clean_message(body)?;
         let v = self.call(
             "POST",
-            "/rest/v1/messages?select=id,sender,body,created_at",
+            &format!("/rest/v1/messages?select={MESSAGE_COLUMNS}"),
             Some(&s.access_token),
             Some(&json!({ "conversation_id": conversation, "body": body })),
             Some("return=representation"),
         )?;
         let mut list: Vec<Message> = serde_json::from_value(v).context("unexpected response")?;
         list.pop().ok_or_else(|| anyhow!("the message wasn't sent"))
+    }
+
+    /// Messages edited or reacted to after `since` (RFC 3339), to catch up without the live connection.
+    pub fn changed_messages(&self, s: &Session, conversation: &str, since: &str) -> Result<Vec<Message>> {
+        ensure_uuid(conversation)?;
+        let since = chrono::DateTime::parse_from_rfc3339(since).map_err(|_| anyhow!("unexpected time"))?.to_rfc3339();
+        let path = format!(
+            "/rest/v1/messages?conversation_id=eq.{conversation}&changed_at=gt.{}&select={MESSAGE_COLUMNS}&order=id.asc&limit=200",
+            url_encode(&since)
+        );
+        let v = self.call("GET", &path, Some(&s.access_token), None, None)?;
+        serde_json::from_value(v).context("unexpected messages response")
+    }
+
+    /// Turns a reaction on or off on a message of your chat. Returns the message's reactions.
+    pub fn toggle_message_reaction(&self, s: &Session, id: i64, emoji: &str) -> Result<Value> {
+        if !MESSAGE_REACTIONS.contains(&emoji) {
+            bail!("unknown reaction");
+        }
+        self.call("POST", "/rest/v1/rpc/toggle_message_reaction", Some(&s.access_token), Some(&json!({ "p_id": id, "p_emoji": emoji })), None)
+    }
+
+    /// Fixes a message you sent (within 15 minutes). Returns { id, body, edited_at }.
+    pub fn edit_message(&self, s: &Session, id: i64, body: &str) -> Result<Value> {
+        let body = clean_message(body)?;
+        self.call("POST", "/rest/v1/rpc/edit_message", Some(&s.access_token), Some(&json!({ "p_id": id, "p_body": body })), None)
+    }
+
+    /// A surprise the team left for this account (shown once): { id, title, message }, or null.
+    pub fn my_surprise(&self, s: &Session) -> Result<Value> {
+        self.call("POST", "/rest/v1/rpc/my_surprise", Some(&s.access_token), Some(&json!({})), None)
+    }
+
+    pub fn surprise_seen(&self, s: &Session, id: i64) -> Result<()> {
+        self.call("POST", "/rest/v1/rpc/surprise_seen", Some(&s.access_token), Some(&json!({ "p_id": id })), None)?;
+        Ok(())
     }
 
     pub fn mark_read(&self, s: &Session, conversation: &str, up_to: i64) -> Result<()> {
@@ -839,6 +1040,62 @@ pub struct Invite {
     pub created_at: String,
 }
 
+/// One thing to do at an evening.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EveningActivity {
+    pub idea_id: String,
+    pub title: String,
+    pub category: String,
+}
+
+/// An evening to propose. Same limits as the database, checked here for clear messages.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NewEvening {
+    /// One or two times, RFC 3339.
+    pub slots: Vec<String>,
+    pub activities: Vec<EveningActivity>,
+    #[serde(default)]
+    pub note: String,
+    pub guests: Vec<String>,
+}
+
+impl NewEvening {
+    pub fn checked(&self) -> Result<NewEvening> {
+        if self.slots.is_empty() || self.slots.len() > 2 {
+            bail!("pick one or two times");
+        }
+        for t in &self.slots {
+            chrono::DateTime::parse_from_rfc3339(t).map_err(|_| anyhow!("pick a valid time"))?;
+        }
+        if self.activities.is_empty() || self.activities.len() > 3 {
+            bail!("pick one to three things to do");
+        }
+        let activities = self
+            .activities
+            .iter()
+            .map(|a| {
+                let title: String = a.title.chars().filter(|c| !c.is_control()).collect::<String>().trim().chars().take(120).collect();
+                let id_ok = a.idea_id.len() <= 80
+                    && a.idea_id.split_once(':').is_some_and(|(k, rest)| {
+                        !k.is_empty() && k.chars().all(|c| c.is_ascii_lowercase()) && !rest.is_empty() && rest.chars().all(|c| c.is_ascii_alphanumeric() || "_.-".contains(c))
+                    });
+                if !id_ok || title.is_empty() || !crate::model::Category::from_id(&a.category).is_some_and(|c| c.id() == a.category) {
+                    bail!("one of the things to do is not valid");
+                }
+                Ok(EveningActivity { idea_id: a.idea_id.clone(), title, category: a.category.clone() })
+            })
+            .collect::<Result<Vec<_>>>()?;
+        if self.guests.is_empty() || self.guests.len() > 8 {
+            bail!("invite one to eight friends");
+        }
+        for g in &self.guests {
+            ensure_uuid(g)?;
+        }
+        let note: String = self.note.chars().filter(|c| !c.is_control()).collect::<String>().trim().chars().take(140).collect();
+        Ok(NewEvening { slots: self.slots.clone(), activities, note, guests: self.guests.clone() })
+    }
+}
+
 /// A pick to send to a friend. Same limits as the database, checked here for clear messages.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NewInvite {
@@ -892,15 +1149,60 @@ pub struct ConversationEntry {
     pub unread: i64,
 }
 
+/// What a message carries; the reactions are { "heart": ["<user id>", ...], ... }.
+const MESSAGE_COLUMNS: &str = "id,sender,body,created_at,edited_at,reactions";
+/// The reactions a message can get (the database checks the same list).
+pub const MESSAGE_REACTIONS: [&str; 6] = ["heart", "laugh", "thumbs_up", "wow", "sad", "fire"];
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct GroupEdit {
+    pub action: String,
+    pub id: Option<String>,
+    pub name: Option<String>,
+    #[serde(default)]
+    pub add: Vec<String>,
+    #[serde(default)]
+    pub remove: Vec<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct GroupMember {
+    pub user_id: String,
+    pub display_name: String,
+    pub avatar_icon: i16,
+    pub avatar_color: i16,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct FriendGroup {
+    pub conversation_id: String,
+    pub name: String,
+    pub owned: bool,
+    pub last_body: Option<String>,
+    pub last_sender: Option<String>,
+    pub last_at: Option<String>,
+    pub unread: i64,
+    pub members: Vec<GroupMember>,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Message {
     pub id: i64,
     pub sender: String,
     pub body: String,
     pub created_at: String,
+    /// When it was last edited (shown as "edited"), if ever.
+    #[serde(default)]
+    pub edited_at: Option<String>,
+    #[serde(default = "no_reactions")]
+    pub reactions: Value,
     /// Set on messages that arrive live (see `realtime`); absent when loading a chat.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub conversation_id: Option<String>,
+}
+
+fn no_reactions() -> Value {
+    json!({})
 }
 
 /// Same limits as the database: 1 to 2,000 characters, line breaks and tabs allowed.
@@ -927,10 +1229,11 @@ fn ensure_uuid(id: &str) -> Result<()> {
 
 // ---------------------------------------------------------------- the online profile
 
-const PROFILE_COLUMNS: &str = "display_name,avatar_icon,avatar_color,bio,status_text,friend_tag,free_until";
+const PROFILE_COLUMNS: &str = "id,display_name,avatar_icon,avatar_color,bio,status_text,friend_tag,free_until,show_in_global";
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct OnlineProfile {
+    pub id: String,
     pub display_name: String,
     pub avatar_icon: i16,
     pub avatar_color: i16,
@@ -940,6 +1243,15 @@ pub struct OnlineProfile {
     /// While you've said you're free.
     #[serde(default)]
     pub free_until: Option<String>,
+    /// Public profile: anyone signed in can see your card and find you in the Discover list.
+    #[serde(default)]
+    pub show_in_global: bool,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ProfilePhoto {
+    pub user_id: String,
+    pub image: String,
 }
 
 fn first_profile(v: Value) -> Result<OnlineProfile> {
@@ -1031,6 +1343,14 @@ pub struct ProfileEdit {
     pub bio: String,
     #[serde(default)]
     pub status_text: String,
+    /// Omit to keep the existing photo. An explicit edit with no image removes it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub photo: Option<ProfilePhotoEdit>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProfilePhotoEdit {
+    pub image: Option<String>,
 }
 
 impl ProfileEdit {
@@ -1051,7 +1371,10 @@ impl ProfileEdit {
         if !(0..24).contains(&self.avatar_icon) || !(0..8).contains(&self.avatar_color) {
             bail!("unknown avatar");
         }
-        Ok(ProfileEdit { display_name: name, avatar_icon: self.avatar_icon, avatar_color: self.avatar_color, bio, status_text: status })
+        if self.photo.as_ref().and_then(|photo| photo.image.as_ref()).is_some_and(|image| image.len() > 140_000) {
+            bail!("The profile photo is too large");
+        }
+        Ok(ProfileEdit { display_name: name, avatar_icon: self.avatar_icon, avatar_color: self.avatar_color, bio, status_text: status, photo: self.photo.clone() })
     }
 }
 
@@ -1153,7 +1476,7 @@ mod tests {
 
     #[test]
     fn profile_edits_are_checked() {
-        let ok = ProfileEdit { display_name: "  Osm\n ".into(), avatar_icon: 2, avatar_color: 1, bio: String::new(), status_text: "Free tonight".into() };
+        let ok = ProfileEdit { display_name: "  Osm\n ".into(), avatar_icon: 2, avatar_color: 1, bio: String::new(), status_text: "Free tonight".into(), photo: None };
         assert_eq!(ok.checked().unwrap().display_name, "Osm");
         assert!(ProfileEdit { display_name: "".into(), ..ok.clone() }.checked().is_err());
         assert!(ProfileEdit { display_name: "x".repeat(25), ..ok.clone() }.checked().is_err());
