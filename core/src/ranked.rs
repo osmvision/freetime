@@ -4,12 +4,13 @@
 //! | what                                   | points          |
 //! | -------------------------------------- | --------------- |
 //! | daily quiz                             | 1 per right answer |
+//! | puzzle of the day solved (path, zones) | 2 each          |
 //! | ticket of the day done                 | 3               |
 //! | a built-in idea done for the first time | 2 each          |
 //! | weekly challenge completed that day    | 10              |
 //! | badge earned that day                  | 5 each          |
 
-use crate::{account::{BoardRow, Client, Session}, book, catalog};
+use crate::{account::{BoardRow, Client, Session}, book, catalog, puzzles};
 use crate::history::{Entry, History};
 use crate::model::Suggestion;
 use crate::quiz::QuizLog;
@@ -22,6 +23,7 @@ pub const DAILY_CAP: u32 = 20;
 #[derive(Debug, Clone, Default, Serialize, PartialEq)]
 pub struct DayPoints {
     pub quiz: u32,
+    pub puzzles: u32,
     pub daily: u32,
     pub new_ideas: u32,
     pub challenge: u32,
@@ -63,6 +65,7 @@ pub fn day_points(history: &History, catalog: &[Suggestion], quizzes: &QuizLog, 
     let until_before = up_to(history, before);
 
     let quiz = quizzes.get(day).map_or(0, |s| u32::from(s.score));
+    let puzzles = puzzles::day_points(quizzes, day);
     let daily = if book::daily_done(history, catalog, day) { 3 } else { 0 };
 
     // Built-in ideas done for the first time that day.
@@ -89,8 +92,8 @@ pub fn day_points(history: &History, catalog: &[Suggestion], quizzes: &QuizLog, 
     let prior = before.map(|b| earned(&until_before, end_of(b))).unwrap_or_default();
     let badges = 5 * after.difference(&prior).count() as u32;
 
-    let uncapped = quiz + daily + new_ideas + challenge + badges;
-    DayPoints { quiz, daily, new_ideas, challenge, badges, total: uncapped.min(DAILY_CAP), uncapped }
+    let uncapped = quiz + puzzles + daily + new_ideas + challenge + badges;
+    DayPoints { quiz, puzzles, daily, new_ideas, challenge, badges, total: uncapped.min(DAILY_CAP), uncapped }
 }
 
 /// What a player card shows besides points.
@@ -231,8 +234,10 @@ mod tests {
         };
         let mut log = QuizLog::default();
         log.days.insert(day.to_string(), quiz::Score { score: 4, total: 5 });
+        log.puzzles.entry(day.to_string()).or_default().insert("path".into(), puzzles::Solve { secs: 90 });
         let p = day_points(&h, &cat, &log, day);
         assert_eq!(p.quiz, 4);
+        assert_eq!(p.puzzles, 2);
         assert_eq!(p.daily, 3);
         let daily_is_new = daily.id != "idea:run-5k" && daily.id != "idea:aglio-olio";
         assert_eq!(p.new_ideas, if daily_is_new { 4 } else { 2 });
@@ -240,7 +245,7 @@ mod tests {
 
         // The day before earned nothing from these.
         let before = day_points(&h, &cat, &QuizLog::default(), day.pred_opt().unwrap());
-        assert_eq!((before.quiz, before.daily, before.new_ideas), (0, 0, 0));
+        assert_eq!((before.quiz, before.puzzles, before.daily, before.new_ideas), (0, 0, 0, 0));
 
         // Lots of new ideas in one day: capped at 20.
         for (i, s) in cat.iter().filter(|s| s.id.starts_with("idea:")).take(15).enumerate() {

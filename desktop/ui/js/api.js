@@ -61,6 +61,9 @@ export const api = {
   // The daily quiz (offline: questions ship with the app).
   quiz: () => invoke('get_quiz'),
   finishQuiz: (answers) => invoke('finish_quiz', { answers }),
+  // The puzzles of the day (offline: the puzzles ship with the app, js/puzzles/days.js).
+  puzzles: () => invoke('get_puzzles'),
+  finishPuzzle: (kind, secs) => invoke('finish_puzzle', { kind, secs }),
   // Bonus round from Open Trivia DB (network, only when asked).
   bonusQuiz: () => invoke('bonus_quiz'),
   // Ranked (signed in): seasons, boards, player cards.

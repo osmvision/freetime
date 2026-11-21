@@ -74,6 +74,8 @@ fn main() {
             book::game_idea,
             quiz::get_quiz,
             quiz::finish_quiz,
+            quiz::get_puzzles,
+            quiz::finish_puzzle,
             quiz::bonus_quiz,
             ranked::sync_points,
             ranked::ranked_overview,

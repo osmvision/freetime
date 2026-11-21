@@ -16,6 +16,7 @@ pub mod mine;
 pub mod open;
 pub mod party;
 pub mod places;
+pub mod puzzles;
 pub mod providers;
 pub mod quiz;
 pub mod ranked;

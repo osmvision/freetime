@@ -8427,3 +8427,211 @@ body[data-view="messages"] .assistant-panel {
     transition: none;
   }
 }
+
+/* ---------------------------------------------------------------- puzzles of the day (see puzzles/screen.js) */
+
+:root {
+  --zone-0: #f6c9c9;
+  --zone-1: #f9dcab;
+  --zone-2: #f4eba0;
+  --zone-3: #cde6b5;
+  --zone-4: #b8e0dc;
+  --zone-5: #c5d5f3;
+  --zone-6: #dccbf1;
+  --zone-7: #e6d2bf;
+}
+
+:root[data-theme="dark"] {
+  --zone-0: #5b2f38;
+  --zone-1: #5c4427;
+  --zone-2: #53502b;
+  --zone-3: #33502f;
+  --zone-4: #22504c;
+  --zone-5: #2c3e66;
+  --zone-6: #46355f;
+  --zone-7: #4e3f33;
+}
+
+.puzzles {
+  margin-bottom: 22px;
+}
+
+.puzzles-today {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
+  gap: 14px;
+  margin-top: 12px;
+}
+
+.puzzle-streak {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-2);
+  font: 700 14px/1.2 var(--display);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.puzzle-streak .icon {
+  width: 18px;
+  height: 18px;
+  color: var(--red);
+}
+
+.puzzle-clock {
+  font-size: 20px;
+}
+
+.puzzle-progress {
+  color: var(--text-2);
+  font-size: 15px;
+}
+
+.puzzle-grid {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(var(--n), minmax(0, 1fr));
+  /* never taller than the window leaves room for */
+  width: min(100%, 440px, max(240px, calc(100vh - 380px)));
+  overflow: hidden;
+  border: 3px solid var(--navy);
+  border-radius: 8px;
+  background: var(--coupon);
+  touch-action: none;
+  user-select: none;
+}
+
+.pz-cell {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  aspect-ratio: 1;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+}
+
+.pz-cell:disabled {
+  cursor: default;
+}
+
+.pz-cell:focus-visible {
+  z-index: 2;
+  outline: 3px solid #f7c948;
+  outline-offset: -3px;
+}
+
+/* path: the line is drawn under the squares, the numbers sit on top of it */
+.path-grid .pz-cell {
+  border-right: 1px solid var(--line-soft);
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.path-line {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.path-line polyline {
+  fill: none;
+  stroke: var(--purple);
+  stroke-width: 0.34;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.path-grid .pz-cell.on {
+  background: color-mix(in srgb, var(--purple) 9%, transparent);
+}
+
+.pz-num {
+  display: grid;
+  place-items: center;
+  width: 62%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: var(--navy);
+  color: var(--on-navy);
+  font-size: clamp(13px, 2.6vw, 20px);
+  font-weight: 700;
+}
+
+.pz-cell.on .pz-num {
+  background: var(--purple);
+  color: var(--on-purple);
+}
+
+.pz-cell.head:not(:has(.pz-num))::after {
+  content: "";
+  width: 34%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: var(--purple);
+  box-shadow: 0 0 0 3px var(--coupon);
+}
+
+/* zones: a colour and a thick line around each zone */
+.zones-grid .pz-cell {
+  box-shadow: inset 0 0 0 0.5px var(--line-soft);
+}
+
+.zones-grid .wall-t {
+  border-top: 2px solid var(--navy);
+}
+
+.zones-grid .wall-b {
+  border-bottom: 2px solid var(--navy);
+}
+
+.zones-grid .wall-l {
+  border-left: 2px solid var(--navy);
+}
+
+.zones-grid .wall-r {
+  border-right: 2px solid var(--navy);
+}
+
+:root[data-theme="dark"] .zones-grid :is(.wall-t, .wall-b, .wall-l, .wall-r) {
+  border-color: #e6e2f5;
+}
+
+.zone-0 { background: var(--zone-0); }
+.zone-1 { background: var(--zone-1); }
+.zone-2 { background: var(--zone-2); }
+.zone-3 { background: var(--zone-3); }
+.zone-4 { background: var(--zone-4); }
+.zone-5 { background: var(--zone-5); }
+.zone-6 { background: var(--zone-6); }
+.zone-7 { background: var(--zone-7); }
+
+.zones-grid .pz-cell .icon {
+  width: 52%;
+  height: 52%;
+}
+
+.zones-grid .pz-cell.star .icon svg {
+  fill: currentColor;
+}
+
+.zones-grid .pz-cell.cross {
+  color: var(--text-3);
+}
+
+.zones-grid .pz-cell.cross .icon {
+  width: 36%;
+  height: 36%;
+}
+
+.zones-grid .pz-cell.bad {
+  color: var(--red);
+  box-shadow: inset 0 0 0 3px var(--red);
+}

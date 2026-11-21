@@ -1,6 +1,6 @@
 # freetime games plan: better games, new games
 
-Status: proposal, November 2026. Builds on [engagement-plan.md](engagement-plan.md) (phase E,
+Status: in progress, November 2026 (see "Order and progress" at the end). Builds on [engagement-plan.md](engagement-plan.md) (phase E,
 mini-games) and what already ships: six turn-based games (`desktop/ui/js/play/`), the daily quiz,
 quiz duels, game leaderboards, head-to-head records and rematches.
 
@@ -240,7 +240,7 @@ test, a solved puzzle gives Ranked points once, and the shared text has no spoil
 
 Branch: `freetime-games`. These games use the real data the app already loads.
 
-### 5.1 Higher or lower: Steam prices
+### 5.1 Higher or lower: Steam prices (dropped for now: most users have no Steam account)
 
 - Two games from the Steam store lists already fetched at startup (`providers/steam.rs` has
   `final_minor` and the discount). Pick the more expensive one, or the one with more reviews in
@@ -312,13 +312,16 @@ expire after 24 h. Plan this phase once phases 1 to 5 have been used for a few w
 
 ---
 
-## Order and first steps
+## Order and progress
 
-1. **Phase 1** first. It touches only the UI, every current game gets better, and it's needed by
-   every later phase (replay and new games reuse `fx.js`).
-2. **Phase 5.1 (Steam higher or lower)**: small, and unique to freetime.
-3. **Phase 4 (puzzle of the day)**: the feature that brings people back every day.
-4. Then phases 2, 3 and 6 in any order, and phase 7 last.
+1. **Phase 1 — done** (branch `games-feel`).
+2. **Phase 4 — first part done** (branch `daily-puzzles`): Path and Zones every day, made ahead of
+   time (`desktop/scripts/make-puzzles.mjs`, one solution each, up to 2027-12-31), Ranked points,
+   a private streak, spoiler-free sharing. Still to do: "Win in N" (4.1, 3), friends' times (4.3)
+   and the puzzle run (4.4).
+3. **Phase 5.1 (Steam higher or lower): dropped for now.** Most freetime users don't have a
+   Steam account; 5.2 (guess the idea) works for everyone and comes first.
+4. Then phases 2, 3, 5.2 and 6 in any order, and phase 7 last.
 
 ## Sources
 

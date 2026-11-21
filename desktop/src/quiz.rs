@@ -1,7 +1,8 @@
 //! The daily quiz screen (core/src/quiz.rs). Offline: questions ship with the app, results stay
 //! on this PC.
 
-use freetime_core::{history::History, quiz};
+use freetime_core::{history::History, puzzles, quiz};
+use std::collections::BTreeMap;
 use serde::Serialize;
 
 type Res<T> = Result<T, String>;
@@ -48,6 +49,40 @@ pub fn finish_quiz(answers: Vec<usize>) -> Res<QuizDone> {
         history.save().map_err(|e| e.to_string())?;
     }
     Ok(QuizDone { score: s.score, total: s.total, streak: log.streak(today) })
+}
+
+#[derive(Serialize)]
+pub struct PuzzlesView {
+    /// "2026-11-19": which puzzles to show (the UI has them all).
+    date: String,
+    /// The ones solved today, by kind ("path", "zones").
+    solved: BTreeMap<String, puzzles::Solve>,
+    streak: u32,
+}
+
+fn puzzles_view(log: &quiz::QuizLog, today: chrono::NaiveDate) -> PuzzlesView {
+    PuzzlesView { date: today.to_string(), solved: puzzles::solved(log, today), streak: puzzles::streak(log, today) }
+}
+
+#[tauri::command(async)]
+pub fn get_puzzles() -> PuzzlesView {
+    let today = chrono::Local::now().date_naive();
+    puzzles_view(&quiz::QuizLog::load(), today)
+}
+
+/// Today's `kind` puzzle was solved in `secs` seconds (the UI checks the solution).
+#[tauri::command(async)]
+pub fn finish_puzzle(kind: String, secs: u32) -> Res<PuzzlesView> {
+    let today = chrono::Local::now().date_naive();
+    let mut log = quiz::QuizLog::load();
+    let mut history = History::load();
+    let already = puzzles::solved(&log, today).contains_key(&kind);
+    puzzles::finish(&kind, today, secs, &mut log, &mut history).map_err(|e| e.to_string())?;
+    if !already {
+        log.save().map_err(|e| e.to_string())?;
+        history.save().map_err(|e| e.to_string())?;
+    }
+    Ok(puzzles_view(&log, today))
 }
 
 /// The bonus quiz: 5 questions from Open Trivia DB (English, CC BY-SA 4.0). Network, but only
