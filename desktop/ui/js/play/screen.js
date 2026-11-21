@@ -18,6 +18,9 @@ export const GAME_INFO = {
   dots: { name: 'Dots and boxes', icon: 'square-dashed', rule: 'Draw a line in turn. Close a box to score it and play again. Most boxes wins.' },
   torpedoes: { name: 'Torpedoes', icon: 'anchor', rule: 'Hide 4 ships, then fire one shot in turn. Sink the whole fleet first.' },
   chess: { name: 'Chess', icon: 'crown', rule: 'Checkmate the king. Castling, en passant and promotion are allowed. Stalemate and repeated positions are draws.' },
+  reversi: { name: 'Reversi', icon: 'contrast', rule: 'Place a disc to trap a line of the other colour between two of yours: the line turns to your colour. No move? The other plays again. Most discs wins.' },
+  awale: { name: 'Awalé', icon: 'bean', rule: 'Take every seed of one of your pits and sow them one by one, anticlockwise. Ending on 2 or 3 seeds in their row captures them, and the 2s and 3s just before. Leave them something to play. More than 24 seeds wins.' },
+  ultimate: { name: 'Ultimate tic-tac-toe', icon: 'layout-grid', rule: 'Nine small grids. The square you play sends the other player to the grid in the same place. Win three small grids in a row.' },
 };
 
 const store = {
@@ -104,6 +107,9 @@ const AFTER_GAME = {
   draughts: ['board-games', 'card-night'],
   dots: ['daily-puzzle', 'board-games'],
   torpedoes: ['board-games', 'card-night'],
+  reversi: ['board-games', 'daily-puzzle'],
+  awale: ['board-games', 'card-night'],
+  ultimate: ['daily-puzzle', 'board-games'],
 };
 const ideaIds = (game) => (AFTER_GAME[game] ?? ['board-games']).map((id) => `idea:${id}`);
 

@@ -142,6 +142,34 @@ function torpedoes(root, prev, next, me) {
   return 240;
 }
 
+function reversi(root, prev, next) {
+  pop(cell(root, next.last)?.querySelector('.piece'));
+  // The trapped discs turn over, one after another.
+  next.flipped.forEach((c, k) => {
+    cell(root, c)?.querySelector('.piece')?.animate([{ transform: 'scaleX(1)' }, { transform: 'scaleX(0)', offset: 0.5 }, { transform: 'scaleX(1)' }], { duration: 260, delay: 90 + k * 45, easing: 'ease-in-out' });
+  });
+  return 90 + next.flipped.length * 45 + 260;
+}
+
+function awale(root, prev, next) {
+  // Seeds land one pit after another; captured pits empty last.
+  next.last.sown.forEach((c, k) => {
+    cell(root, c)?.animate([{ transform: 'scale(1)' }, { transform: 'scale(1.08)' }, { transform: 'none' }], { duration: 200, delay: k * 70, easing: 'ease-out' });
+  });
+  const end = next.last.sown.length * 70;
+  next.last.captured.forEach((c) => {
+    cell(root, c)?.animate([{ opacity: 0.35 }, { opacity: 1 }], { duration: 320, delay: end, easing: 'ease-out', fill: 'backwards' });
+  });
+  return end + 200;
+}
+
+function ultimate(root, prev, next) {
+  pop(cell(root, next.last)?.querySelector('.mark'));
+  const g = Math.floor(next.last / 9);
+  if (prev.grids[g] === -1 && (next.grids[g] === 0 || next.grids[g] === 1)) pop(root.querySelector(`[data-grid="${g}"] .ut-big`), 160);
+  return 360;
+}
+
 /** The winning line lights up, one piece after another. */
 function winLine(root, delay) {
   root.querySelectorAll('.win .piece, .win .mark').forEach((el, k) => {
@@ -162,6 +190,14 @@ function moveSound(prev, next, me) {
       return next.boxes.some((o, b) => o >= 0 && prev.boxes[b] === -1) ? 'box' : 'move';
     case 'torpedoes':
       return next.phase === 'play' && prev.phase === 'play' ? next.shots[prev.turn].at(-1)?.r ?? null : null;
+    case 'reversi':
+      return next.flipped.length >= 4 ? 'capture' : 'move';
+    case 'awale':
+      return next.last.captured.length ? 'capture' : 'move';
+    case 'ultimate': {
+      const g = Math.floor(next.last / 9);
+      return prev.grids[g] === -1 && next.grids[g] !== -1 ? 'box' : 'move';
+    }
     default:
       return 'move';
   }
@@ -178,7 +214,7 @@ export function moved(root, prev, next, me) {
   if (reduced() || next.last == null) return;
   try {
     const gomoku = (r) => (pop(cell(r, next.last)?.querySelector('.mark')), 200);
-    const ms = { four, gomoku, draughts, chess, dots, torpedoes }[next.game]?.(root, prev, next, me) ?? 0;
+    const ms = { four, gomoku, draughts, chess, dots, torpedoes, reversi, awale, ultimate }[next.game]?.(root, prev, next, me) ?? 0;
     if (next.winner !== null && next.winner !== 'draw') winLine(root, ms + 60);
   } catch {
     // An animation is never worth breaking the game for.

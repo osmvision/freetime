@@ -18,7 +18,7 @@ const fail = (why) => {
 };
 const isInt = (n, lo, hi) => Number.isInteger(n) && n >= lo && n <= hi;
 
-export const GAMES = ['four', 'gomoku', 'draughts', 'dots', 'torpedoes', 'chess'];
+export const GAMES = ['four', 'gomoku', 'draughts', 'dots', 'torpedoes', 'chess', 'reversi', 'awale', 'ultimate'];
 
 // ---------------------------------------------------------------- four in a row (7 × 6)
 
@@ -655,9 +655,177 @@ const chess = {
   },
 };
 
+// ---------------------------------------------------------------- reversi (8 × 8)
+//
+// Cells 0–63, row by row; -1 empty. A disc must trap at least one straight line of the other
+// colour between itself and another disc of yours: the line turns to your colour. A player with
+// no move is skipped (the other plays again); when neither can move, most discs wins.
+
+export const REVERSI = { size: 8 };
+const ALL_DIRS = [[-1, -1], [-1, 0], [-1, 1], [0, -1], [0, 1], [1, -1], [1, 0], [1, 1]];
+
+/** The discs a disc of `p` on `cell` would turn ([] if none: not a move). */
+export function reversiFlips(board, cell, p) {
+  if (board[cell] !== -1) return [];
+  const r0 = Math.floor(cell / 8);
+  const c0 = cell % 8;
+  const out = [];
+  for (const [dr, dc] of ALL_DIRS) {
+    const line = [];
+    let r = r0 + dr;
+    let c = c0 + dc;
+    while (r >= 0 && r < 8 && c >= 0 && c < 8 && board[r * 8 + c] === 1 - p) {
+      line.push(r * 8 + c);
+      r += dr;
+      c += dc;
+    }
+    if (line.length && r >= 0 && r < 8 && c >= 0 && c < 8 && board[r * 8 + c] === p) out.push(...line);
+  }
+  return out;
+}
+
+const reversiCells = (board, p) => board.flatMap((v, cell) => (v === -1 && reversiFlips(board, cell, p).length ? [cell] : []));
+
+const reversi = {
+  init: () => {
+    const board = Array(64).fill(-1);
+    board[27] = board[36] = 1;
+    board[28] = board[35] = 0;
+    return { board };
+  },
+  legal: (s, p) => reversiCells(s.board, p).map((cell) => ({ cell })),
+  apply(s, move, p) {
+    if (!isInt(move?.cell, 0, 63)) fail('Pick a square on the board.');
+    const flipped = reversiFlips(s.board, move.cell, p);
+    if (!flipped.length) fail('A disc must trap a line of the other colour.');
+    const board = s.board.slice();
+    board[move.cell] = p;
+    for (const x of flipped) board[x] = p;
+    const state = { board, last: move.cell, flipped };
+    if (reversiCells(board, 1 - p).length) return { state, winner: null };
+    if (reversiCells(board, p).length) return { state, winner: null, again: true }; // they can't move
+    const mine = board.filter((v) => v === p).length;
+    const theirs = board.filter((v) => v === 1 - p).length;
+    return { state, winner: mine === theirs ? 'draw' : mine > theirs ? p : 1 - p };
+  },
+};
+
+// ---------------------------------------------------------------- awalé (oware, abapa rules)
+//
+// Pits 0–5 are player 0's, 6–11 player 1's; seeds go round anticlockwise (0 → 1 → … → 11 → 0).
+// Take every seed of one of your pits and sow them one by one in the following pits, skipping the
+// pit you emptied. If the last seed makes 2 or 3 in a pit of the other player, they are captured,
+// and so are the 2s and 3s just before it on that side; a move that would capture all their seeds
+// captures nothing. If they have no seeds, you must give them some when you can. When a player
+// can't move, or after 100 moves without a capture, each player keeps the seeds on their side.
+// More than 24 seeds wins; 24 each is a draw.
+
+export const AWALE = { pits: 12, seeds: 4, quietLimit: 100 };
+const sideOf = (pit) => (pit < 6 ? 0 : 1);
+const seedsOn = (pits, p) => pits.slice(p * 6, p * 6 + 6).reduce((a, b) => a + b, 0);
+
+/** The pits after sowing from `pit`, the pits sown (in order) and the seeds captured. */
+export function awaleSow(pits, pit, p) {
+  const next = pits.slice();
+  let hand = next[pit];
+  next[pit] = 0;
+  const sown = [];
+  let at = pit;
+  while (hand > 0) {
+    at = (at + 1) % 12;
+    if (at === pit) continue;
+    next[at] += 1;
+    sown.push(at);
+    hand -= 1;
+  }
+  const captured = [];
+  let c = at;
+  while (sideOf(c) === 1 - p && (next[c] === 2 || next[c] === 3)) {
+    captured.push(c);
+    c = (c + 11) % 12;
+  }
+  const taken = captured.reduce((a, x) => a + next[x], 0);
+  // Taking every seed they have (a grand slam) captures nothing.
+  if (taken && taken === seedsOn(next, 1 - p)) return { pits: next, sown, captured: [], taken: 0 };
+  for (const x of captured) next[x] = 0;
+  return { pits: next, sown, captured, taken };
+}
+
+function awaleMoves(pits, p) {
+  const mine = [0, 1, 2, 3, 4, 5].map((k) => p * 6 + k).filter((pit) => pits[pit] > 0);
+  if (seedsOn(pits, 1 - p) > 0) return mine;
+  // They have nothing: feed them if you can.
+  return mine.filter((pit) => seedsOn(awaleSow(pits, pit, p).pits, 1 - p) > 0);
+}
+
+const awale = {
+  init: () => ({ pits: Array(12).fill(AWALE.seeds), stores: [0, 0], quiet: 0 }),
+  legal: (s, p) => awaleMoves(s.pits, p).map((pit) => ({ pit })),
+  apply(s, move, p) {
+    if (!isInt(move?.pit, 0, 11) || sideOf(move.pit) !== p) fail('Pick one of your pits.');
+    if (!s.pits[move.pit]) fail('That pit is empty.');
+    if (!awaleMoves(s.pits, p).includes(move.pit)) fail('They have no seeds: give them some.');
+    const r = awaleSow(s.pits, move.pit, p);
+    let pits = r.pits;
+    const stores = s.stores.slice();
+    stores[p] += r.taken;
+    const quiet = r.taken ? 0 : s.quiet + 1;
+    const state = { pits, stores, quiet, last: { pit: move.pit, sown: r.sown, captured: r.captured } };
+    const done = stores[p] > 24 || awaleMoves(pits, 1 - p).length === 0 || quiet >= AWALE.quietLimit;
+    if (!done) return { state, winner: null };
+    // The end: each keeps the seeds on their side.
+    if (stores[p] <= 24) {
+      stores[0] += seedsOn(pits, 0);
+      stores[1] += seedsOn(pits, 1);
+      pits = Array(12).fill(0);
+    }
+    return { state: { ...state, pits, stores }, winner: stores[0] === stores[1] ? 'draw' : stores[0] > stores[1] ? 0 : 1 };
+  },
+};
+
+// ---------------------------------------------------------------- ultimate tic-tac-toe
+//
+// Nine small grids of nine squares: cell = grid * 9 + square. The square you play sends the other
+// player to the grid in the same place; if that grid is already decided, they play anywhere open.
+// Three in a row wins a small grid; three small grids in a row win the game.
+
+const LINES3 = [[0, 1, 2], [3, 4, 5], [6, 7, 8], [0, 3, 6], [1, 4, 7], [2, 5, 8], [0, 4, 8], [2, 4, 6]];
+
+/** The line of three `p` has in a 3 × 3 list, or null. */
+const line3 = (cells, p) => LINES3.find((l) => l.every((k) => cells[k] === p)) ?? null;
+
+export const ultimateOpen = (s) =>
+  s.cells.flatMap((v, cell) => {
+    const g = Math.floor(cell / 9);
+    return v === -1 && s.grids[g] === -1 && (s.next < 0 || s.next === g) ? [cell] : [];
+  });
+
+const ultimate = {
+  // grids: -1 open, 0 or 1 won, 2 full without a line.
+  init: () => ({ cells: Array(81).fill(-1), grids: Array(9).fill(-1), next: -1 }),
+  legal: (s) => ultimateOpen(s).map((cell) => ({ cell })),
+  apply(s, move, p) {
+    if (!isInt(move?.cell, 0, 80) || !ultimateOpen(s).includes(move.cell)) fail('Play in the grid you were sent to, on a free square.');
+    const cells = s.cells.slice();
+    const grids = s.grids.slice();
+    cells[move.cell] = p;
+    const g = Math.floor(move.cell / 9);
+    const small = cells.slice(g * 9, g * 9 + 9);
+    if (line3(small, p)) grids[g] = p;
+    else if (small.every((v) => v !== -1)) grids[g] = 2;
+    const sent = move.cell % 9;
+    const next = grids[sent] === -1 ? sent : -1;
+    const big = line3(grids, p);
+    const state = { cells, grids, next, last: move.cell, line: big };
+    if (big) return { state, winner: p };
+    if (grids.every((v) => v !== -1)) return { state, winner: 'draw' };
+    return { state, winner: null };
+  },
+};
+
 // ---------------------------------------------------------------- the common interface
 
-const RULES = { four, gomoku, draughts, dots, torpedoes, chess };
+const RULES = { four, gomoku, draughts, dots, torpedoes, chess, reversi, awale, ultimate };
 
 /** A new game. `first` is the player who moves first (Torpedoes: player 0 places first). */
 export function newGame(game, first = 0) {
@@ -686,8 +854,10 @@ export function play(state, player, move, secrets = [null, null]) {
   return { state: { ...state, ...r.state, game: state.game, turn, winner: r.winner, plies: state.plies + 1 }, secret: r.secret ?? null };
 }
 
-/** Player 0's or 1's score where it means something (Dots and boxes). */
+/** Player 0's or 1's score where it means something (boxes, discs, seeds captured). */
 export function scores(state) {
-  if (state.game !== 'dots') return null;
-  return [0, 1].map((p) => state.boxes.filter((o) => o === p).length);
+  if (state.game === 'dots') return [0, 1].map((p) => state.boxes.filter((o) => o === p).length);
+  if (state.game === 'reversi') return [0, 1].map((p) => state.board.filter((v) => v === p).length);
+  if (state.game === 'awale') return state.stores.slice();
+  return null;
 }

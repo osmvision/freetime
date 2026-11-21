@@ -254,3 +254,20 @@ test('the problem of the day: a wrong move is undone, the winning line solves it
   await expect(section.locator('.puzzle-card.done')).toHaveCount(1);
   expect(errors).toEqual([]);
 });
+
+test('the classics: reversi, awalé and ultimate tic-tac-toe play against the computer', async ({ page }) => {
+  const errors = trackErrors(page);
+  await openDiscover(page);
+  await page.getByRole('button', { name: 'Games', exact: true }).click();
+  for (const [id, name] of [['reversi', 'Reversi'], ['awale', 'Awalé'], ['ultimate', 'Ultimate tic-tac-toe']]) {
+    await page.locator(`.game-tile-${id}`).getByRole('button', { name: 'Computer' }).click();
+    const game = page.getByRole('dialog', { name });
+    for (let i = 0; i < 3; i++) {
+      await expect(game.locator('.game-status.mine')).toBeVisible({ timeout: 8000 });
+      await game.locator('button:not([disabled])[data-cell]').first().click();
+    }
+    await expect(game.locator('.game-status.mine')).toBeVisible({ timeout: 8000 });
+    await game.getByRole('button', { name: 'Close', exact: true }).click();
+  }
+  expect(errors).toEqual([]);
+});

@@ -131,6 +131,9 @@ function preview(id) {
     dots: [0, 5, 30, 31, 12, 1, 42, 7].map((line) => ({ line })),
     chess: [[52, 36], [12, 28], [62, 45], [1, 18], [61, 34]].map(([from, to]) => ({ from, to })),
     torpedoes: [],
+    reversi: [19, 34, 42, 18, 33, 41, 26, 43].map((cell) => ({ cell })),
+    awale: [2, 8, 5, 9, 1, 6].map((pit) => ({ pit })),
+    ultimate: [4, 36, 2, 21, 32, 46, 11, 18].map((cell) => ({ cell })),
   }[id];
   let state = newGame(id, 0);
   for (const m of moves) state = play(state, state.turn, m).state;

@@ -24,6 +24,12 @@ export function computerMove(state, player, level = 2) {
       return dotsMove(state, player, level, moves);
     case 'torpedoes':
       return torpedoMove(state, player, level, moves);
+    case 'reversi':
+      return reversiMove(state, player, level, moves);
+    case 'awale':
+      return awaleMove(state, player, level, moves);
+    case 'ultimate':
+      return ultimateMove(state, player, level, moves);
     default:
       return pickRandom(moves);
   }
@@ -397,4 +403,123 @@ function torpedoMove(state, player, level, moves) {
     if (parity.length) return pickRandom(parity);
   }
   return pickRandom(moves);
+}
+
+// ---------------------------------------------------------------- reversi, awalé, ultimate: one search
+
+/**
+ * Minimax with alpha-beta from `me`'s side, through play() (so "play again" turns just work).
+ * `score(state, me)` judges a position the search stops at.
+ */
+function search(state, me, depth, alpha, beta, score) {
+  if (state.winner !== null) return state.winner === 'draw' ? 0 : state.winner === me ? 1e6 + depth : -1e6 - depth;
+  if (depth === 0) return score(state, me);
+  const p = state.turn;
+  const moves = legalMoves(state, p);
+  let best = p === me ? -Infinity : Infinity;
+  for (const m of moves) {
+    const v = search(play(state, p, m).state, me, depth - 1, alpha, beta, score);
+    if (p === me) {
+      best = Math.max(best, v);
+      alpha = Math.max(alpha, v);
+    } else {
+      best = Math.min(best, v);
+      beta = Math.min(beta, v);
+    }
+    if (alpha >= beta) break;
+  }
+  return best;
+}
+
+/** The best move by search, ties broken at random so games differ. */
+function searchMove(state, player, moves, depth, score) {
+  let best = -Infinity;
+  let picks = [];
+  for (const m of moves) {
+    const v = search(play(state, player, m).state, player, depth - 1, -Infinity, Infinity, score) + Math.random() * 0.01;
+    if (v > best) {
+      best = v;
+      picks = [m];
+    } else if (v === best) picks.push(m);
+  }
+  return pickRandom(picks);
+}
+
+// Reversi: corners are worth most, the squares that give a corner away least.
+const REVERSI_WEIGHTS = [
+  100, -20, 10, 5, 5, 10, -20, 100,
+  -20, -50, -2, -2, -2, -2, -50, -20,
+  10, -2, 1, 1, 1, 1, -2, 10,
+  5, -2, 1, 0, 0, 1, -2, 5,
+  5, -2, 1, 0, 0, 1, -2, 5,
+  10, -2, 1, 1, 1, 1, -2, 10,
+  -20, -50, -2, -2, -2, -2, -50, -20,
+  100, -20, 10, 5, 5, 10, -20, 100,
+];
+
+function reversiScore(state, me) {
+  const discs = state.board.filter((v) => v !== -1).length;
+  let v = 0;
+  state.board.forEach((x, cell) => {
+    if (x === -1) return;
+    const w = discs > 54 ? 10 : REVERSI_WEIGHTS[cell];
+    v += x === me ? w : -w;
+  });
+  const mobility = (p) => (state.turn === p ? legalMoves(state, p).length : 0);
+  return v + 4 * (mobility(me) - mobility(1 - me));
+}
+
+function reversiMove(state, player, level, moves) {
+  if (level === 1) {
+    // Easy: likes turning many discs, and often just plays somewhere.
+    if (Math.random() < 0.4) return pickRandom(moves);
+    const flips = (m) => play(state, player, m).state.flipped.length;
+    return moves.map((m) => ({ m, v: flips(m) + Math.random() * 3 })).sort((a, b) => b.v - a.v)[0].m;
+  }
+  return searchMove(state, player, moves, 4, reversiScore);
+}
+
+// Awalé: seeds captured, and a little for seeds kept on your side.
+const awaleScore = (state, me) => 10 * (state.stores[me] - state.stores[1 - me]) + 0.1 * (state.pits.slice(me * 6, me * 6 + 6).reduce((a, b) => a + b, 0) - state.pits.slice((1 - me) * 6, (1 - me) * 6 + 6).reduce((a, b) => a + b, 0));
+
+function awaleMove(state, player, level, moves) {
+  if (level === 1) {
+    if (Math.random() < 0.5) return pickRandom(moves);
+    return moves.map((m) => ({ m, v: play(state, player, m).state.stores[player] + Math.random() })).sort((a, b) => b.v - a.v)[0].m;
+  }
+  return searchMove(state, player, moves, 7, awaleScore);
+}
+
+// Ultimate tic-tac-toe: small grids won, then two-in-a-rows still open, on both levels of grid.
+const LINES = [[0, 1, 2], [3, 4, 5], [6, 7, 8], [0, 3, 6], [1, 4, 7], [2, 5, 8], [0, 4, 8], [2, 4, 6]];
+
+function threes(cells, me) {
+  let v = 0;
+  for (const l of LINES) {
+    const mine = l.filter((k) => cells[k] === me).length;
+    const theirs = l.filter((k) => cells[k] === 1 - me).length;
+    if (!theirs && !l.some((k) => cells[k] === 2)) v += mine === 2 ? 3 : mine;
+    if (!mine && !l.some((k) => cells[k] === 2)) v -= theirs === 2 ? 3 : theirs;
+  }
+  return v;
+}
+
+function ultimateScore(state, me) {
+  let v = 20 * threes(state.grids, me);
+  for (let g = 0; g < 9; g++) {
+    if (state.grids[g] !== -1) continue;
+    v += threes(state.cells.slice(g * 9, g * 9 + 9), me) * (g === 4 ? 1.5 : 1);
+  }
+  // Sending the other player anywhere they like is a gift.
+  if (state.next < 0 && state.winner === null) v += state.turn === me ? 4 : -4;
+  return v;
+}
+
+function ultimateMove(state, player, level, moves) {
+  if (level === 1) {
+    const wins = moves.filter((m) => play(state, player, m).state.grids[Math.floor(m.cell / 9)] === player);
+    if (wins.length && Math.random() < 0.8) return pickRandom(wins);
+    return pickRandom(moves);
+  }
+  return searchMove(state, player, moves, moves.length > 20 ? 3 : 4, ultimateScore);
 }

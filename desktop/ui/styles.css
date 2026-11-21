@@ -8935,3 +8935,350 @@ body[data-view="messages"] .assistant-panel {
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* ---------------------------------------------------------------- reversi */
+
+.reversi-board {
+  display: grid;
+  grid-template-columns: repeat(8, minmax(0, 1fr));
+  gap: 3px;
+  width: min(100%, 460px, max(240px, calc(100vh - 360px)));
+  padding: 8px;
+  border-radius: 10px;
+  background: var(--navy);
+}
+
+.rv-cell {
+  position: relative;
+  display: grid;
+  place-items: center;
+  aspect-ratio: 1;
+  border-radius: 4px;
+  background: #1f3a6b;
+}
+
+.rv-cell .piece {
+  width: 84%;
+  height: 84%;
+}
+
+.rv-cell.last {
+  box-shadow: inset 0 0 0 2px #f7c948;
+}
+
+.rv-cell.target {
+  cursor: pointer;
+}
+
+/* where you may play: a small ring, filled on hover */
+.rv-cell.target::after {
+  content: "";
+  width: 26%;
+  aspect-ratio: 1;
+  border: 2px solid rgba(244, 241, 234, 0.55);
+  border-radius: 50%;
+}
+
+.rv-cell.target:hover::after,
+.rv-cell.target:focus-visible::after {
+  background: rgba(244, 241, 234, 0.55);
+}
+
+.rv-cell:focus-visible {
+  outline: 3px solid #f7c948;
+  outline-offset: -3px;
+}
+
+/* ---------------------------------------------------------------- awalé */
+
+.awale-board {
+  display: grid;
+  grid-template-columns: minmax(44px, 0.9fr) repeat(6, minmax(0, 1fr)) minmax(44px, 0.9fr);
+  grid-template-rows: repeat(2, auto);
+  gap: 8px;
+  width: min(100%, 620px);
+  padding: 12px;
+  border-radius: 999px;
+  background: #8b6a4c;
+  box-shadow: inset 0 -4px 0 rgba(0, 0, 0, 0.18);
+}
+
+.aw-store {
+  display: grid;
+  grid-row: 1 / 3;
+  place-items: center;
+  border-radius: 999px;
+  background: #6f5239;
+  box-shadow: inset 0 3px 8px rgba(0, 0, 0, 0.3);
+}
+
+.aw-store {
+  grid-column: 1;
+}
+
+.aw-store.mine {
+  grid-column: 8;
+}
+
+/* theirs along the top, yours along the bottom (the stores span both rows) */
+.aw-pit {
+  grid-row: 1;
+}
+
+.aw-pit.mine {
+  grid-row: 2;
+}
+
+.aw-store .aw-count {
+  color: #f4eadb;
+  font-size: 22px;
+}
+
+.aw-pit {
+  position: relative;
+  display: grid;
+  place-items: center;
+  aspect-ratio: 1;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: #6f5239;
+  box-shadow: inset 0 3px 8px rgba(0, 0, 0, 0.3);
+  font: inherit;
+}
+
+.aw-pit.target {
+  cursor: pointer;
+}
+
+.aw-pit.target:hover,
+.aw-pit.target:focus-visible {
+  background: #7d5d41;
+  outline: 3px solid #f7c948;
+  outline-offset: 0;
+}
+
+.aw-pit.last {
+  box-shadow: inset 0 3px 8px rgba(0, 0, 0, 0.3), 0 0 0 2px #f7c948;
+}
+
+.aw-seeds {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 2px;
+  width: 64%;
+}
+
+.aw-seed {
+  width: 18%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: #f4eadb;
+  box-shadow: inset 0 -1px 0 rgba(0, 0, 0, 0.25);
+}
+
+.aw-pit .aw-count {
+  position: absolute;
+  right: -2px;
+  bottom: -2px;
+  display: grid;
+  place-items: center;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: var(--coupon);
+  color: var(--purple);
+  font-size: 13px;
+}
+
+/* ---------------------------------------------------------------- ultimate tic-tac-toe */
+
+.ultimate-board {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  width: min(100%, 500px, max(240px, calc(100vh - 360px)));
+  padding: 6px;
+  border-radius: 10px;
+  background: var(--navy);
+}
+
+.ut-grid {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1px;
+  overflow: hidden;
+  border-radius: 5px;
+  background: var(--line-soft);
+}
+
+.ut-cell {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 1;
+  background: var(--coupon);
+}
+
+.ut-cell:not(:disabled) {
+  cursor: pointer;
+}
+
+/* where you may play: the grid you were sent to */
+.ut-grid.open .ut-cell {
+  background: var(--lavender);
+}
+
+.ut-grid.open .ut-cell:not(:disabled):hover {
+  background: color-mix(in srgb, var(--purple) 22%, var(--lavender));
+}
+
+.ut-cell.last {
+  box-shadow: inset 0 0 0 2px #f7c948;
+}
+
+.ut-cell:focus-visible {
+  outline: 3px solid #f7c948;
+  outline-offset: -3px;
+}
+
+.ut-cell .mark .icon {
+  width: clamp(12px, 2.6vw, 22px);
+  height: clamp(12px, 2.6vw, 22px);
+}
+
+.ut-grid.dead .ut-cell {
+  opacity: 0.45;
+}
+
+/* a won grid: its winner's mark across the whole grid */
+.ut-big {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: color-mix(in srgb, var(--coupon) 78%, transparent);
+  pointer-events: none;
+}
+
+.ut-big .mark .icon {
+  width: 72%;
+  height: 72%;
+}
+
+.ut-big .mark .icon svg {
+  stroke-width: 2.4;
+}
+
+.ut-grid.win .ut-big {
+  background: color-mix(in srgb, #f7c948 40%, var(--coupon));
+}
+
+/* the miniatures on the tiles */
+.game-tile-preview .reversi-board {
+  width: 136px;
+  gap: 1px;
+  padding: 4px;
+  border-radius: 6px;
+}
+
+.game-tile-preview .rv-cell {
+  border-radius: 1px;
+}
+
+.game-tile-preview .awale-board {
+  width: 230px;
+  gap: 4px;
+  padding: 7px;
+  grid-template-columns: 26px repeat(6, minmax(0, 1fr)) 26px;
+}
+
+.game-tile-preview :is(.aw-pit .aw-count, .aw-store .aw-count) {
+  display: none;
+}
+
+.game-tile-preview .ultimate-board {
+  width: 136px;
+  gap: 3px;
+  padding: 3px;
+}
+
+.game-tile-preview .ut-cell .mark .icon {
+  width: 7px;
+  height: 7px;
+}
+
+/* a game window's head stays on one line: a long name is cut, the buttons stay in reach */
+.game-window .coupon-head {
+  flex-wrap: nowrap;
+}
+
+.game-window .game-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.game-window .game-title > .icon {
+  vertical-align: -3px;
+}
+
+.game-window .game-title {
+  display: block;
+}
+
+.game-window .game-title > span {
+  margin-left: 8px;
+}
+
+/* awalé on a phone: the stores above and below, so the pits stay big enough to tap */
+@container app-viewport (max-width: 600px) {
+  .awale-board {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    grid-template-rows: auto auto auto auto;
+    gap: 6px;
+    padding: 10px;
+    border-radius: 22px;
+  }
+
+  .aw-store {
+    grid-column: 1 / -1;
+    grid-row: 1;
+    height: 34px;
+  }
+
+  .aw-store.mine {
+    grid-column: 1 / -1;
+    grid-row: 4;
+  }
+
+  .aw-pit {
+    grid-row: 2;
+  }
+
+  .aw-pit.mine {
+    grid-row: 3;
+  }
+
+  .aw-pit .aw-seeds {
+    display: none;
+  }
+
+  .aw-pit .aw-count {
+    position: static;
+    min-width: 0;
+    height: auto;
+    padding: 0;
+    background: none;
+    color: #f4eadb;
+    font-size: 18px;
+  }
+
+  .aw-store .aw-count {
+    font-size: 18px;
+  }
+}
