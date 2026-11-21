@@ -56,6 +56,8 @@ export const api = {
   // The ticket book (local only): stamps, badges, challenge, ticket of the day.
   book: () => invoke('get_book'),
   today: () => invoke('get_today'),
+  // The idea offered when a game ends: the first of these built-in ideas that isn't hidden (or null).
+  gameIdea: (ids) => invoke('game_idea', { ids }),
   // The daily quiz (offline: questions ship with the app).
   quiz: () => invoke('get_quiz'),
   finishQuiz: (answers) => invoke('finish_quiz', { answers }),

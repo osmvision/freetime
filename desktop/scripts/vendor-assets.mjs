@@ -23,7 +23,7 @@ const FONTS = [
 
 const ICONS = [
   // navigation and actions
-  'compass', 'history', 'sliders-horizontal', 'ticket', 'play', 'x', 'check', 'chevron-down', 'shuffle',
+  'compass', 'history', 'sliders-horizontal', 'ticket', 'play', 'x', 'check', 'timer', 'bell', 'smile-plus', 'plus', 'upload', 'calendar', 'chevron-down', 'shuffle',
   'refresh-cw', 'map-pin', 'thumbs-up', 'thumbs-down', 'external-link', 'search', 'folder-open',
   'key-round', 'trash-2', 'info', 'triangle-alert', 'loader-circle', 'bookmark', 'arrow-right', 'copy', 'user-plus', 'message-circle', 'send', 'ban', 'user-x',
   'user-check', 'pencil', 'log-out', 'log-in', 'chevron-left', 'flag', 'download', 'shield',
@@ -41,7 +41,8 @@ const ICONS = [
   'rocket', 'ghost', 'cat', 'dog', 'crown', 'star', 'flame', 'mountain', 'bike', 'coffee', 'pizza',
   'music', 'trophy', 'sword', 'dice-5', 'skull',
   // games and duels (see ui/js/games.js)
-  'swords', 'grid-2x2', 'hash', 'circle-dot', 'square-dashed', 'anchor', 'link',
+  'swords', 'grid-2x2', 'hash', 'circle-dot', 'square-dashed', 'anchor', 'link', 'volume-2', 'volume-x',
+  'lightbulb',
 ];
 
 mkdirSync(join(root, 'ui', 'fonts'), { recursive: true });

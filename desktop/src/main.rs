@@ -71,6 +71,7 @@ fn main() {
             commands::get_recap,
             book::get_book,
             book::get_today,
+            book::game_idea,
             quiz::get_quiz,
             quiz::finish_quiz,
             quiz::bonus_quiz,

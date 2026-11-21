@@ -6909,15 +6909,18 @@ body[data-view="messages"] .assistant-panel {
   outline-offset: -3px;
 }
 
-.four-cell.last .piece {
-  animation: drop 0.3s var(--ease);
+/* where the disc will land, in the colour of whoever plays (the drop itself is animated in fx.js) */
+.four-col:not(:disabled):is(:hover, :focus-visible) .four-cell.land,
+.game-area.idle .four-cell.land {
+  background: color-mix(in srgb, var(--land) 38%, var(--paper, #f2f2f0));
 }
 
-@keyframes drop {
-  from {
-    transform: translateY(-60%);
-    opacity: 0.4;
-  }
+.four-board.turn-p0 {
+  --land: var(--red);
+}
+
+.four-board.turn-p1 {
+  --land: var(--purple);
 }
 
 /* giant tic-tac-toe */
@@ -7122,6 +7125,7 @@ body[data-view="messages"] .assistant-panel {
 }
 
 .torp-cell {
+  position: relative;
   display: grid;
   place-items: center;
   aspect-ratio: 1;
@@ -7202,13 +7206,36 @@ body[data-view="messages"] .assistant-panel {
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .four-cell.last .piece {
-    animation: none;
-  }
+/* ---------------------------------------------------------------- chess */
+
+.chess-wrap {
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  width: 100%;
 }
 
-/* ---------------------------------------------------------------- chess */
+/* the pieces each side has taken, above and below the board, and who is ahead */
+.ch-taken {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  width: min(100%, 520px, max(240px, calc(100vh - 420px)));
+  min-height: 22px;
+}
+
+.ch-taken .chess-piece {
+  width: 20px;
+  height: 20px;
+  margin-right: -5px;
+}
+
+.ch-lead {
+  margin-left: 10px;
+  color: var(--text-2);
+  font-size: 13px;
+  font-weight: 700;
+}
 
 .chess-board {
   position: relative;
@@ -7216,8 +7243,8 @@ body[data-view="messages"] .assistant-panel {
   grid-template-columns: repeat(8, minmax(0, 1fr));
   gap: 0;
   margin: 0;
-  /* never taller than the window leaves room for: the title, the status, the rule and the buttons stay in view */
-  width: min(100%, 520px, max(240px, calc(100vh - 360px)));
+  /* never taller than the window leaves room for: the title, the status, the rule, the taken pieces and the buttons stay in view */
+  width: min(100%, 520px, max(240px, calc(100vh - 420px)));
   overflow: hidden;
   border: 3px solid var(--navy);
   border-radius: 6px;
@@ -7808,6 +7835,131 @@ body[data-view="messages"] .assistant-panel {
 .game-end-dot.lost {
   background: var(--red);
   color: var(--on-red);
+}
+
+/* an idea for after the game: the fun happens off-screen */
+.game-idea {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  width: min(100%, 520px);
+  margin-top: 12px;
+  padding: 10px 14px;
+  border: 1.5px dashed var(--lavender-line);
+  border-radius: 8px;
+}
+
+.game-idea[hidden] {
+  display: none;
+}
+
+.game-idea > .icon {
+  width: 20px;
+  height: 20px;
+  color: var(--purple);
+}
+
+.game-idea-text {
+  display: grid;
+  gap: 2px;
+}
+
+.game-idea-kicker {
+  color: var(--text-2);
+  font: 700 12px/1.2 var(--display);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+/* ---------------------------------------------------------------- game feel (see play/fx.js) */
+
+.game-head-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* your turn: a band you can't miss */
+.game-status {
+  padding: 4px 18px;
+  border-radius: 999px;
+  transition: background-color 0.2s ease;
+}
+
+.game-status.mine {
+  background: var(--lavender);
+}
+
+.game-hint {
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: #f7c948;
+  color: #1c1a2c;
+  font: 700 13px/1.5 var(--display);
+  letter-spacing: 0.08em;
+}
+
+/* a moving piece passes over its neighbours */
+.fx-moving {
+  position: relative;
+  z-index: 4;
+}
+
+.ch-cell .fx-ghost {
+  position: absolute;
+  inset: 4%;
+  z-index: 1;
+  width: 92%;
+  height: 92%;
+}
+
+.fx-ring {
+  position: absolute;
+  inset: 8%;
+  border: 3px solid #cfe3f5;
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.fx-ring.hit,
+.fx-ring.sunk {
+  border-color: #f7c948;
+}
+
+/* nothing played for a while: what you can move breathes */
+.game-area.idle :is(.dr-cell.movable .piece, .ch-cell.movable .chess-piece, .four-cell.land) {
+  animation: idle-pulse 1.3s ease-in-out infinite alternate;
+}
+
+.game-area.idle :is(.gomoku-board, .dots-board, .torp-grid.theirs) {
+  animation: idle-ring 1.3s ease-in-out infinite alternate;
+}
+
+@keyframes idle-pulse {
+  to {
+    transform: scale(1.09);
+  }
+}
+
+@keyframes idle-ring {
+  from {
+    box-shadow: 0 0 0 0 rgba(247, 201, 72, 0);
+  }
+
+  to {
+    box-shadow: 0 0 0 4px rgba(247, 201, 72, 0.75);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .game-area.idle :is(.dr-cell.movable .piece, .ch-cell.movable .chess-piece, .four-cell.land, .gomoku-board, .dots-board, .torp-grid.theirs) {
+    animation: none;
+  }
+
+  .game-status {
+    transition: none;
+  }
 }
 
 @media (max-width: 560px) {
