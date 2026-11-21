@@ -1,5 +1,6 @@
 // The boards of the turn-based games, drawn with buttons (keyboard and screen reader friendly).
-// board(state, opts) returns an element. opts: { me, active, onMove(move), secret, names }.
+// board(state, opts) returns an element. opts: { me, active, onMove(move), secret, names, taken }
+// (taken: false hides the pieces each side took, in chess).
 // `me` is your player number; `active` means it's your turn and you may click.
 
 import { h, icon } from '../dom.js';
@@ -80,7 +81,7 @@ function gomokuBoard(state, { active, onMove }) {
           'aria-label': `Row ${Math.floor(cell / n) + 1}, column ${(cell % n) + 1}${v === -1 ? '' : v === 0 ? ', cross' : ', circle'}`,
           onclick: () => onMove({ cell }),
         },
-        v === -1 ? null : h('span', { class: `mark p${v}`, 'aria-hidden': 'true' }, v === 0 ? '✕' : '◯'),
+        v === -1 ? null : h('span', { class: `mark p${v}`, 'aria-hidden': 'true' }, icon(v === 0 ? 'x' : 'circle')),
       ),
     ),
   );
@@ -203,7 +204,7 @@ export function chessPiece(type, white) {
   return svg;
 }
 
-function chessBoard(state, { me, active, onMove }) {
+function chessBoard(state, { me, active, onMove, taken: showTaken = true }) {
   // Your pieces at the bottom: whoever plays black sees the board turned round.
   const flip = me !== state.white;
   const moves = active ? legalMoves(state, me) : [];
@@ -290,6 +291,7 @@ function chessBoard(state, { me, active, onMove }) {
 
   draw();
   const mine = me === state.white;
+  if (!showTaken) return root;
   return h('div', { class: 'chess-wrap' }, takenRow(state.board, !mine), root, takenRow(state.board, mine));
 }
 
@@ -346,7 +348,7 @@ function dotsBoard(state, { active, onMove }) {
       else {
         const b = ((r - 1) / 2) * n + (c - 1) / 2;
         const o = state.boxes[b];
-        items.push(h('span', { class: `dot-box${o >= 0 ? ` p${o}` : ''}`, 'data-box': b }, o >= 0 ? h('span', { 'aria-hidden': 'true' }, o === 0 ? '✕' : '◯') : null));
+        items.push(h('span', { class: `dot-box${o >= 0 ? ` p${o}` : ''}`, 'data-box': b }, o >= 0 ? h('span', { class: 'mark', 'aria-hidden': 'true' }, icon(o === 0 ? 'x' : 'circle')) : null));
       }
     }
   }
@@ -372,7 +374,7 @@ function torpedoBoards(state, { me, active, onMove, secret }) {
     return h(
       'span',
       { class: `torp-cell${myShips.has(c) ? ' ship' : ''}${shot ? ` ${shot}` : ''}${state.last === c && state.turn === me ? ' last' : ''}`, 'data-cell': c },
-      shot ? h('span', { 'aria-hidden': 'true' }, shot === 'miss' ? '•' : '✕') : null,
+      shot ? icon(shot === 'miss' ? 'dot' : 'x', 'shot') : null,
     );
   });
   const theirs = [...Array(n * n).keys()].map((c) => {
@@ -387,7 +389,7 @@ function torpedoBoards(state, { me, active, onMove, secret }) {
         'aria-label': `${String.fromCharCode(65 + Math.floor(c / n))}${(c % n) + 1}${shot ? `, ${shot}` : ''}`,
         onclick: () => onMove({ cell: c }),
       },
-      shot ? h('span', { 'aria-hidden': 'true' }, shot === 'miss' ? '•' : '✕') : null,
+      shot ? icon(shot === 'miss' ? 'dot' : 'x', 'shot') : null,
     );
   });
   return h(

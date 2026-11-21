@@ -2,6 +2,8 @@
 // friend (every move goes through the games Edge Function, which checks it with the same rules).
 
 import { api } from '../api.js';
+import { gameWindow } from '../game-window.js';
+import { photo } from '../photos.js';
 import { btn, errText, fill, h, icon, toast } from '../dom.js';
 import { computerMove, randomFleet } from './ai.js';
 import { board, fleetEditor } from './boards.js';
@@ -57,54 +59,38 @@ const IDLE_MS = 10000;
 
 /** The window frame shared by both kinds of games. */
 function frame(game, opponent, onClose) {
-  const previousFocus = document.activeElement;
-  const status = h('div', { class: 'game-status', 'aria-live': 'polite' });
-  const area = h('div', { class: 'game-area' });
-  const tools = h('div', { class: 'game-tools' });
   let idle = null;
   let shown = null; // the state on screen, to animate the next move
   let wasMine = null;
-  const close = () => {
-    clearTimeout(idle);
-    backdrop.remove();
-    document.removeEventListener('keydown', onKey);
-    previousFocus?.focus?.();
-    onClose?.();
-  };
-  const onKey = (e) => e.key === 'Escape' && close();
-  const closeBtn = h('button', { type: 'button', class: 'quiz-close', 'aria-label': 'Close', onclick: close }, icon('x'));
-  const card = h(
-    'section',
-    { class: `quiz game-window game-${game}`, role: 'dialog', 'aria-modal': 'true', 'aria-label': GAME_INFO[game].name },
-    h(
-      'div',
-      { class: 'coupon-head' },
-      h('span', { class: 'game-title' }, icon(GAME_INFO[game].icon), h('span', {}, GAME_INFO[game].name), h('span', { class: 'game-vs' }, h('span', {}, 'vs'), ' ', opponent)),
-      h('span', { class: 'game-head-actions' }, soundToggle(), closeBtn),
-    ),
-    h('div', { class: 'quiz-body game-body' }, status, area, h('p', { class: 'game-rule' }, GAME_INFO[game].rule), tools),
-  );
-  const backdrop = h('div', { class: 'quiz-backdrop', onclick: (e) => e.target === backdrop && close() }, card);
-  document.body.append(backdrop);
-  document.addEventListener('keydown', onKey);
-  closeBtn.focus();
+  const ui = gameWindow({
+    name: GAME_INFO[game].name,
+    iconName: GAME_INFO[game].icon,
+    head: [h('span', {}, 'vs'), ' ', opponent],
+    rule: GAME_INFO[game].rule,
+    className: `game-${game}`,
+    actions: [soundToggle()],
+    onClose: () => {
+      clearTimeout(idle);
+      onClose?.();
+    },
+  });
 
   /**
    * Call after each draw: animates the move just played (if any), marks your turn, and starts the
    * idle hint. `me` is your player number, `mine` whether you may play now.
    */
   function drawn(state, me, mine) {
-    moved(area, shown, state, me);
+    moved(ui.area, shown, state, me);
     shown = state;
-    status.classList.toggle('mine', mine);
-    if (mine && wasMine === false) yourTurn(status);
+    ui.status.classList.toggle('mine', mine);
+    if (mine && wasMine === false) yourTurn(ui.status);
     wasMine = mine;
     clearTimeout(idle);
-    area.classList.remove('idle');
-    if (mine) idle = setTimeout(() => area.classList.add('idle'), IDLE_MS);
+    ui.area.classList.remove('idle');
+    if (mine) idle = setTimeout(() => ui.area.classList.add('idle'), IDLE_MS);
   }
 
-  return { status, area, tools, close, drawn, isOpen: () => backdrop.isConnected };
+  return { ...ui, drawn };
 }
 
 // ---------------------------------------------------------------- an idea for after the game
@@ -127,10 +113,11 @@ function ideaLine(game, closeGame) {
     (c) => {
       if (!c) return;
       box.hidden = false;
+      // The idea itself, with its photo: the heading speaks for itself, no label above it.
       fill(
         box,
-        icon('lightbulb'),
-        h('div', { class: 'game-idea-text' }, h('span', { class: 'game-idea-kicker' }, 'Something else to try'), h('strong', { translate: 'no' }, c.title)),
+        h('div', { class: 'game-idea-photo' }, photo(c, 'game-idea-icon')),
+        h('div', { class: 'game-idea-text' }, h('strong', { translate: 'no' }, c.title), c.detail ? h('span', { class: 'game-idea-detail', translate: 'no' }, c.detail) : null),
         btn({ label: 'Try it', icon: 'arrow-right', small: true, onclick: () => tryIdea(c, closeGame) }),
       );
     },
@@ -140,7 +127,7 @@ function ideaLine(game, closeGame) {
 }
 
 /** "Try it": the same as Start on a ticket (recorded, so freetime asks later how it went). */
-async function tryIdea(c, closeGame) {
+export async function tryIdea(c, closeGame) {
   try {
     const r = await api.pick(c.id);
     api.syncPoints().catch(() => {});
@@ -432,8 +419,8 @@ function gameEnd(m, name) {
   Promise.all([api.headToHead(m.other.id, m.game).catch(() => null), api.gameLeaderboard(m.game, 'friends').catch(() => null)]).then(([record, board]) => {
     const parts = [];
     if (record && record.wins + record.draws + record.losses > 0) {
-      // Symbols rather than letters: they read the same in every language.
-      const mark = { won: '✓', draw: '=', lost: '✗' };
+      // Drawn marks rather than letters: they read the same in every language.
+      const mark = { won: 'check', draw: 'equal', lost: 'x' };
       parts.push(
         h(
           'div',
@@ -447,7 +434,7 @@ function gameEnd(m, name) {
             h(
               'span',
               { class: 'game-end-last', 'aria-label': 'Last games' },
-              record.last.map((g) => h('span', { class: `game-end-dot ${g.outcome}`, title: { won: 'Won', draw: 'Draw', lost: 'Lost' }[g.outcome] }, mark[g.outcome])),
+              record.last.map((g) => h('span', { class: `game-end-dot ${g.outcome}`, title: { won: 'Won', draw: 'Draw', lost: 'Lost' }[g.outcome] }, icon(mark[g.outcome]))),
             ),
           ),
         ),

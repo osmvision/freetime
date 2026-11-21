@@ -143,7 +143,7 @@ test('the puzzles of the day: solve both, and they stay solved with their time',
   await openDiscover(page);
   await page.getByRole('button', { name: 'Games', exact: true }).click();
   const section = page.locator('.puzzles');
-  await expect(section.getByRole('heading', { name: 'Puzzles of the day' })).toBeVisible();
+  await expect(section.getByRole('heading', { name: 'Games of the day' })).toBeVisible();
   const number = Number((await section.locator('.puzzle-card .mini-sub').first().textContent()).replace('#', ''));
 
   // The answers, from the puzzles the app ships (their solver is the generator's).
@@ -175,5 +175,82 @@ test('the puzzles of the day: solve both, and they stay solved with their time',
   await page.reload();
   await page.getByRole('button', { name: 'Games', exact: true }).click();
   await expect(page.locator('.puzzles .puzzle-card.done')).toHaveCount(2);
+  expect(errors).toEqual([]);
+});
+
+test('guess the activity: five photos, the right titles score, and the round is kept', async ({ page }) => {
+  const errors = trackErrors(page);
+  await openDiscover(page);
+  await page.getByRole('button', { name: 'Games', exact: true }).click();
+  const section = page.locator('.puzzles');
+  await section.getByRole('button', { name: 'Play: Guess the activity' }).click();
+  const game = page.getByRole('dialog', { name: 'Guess the activity' });
+  await expect(game.locator('.guess-choice')).toHaveCount(4);
+  // Today's answers, from the same command the window used.
+  const answers = await page.evaluate(async () => {
+    const { api } = await import('/js/api.js');
+    const { photoCredits } = await import('/js/photos.js');
+    return (await api.guessRound(Object.keys(photoCredits()))).map((r) => r.choices[r.answer]);
+  });
+  for (const [i, title] of answers.entries()) {
+    await game.locator('.guess-choice', { hasText: title }).click();
+    await expect(game.locator('.guess-verdict')).toContainText('+');
+    await game.getByRole('button', { name: i === answers.length - 1 ? 'See my score' : 'Next photo' }).click();
+  }
+  await expect(game.locator('.game-status')).toContainText('/50');
+  await expect(game.locator('.guess-recap-row')).toHaveCount(5);
+  await game.getByRole('button', { name: 'Close', exact: true }).last().click();
+  await expect(section.locator('.puzzle-card.done')).toHaveCount(1);
+  expect(errors).toEqual([]);
+});
+
+test('the problem of the day: a wrong move is undone, the winning line solves it', async ({ page }) => {
+  const errors = trackErrors(page);
+  await openDiscover(page);
+  await page.getByRole('button', { name: 'Games', exact: true }).click();
+  const section = page.locator('.puzzles');
+  const number = Number((await section.locator('.puzzle-card .mini-sub').first().textContent()).replace('#', ''));
+  // The winning line against the computer's defence, worked out with the app's own modules.
+  const plan = await page.evaluate(async (n) => {
+    const { problemOf } = await import('/js/puzzles/problem.js');
+    const P = await import('/js/puzzles/problems.js');
+    const { play } = await import('/js/play/rules.js');
+    const p = problemOf(n);
+    let state = p.state;
+    const mine = [];
+    for (let left = p.n; left > 0 && state.winner === null; left--) {
+      const m = P.winningMoves(state, p.player, left, 1)[0];
+      mine.push(m);
+      state = play(state, p.player, m).state;
+      if (state.winner !== null) break;
+      state = play(state, state.turn, P.bestDefence(state, p.player, left - 1)).state;
+    }
+    const wrong = P.winningMoves(p.state, p.player, p.n);
+    const { legalMoves } = await import('/js/play/rules.js');
+    const bad = legalMoves(p.state, p.player).find((m) => !wrong.some((w) => JSON.stringify(w) === JSON.stringify(m)));
+    return { game: p.game, mine, bad };
+  }, number);
+  await section.getByRole('button', { name: 'Play: Problem of the day' }).click();
+  const game = page.getByRole('dialog', { name: 'Problem of the day' });
+  const playMove = async (m) => {
+    if (plan.game === 'four') await game.getByRole('button', { name: `Column ${m.col + 1}`, exact: true }).click();
+    else {
+      await game.locator(`[data-cell="${m.from}"]`).click();
+      await game.locator(`[data-cell="${m.to}"]`).click();
+      if (m.promo) await game.getByRole('button', { name: { q: 'queen', r: 'rook', b: 'bishop', n: 'knight' }[m.promo] }).click();
+    }
+  };
+  if (plan.bad) {
+    await playMove(plan.bad);
+    await expect(game.locator('.game-status')).toContainText('Not the winning move');
+    await expect(game.locator('.game-status.mine')).toBeVisible({ timeout: 5000 });
+  }
+  for (const m of plan.mine) {
+    await expect(game.locator('.game-status.mine')).toBeVisible({ timeout: 5000 });
+    await playMove(m);
+  }
+  await expect(game.locator('.game-status')).toContainText('Solved in', { timeout: 5000 });
+  await game.getByRole('button', { name: 'Close', exact: true }).last().click();
+  await expect(section.locator('.puzzle-card.done')).toHaveCount(1);
   expect(errors).toEqual([]);
 });

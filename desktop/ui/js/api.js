@@ -63,7 +63,9 @@ export const api = {
   finishQuiz: (answers) => invoke('finish_quiz', { answers }),
   // The puzzles of the day (offline: the puzzles ship with the app, js/puzzles/days.js).
   puzzles: () => invoke('get_puzzles'),
-  finishPuzzle: (kind, secs) => invoke('finish_puzzle', { kind, secs }),
+  finishPuzzle: (kind, secs, score = null) => invoke('finish_puzzle', { kind, secs, score }),
+  // Guess the activity: today's five photos, from the ideas that have one (their ids).
+  guessRound: (photos) => invoke('guess_round', { photos }),
   // Bonus round from Open Trivia DB (network, only when asked).
   bonusQuiz: () => invoke('bonus_quiz'),
   // Ranked (signed in): seasons, boards, player cards.

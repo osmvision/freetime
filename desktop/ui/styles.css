@@ -1431,9 +1431,10 @@ button.tag:hover {
   width: 380px;
   max-width: calc(100vw - 48px);
   padding: 12px;
-  border: 1px solid var(--lavender-line);
-  border-inline-start: 4px solid var(--purple);
+  /* paper with the one shadow, like every ticket: no side stripe */
+  border-radius: var(--r-ticket);
   background: var(--coupon);
+  box-shadow: var(--shadow);
   color: var(--text);
   overflow-wrap: anywhere;
 }
@@ -4918,9 +4919,9 @@ body[data-view="messages"] .assistant-panel {
 .quiz-why {
   margin-top: 18px;
   padding: 14px 16px;
-  border-left: 4px solid var(--purple);
-  border-radius: 0 8px 8px 0;
-  background: var(--wash);
+  /* a carbon-copy strip, like the other lavender strips: no side stripe */
+  border-radius: 8px;
+  background: var(--lavender);
   animation: issue 0.3s var(--ease) backwards;
 }
 
@@ -6697,31 +6698,109 @@ body[data-view="messages"] .assistant-panel {
   display: grid;
   grid-template-rows: auto auto 1fr auto;
   gap: 6px;
-  padding: 16px;
-  border: 1px solid var(--line);
-  border-radius: 12px;
+  overflow: hidden;
+  padding: 0 16px 16px;
+  border-radius: 10px;
   background: var(--coupon);
+  box-shadow: var(--shadow);
 }
 
-.game-tile-icon {
+/* a game under way, drawn by its own board: the tile's photo */
+.game-tile-preview {
   display: grid;
   place-items: center;
-  width: 44px;
-  height: 44px;
-  margin-bottom: 4px;
-  border-radius: 12px;
+  height: 168px;
+  margin: 0 -16px 10px;
+  overflow: hidden;
+  border-bottom: 2px dashed var(--lavender-line);
   background: var(--lavender);
-  color: var(--purple);
+  pointer-events: none;
 }
 
-.game-tile-icon .icon {
-  width: 24px;
-  height: 24px;
+.game-tile-preview :is(.board, .chess-board) {
+  width: 136px;
+  margin: 0;
+}
+
+.game-tile-preview .four-board {
+  width: 152px;
+  padding: 5px;
+  gap: 3px;
+  border-radius: 8px;
+}
+
+.game-tile-preview .four-col {
+  gap: 3px;
+}
+
+.game-tile-preview .torp-boards {
+  display: block;
+  width: 136px;
+}
+
+.game-tile-preview :is(.torp-side h3, .torp-side + .torp-side, .ch-rank, .ch-file) {
+  display: none;
+}
+
+.game-tile-preview .torp-grid {
+  gap: 2px;
+  padding: 3px;
+}
+
+.game-tile-preview .torp-cell .shot {
+  width: 80%;
+  height: 80%;
+}
+
+.game-tile-preview :is(.go-cell, .dot-box) .mark .icon {
+  width: 8px;
+  height: 8px;
+}
+
+.game-tile-preview .go-cell {
+  border-right-width: 0.5px !important;
+  border-bottom-width: 0.5px !important;
+}
+
+/* a preview isn't played: the touch-size minimum of real buttons doesn't apply */
+.game-tile-preview button {
+  min-width: 0;
+  min-height: 0;
+}
+
+.game-tile-preview .dots-board {
+  grid-template-columns: repeat(var(--n), 6px minmax(0, 1fr)) 6px;
+  grid-template-rows: repeat(var(--n), 6px minmax(0, 1fr)) 6px;
+}
+
+.game-tile-preview .dot-line.h {
+  margin: 1px 0;
+}
+
+.game-tile-preview .dot-line.v {
+  margin: 0 1px;
+}
+
+.game-tile-preview .dot-box {
+  margin: 1px;
+}
+
+.game-tile-preview :is(.draughts-board, .chess-board) {
+  border-width: 2px;
 }
 
 .game-tile strong {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   font: 800 21px/1.1 var(--display);
   text-transform: uppercase;
+}
+
+.game-tile strong .icon {
+  width: 18px;
+  height: 18px;
+  color: var(--purple);
 }
 
 .game-tile-rule {
@@ -7038,7 +7117,7 @@ body[data-view="messages"] .assistant-panel {
 
 .dot {
   border-radius: 50%;
-  background: var(--navy);
+  background: var(--text);
 }
 
 .dot-line {
@@ -7840,36 +7919,64 @@ body[data-view="messages"] .assistant-panel {
 /* an idea for after the game: the fun happens off-screen */
 .game-idea {
   display: grid;
-  grid-template-columns: 22px minmax(0, 1fr) auto;
+  grid-template-columns: 72px minmax(0, 1fr) auto;
   align-items: center;
-  gap: 10px;
+  gap: 14px;
   width: min(100%, 520px);
-  margin-top: 12px;
-  padding: 10px 14px;
-  border: 1.5px dashed var(--lavender-line);
-  border-radius: 8px;
+  margin-top: 14px;
+  padding: 10px 12px 10px 10px;
+  border-radius: 10px;
+  background: var(--coupon);
+  box-shadow: var(--shadow);
 }
 
 .game-idea[hidden] {
   display: none;
 }
 
-.game-idea > .icon {
-  width: 20px;
-  height: 20px;
+.game-idea-photo {
+  width: 72px;
+  height: 54px;
+  overflow: hidden;
+  border-radius: 6px;
+  background: var(--lavender);
+}
+
+.game-idea-photo img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.game-idea-icon {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
   color: var(--purple);
 }
 
 .game-idea-text {
   display: grid;
   gap: 2px;
+  min-width: 0;
 }
 
-.game-idea-kicker {
-  color: var(--text-2);
-  font: 700 12px/1.2 var(--display);
-  letter-spacing: 0.1em;
+.game-idea-text strong {
+  font: 700 17px/1.2 var(--display);
+  letter-spacing: 0.02em;
   text-transform: uppercase;
+}
+
+.game-idea-detail {
+  overflow: hidden;
+  color: var(--text-2);
+  font-size: 14px;
+  line-height: 1.35;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
 }
 
 /* ---------------------------------------------------------------- game feel (see play/fx.js) */
@@ -7877,7 +7984,14 @@ body[data-view="messages"] .assistant-panel {
 .game-head-actions {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 2px;
+  margin: -7px -10px -7px 0;
+}
+
+/* 44px targets in a game window's head, without making the head taller */
+.game-head-actions .quiz-close {
+  width: 44px;
+  height: 44px;
 }
 
 /* your turn: a band you can't miss */
@@ -8458,7 +8572,7 @@ body[data-view="messages"] .assistant-panel {
 
 .puzzles-today {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 14px;
   margin-top: 12px;
 }
@@ -8476,7 +8590,7 @@ body[data-view="messages"] .assistant-panel {
 .puzzle-streak .icon {
   width: 18px;
   height: 18px;
-  color: var(--red);
+  color: var(--purple);
 }
 
 .puzzle-clock {
@@ -8634,4 +8748,190 @@ body[data-view="messages"] .assistant-panel {
 .zones-grid .pz-cell.bad {
   color: var(--red);
   box-shadow: inset 0 0 0 3px var(--red);
+}
+
+/* ---------------------------------------------------------------- guess the activity (see puzzles/guess.js) */
+
+.guess-photo {
+  width: min(100%, 520px, max(240px, calc((100vh - 470px) * 4 / 3)));
+  aspect-ratio: 4 / 3;
+  overflow: hidden;
+  border-radius: 10px;
+  background: var(--stock, #f2f2f0);
+  box-shadow: var(--shadow);
+}
+
+.guess-img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  will-change: transform;
+}
+
+.guess-credit {
+  margin: 6px 0 0;
+  color: var(--text-3);
+  font-size: 12px;
+}
+
+.guess-choices {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  width: min(100%, 520px);
+  margin-top: 14px;
+}
+
+.guess-choice {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 52px;
+  padding: 10px 14px;
+  border: 1.5px solid var(--navy);
+  border-radius: 6px;
+  background: var(--coupon);
+  color: var(--text);
+  font: 600 15px/1.25 var(--body);
+  text-align: left;
+  cursor: pointer;
+}
+
+.guess-choice:hover:not(:disabled) {
+  background: var(--navy);
+  color: var(--on-navy);
+}
+
+.guess-choice:disabled {
+  cursor: default;
+}
+
+.guess-choice .icon {
+  flex: none;
+  width: 18px;
+  height: 18px;
+}
+
+.guess-choice.right {
+  border-color: var(--purple);
+  background: var(--lavender);
+  color: var(--purple);
+}
+
+.guess-choice.wrong {
+  border-style: dashed;
+  color: var(--text-3);
+  text-decoration: line-through;
+}
+
+.guess-verdict {
+  min-height: 24px;
+  margin: 12px 0 0;
+}
+
+.guess-score {
+  color: var(--purple);
+}
+
+.guess-end-hint {
+  margin: 0 0 10px;
+  color: var(--text-2);
+}
+
+.guess-recap {
+  display: grid;
+  gap: 8px;
+  width: min(100%, 560px);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.guess-recap-row {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 12px;
+}
+
+.guess-recap-row img {
+  width: 64px;
+  height: 48px;
+  border-radius: 4px;
+  object-fit: cover;
+}
+
+.guess-got {
+  color: var(--purple);
+}
+
+.guess-got.none {
+  color: var(--text-3);
+}
+
+@container app-viewport (max-width: 600px) {
+  .guess-choices {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .guess-recap-row {
+    grid-template-columns: 48px minmax(0, 1fr) auto;
+  }
+
+  .guess-recap-row .btn {
+    grid-column: 2 / -1;
+    justify-self: start;
+  }
+}
+
+/* ---------------------------------------------------------------- drawn marks (no unicode glyphs as icons) */
+
+.go-cell .mark .icon {
+  width: clamp(13px, 3.2vw, 26px);
+  height: clamp(13px, 3.2vw, 26px);
+}
+
+.dot-box .mark .icon {
+  width: clamp(16px, 4vw, 26px);
+  height: clamp(16px, 4vw, 26px);
+}
+
+.mark .icon svg,
+.torp-cell .shot svg,
+.game-end-dot .icon svg {
+  stroke-width: 3;
+}
+
+.torp-cell .shot {
+  width: 62%;
+  height: 62%;
+}
+
+.torp-cell.miss .shot {
+  width: 78%;
+  height: 78%;
+}
+
+.game-end-dot .icon {
+  width: 14px;
+  height: 14px;
+}
+
+.progress-star {
+  width: 15px;
+  height: 15px;
+  margin-left: 4px;
+  color: var(--purple);
+  vertical-align: -2px;
+}
+
+.progress-star svg {
+  fill: currentColor;
+}
+
+@container app-viewport (max-width: 600px) {
+  .puzzles-today {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }

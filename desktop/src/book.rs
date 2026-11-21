@@ -2,7 +2,7 @@
 //! Everything comes from the history on this PC (core/src/book.rs); nothing goes online.
 
 use crate::commands::{card, remember, AppState, Card};
-use freetime_core::{book, catalog, history::History, model::Category, scoring::Ranked};
+use freetime_core::{book, catalog, guess, history::History, model::Category, scoring::Ranked};
 use serde::Serialize;
 use tauri::State;
 
@@ -53,6 +53,27 @@ pub fn game_idea(state: State<'_, AppState>, ids: Vec<String>) -> Option<Card> {
     let c = card(&Ranked { s, score: 0.0, reasons: vec![] });
     remember(&state, std::iter::once(&c));
     Some(c)
+}
+
+/// One photo of today's Guess the activity: the idea (a card, so "Try it" can start it) and the
+/// four titles to choose from.
+#[derive(Serialize)]
+pub struct GuessRound {
+    idea: Card,
+    choices: Vec<String>,
+    answer: usize,
+}
+
+/// Today's Guess the activity, from the ideas that have a photo in the UI (`photos`: their ids).
+#[tauri::command(async)]
+pub fn guess_round(state: State<'_, AppState>, photos: Vec<String>) -> Vec<GuessRound> {
+    let today = chrono::Local::now().date_naive();
+    let rounds: Vec<GuessRound> = guess::daily(&catalog::load(), &photos, today)
+        .into_iter()
+        .map(|r| GuessRound { idea: card(&Ranked { s: r.idea, score: 0.0, reasons: vec![] }), choices: r.choices, answer: r.answer })
+        .collect();
+    remember(&state, rounds.iter().map(|r| &r.idea));
+    rounds
 }
 
 #[tauri::command(async)]

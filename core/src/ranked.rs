@@ -234,7 +234,7 @@ mod tests {
         };
         let mut log = QuizLog::default();
         log.days.insert(day.to_string(), quiz::Score { score: 4, total: 5 });
-        log.puzzles.entry(day.to_string()).or_default().insert("path".into(), puzzles::Solve { secs: 90 });
+        log.puzzles.entry(day.to_string()).or_default().insert("path".into(), puzzles::Solve { secs: 90, score: None });
         let p = day_points(&h, &cat, &log, day);
         assert_eq!(p.quiz, 4);
         assert_eq!(p.puzzles, 2);

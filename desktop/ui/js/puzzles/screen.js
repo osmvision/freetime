@@ -4,10 +4,13 @@
 
 import { api } from '../api.js';
 import { btn, errText, fill, h, icon, toast } from '../dom.js';
+import { gameWindow } from '../game-window.js';
 import { t } from '../i18n.js';
 import { sound } from '../play/sound.js';
 import { DAYS, FIRST_DAY } from './days.js';
 import { decode, pathSolved, sides, zonesConflicts, zonesSolved } from './logic.js';
+import { GUESS_MAX, openGuess, shareGuess } from './guess.js';
+import { openProblem, problemLabel, problemOf, shareProblem } from './problem.js';
 
 const KIND_INFO = {
   path: {
@@ -73,10 +76,10 @@ export async function renderPuzzles(box) {
     h(
       'div',
       { class: 'duels-head' },
-      h('div', {}, h('h2', {}, 'Puzzles of the day'), h('p', { class: 'hint' }, 'The same two puzzles for everyone, new each day. 2 ranking points each.')),
+      h('div', {}, h('h2', {}, 'Games of the day'), h('p', { class: 'hint' }, 'The same for everyone, new each day. 2 ranking points each.')),
       view.streak >= 2 ? h('span', { class: 'puzzle-streak' }, icon('flame'), h('span', { class: 'figures' }, String(view.streak)), ' ', h('span', {}, 'days in a row')) : null,
     ),
-    h('div', { class: 'puzzles-today' }, ['path', 'zones'].map((kind) => puzzleCard(kind, today, view.solved[kind], again))),
+    h('div', { class: 'puzzles-today' }, ['path', 'zones'].map((kind) => puzzleCard(kind, today, view.solved[kind], again)), guessCard(today, view.solved.guess, again), problemCard(today, view.solved.problem, again)),
   );
 }
 
@@ -94,11 +97,50 @@ function puzzleCard(kind, today, solve, again) {
       solve
         ? h('strong', {}, h('span', {}, 'Solved in'), ' ', h('span', { class: 'figures' }, clock(solve.secs)))
         : h('strong', {}, `${p.n} × ${p.n} · ${today.level}`),
-      h('span', { class: 'mini-sub' }, solve ? 'A new one tomorrow' : `#${today.number}`),
+      h('span', { class: 'mini-sub' }, solve ? 'A new one tomorrow' : h('span', { class: 'figures' }, `#${today.number}`)),
     ),
     solve
       ? btn({ label: 'Share my time', icon: 'share-2', square: true, onclick: () => share(kind, today.number, solve.secs) })
-      : btn({ label: `Play: ${info.title}`, icon: 'play', kind: 'primary', square: true, onclick: () => openPuzzle(kind, today, again) }),
+      : btn({ label: `Play: ${info.title}`, icon: 'play', square: true, onclick: () => openPuzzle(kind, today, again) }),
+  );
+}
+
+function guessCard(today, done, again) {
+  return h(
+    'div',
+    { class: `mini-ticket puzzle-card${done ? ' done' : ''}` },
+    h('span', { class: 'mini-icon' }, icon('image')),
+    h(
+      'div',
+      { class: 'mini-text' },
+      h('span', { class: 'mini-k' }, 'Guess the activity'),
+      done
+        ? h('strong', {}, h('span', { class: 'figures' }, `${done.score ?? 0}/${GUESS_MAX}`), ' ', h('span', {}, 'today'))
+        : h('strong', {}, '5 photos · 1 min'),
+      h('span', { class: 'mini-sub' }, done ? 'A new one tomorrow' : h('span', { class: 'figures' }, `#${today.number}`)),
+    ),
+    done
+      ? btn({ label: 'Share my score', icon: 'share-2', square: true, onclick: () => shareGuess(today.number, done.score ?? 0) })
+      : btn({ label: 'Play: Guess the activity', icon: 'play', square: true, onclick: () => openGuess(today, again) }),
+  );
+}
+
+function problemCard(today, done, again) {
+  const { goal, game } = problemLabel(problemOf(today.number));
+  return h(
+    'div',
+    { class: `mini-ticket puzzle-card${done ? ' done' : ''}` },
+    h('span', { class: 'mini-icon' }, icon('target')),
+    h(
+      'div',
+      { class: 'mini-text' },
+      h('span', { class: 'mini-k' }, 'Problem of the day'),
+      done ? h('strong', {}, h('span', {}, 'Solved in'), ' ', h('span', { class: 'figures' }, clock(done.secs))) : h('strong', {}, `${goal} · ${game}`),
+      h('span', { class: 'mini-sub' }, done ? 'A new one tomorrow' : h('span', { class: 'figures' }, `#${today.number}`)),
+    ),
+    done
+      ? btn({ label: 'Share my time', icon: 'share-2', square: true, onclick: () => shareProblem(today.number, done.secs) })
+      : btn({ label: 'Play: Problem of the day', icon: 'play', square: true, onclick: () => openProblem(today, again) }),
   );
 }
 
@@ -122,13 +164,24 @@ export function openPuzzle(kind, today, onDone = () => {}) {
   const saved = store.get(key) ?? {};
   let secs = saved.secs ?? 0;
   let solved = false;
-  const previousFocus = document.activeElement;
+  let board = null;
 
+  const ui = gameWindow({
+    name: info.title,
+    iconName: info.icon,
+    head: h('span', { class: 'figures' }, `#${today.number}`),
+    rule: info.rule,
+    className: `puzzle-window puzzle-${kind}`,
+    onClose: () => {
+      clearInterval(tick);
+      if (!solved) save(board.state());
+    },
+  });
   const time = h('span', { class: 'figures puzzle-clock', 'aria-label': 'Time' }, clock(secs));
-  const progress = h('span', { class: 'puzzle-progress', 'aria-live': 'polite' });
-  const status = h('div', { class: 'game-status puzzle-status' }, time, progress);
-  const area = h('div', { class: 'game-area' });
-  const tools = h('div', { class: 'game-tools' });
+  const progress = h('span', { class: 'puzzle-progress' });
+  ui.status.removeAttribute('aria-live'); // the clock ticks: only the progress is announced
+  progress.setAttribute('aria-live', 'polite');
+  ui.status.append(time, progress);
   const save = (state) => store.set(key, { ...state, secs });
 
   const tick = setInterval(() => {
@@ -136,15 +189,6 @@ export function openPuzzle(kind, today, onDone = () => {}) {
     secs += 1;
     time.textContent = clock(secs);
   }, 1000);
-
-  const close = () => {
-    clearInterval(tick);
-    if (!solved) save(board.state());
-    backdrop.remove();
-    document.removeEventListener('keydown', onKey);
-    previousFocus?.focus?.();
-  };
-  const onKey = (e) => e.key === 'Escape' && close();
 
   async function finish() {
     solved = true;
@@ -165,37 +209,22 @@ export function openPuzzle(kind, today, onDone = () => {}) {
       toast(errText(e), 'error', 5000);
     }
     store.set(key, null);
-    fill(status, h('strong', { class: 'game-result won' }, h('span', {}, 'Solved in'), ' ', h('span', { class: 'figures' }, clock(done.secs))));
+    ui.status.setAttribute('aria-live', 'polite');
+    fill(ui.status, h('strong', { class: 'game-result won' }, h('span', {}, 'Solved in'), ' ', h('span', { class: 'figures' }, clock(done.secs))));
     fill(
-      tools,
+      ui.tools,
       btn({ label: 'Share my time', icon: 'share-2', small: true, kind: 'primary', onclick: () => share(kind, today.number, done.secs) }),
-      btn({ label: 'Close', small: true, onclick: close }),
+      btn({ label: 'Close', small: true, onclick: ui.close }),
     );
     onDone();
   }
 
-  const board = kind === 'path' ? pathBoard(p, saved, { save, progress, finish }) : zonesBoard(p, saved, { save, progress, finish });
-  area.append(board.el);
-  tools.append(
+  board = kind === 'path' ? pathBoard(p, saved, { save, progress, finish }) : zonesBoard(p, saved, { save, progress, finish });
+  ui.area.append(board.el);
+  ui.tools.append(
     btn({ label: 'Start again', icon: 'rotate-ccw', small: true, onclick: () => board.reset() }),
-    btn({ label: 'Close', small: true, onclick: close }),
+    btn({ label: 'Close', small: true, onclick: ui.close }),
   );
-
-  const closeBtn = h('button', { type: 'button', class: 'quiz-close', 'aria-label': 'Close', onclick: close }, icon('x'));
-  const card = h(
-    'section',
-    { class: `quiz game-window puzzle-window puzzle-${kind}`, role: 'dialog', 'aria-modal': 'true', 'aria-label': info.title },
-    h(
-      'div',
-      { class: 'coupon-head' },
-      h('span', { class: 'game-title' }, icon(info.icon), h('span', {}, info.title), h('span', { class: 'game-vs figures' }, `#${today.number}`)),
-      closeBtn,
-    ),
-    h('div', { class: 'quiz-body game-body' }, status, area, h('p', { class: 'game-rule' }, info.rule), tools),
-  );
-  const backdrop = h('div', { class: 'quiz-backdrop', onclick: (e) => e.target === backdrop && close() }, card);
-  document.body.append(backdrop);
-  document.addEventListener('keydown', onKey);
   board.focus();
 }
 
@@ -397,7 +426,7 @@ function zonesBoard(p, saved, { save, progress, finish }) {
       el.setAttribute('aria-label', `${where(n, c)}, ${t('zone')} ${regions[c] + 1}${v === 2 ? `, ${t('star')}` : v === 1 ? `, ${t('cross')}` : ''}${bad.has(c) ? `, ${t('breaks a rule')}` : ''}`);
       el.disabled = done;
     });
-    progress.textContent = `${stars().length}/${n} ★`;
+    progress.replaceChildren(h('span', { class: 'figures' }, `${stars().length}/${n}`), icon('star', 'progress-star'));
   }
 
   function changed() {

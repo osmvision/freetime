@@ -115,6 +115,7 @@ The world is the jet-age airline ticket wallet: carrier navy, coupon white on st
 
 ### Named Rules
 - **One red.** If a second red thing appears on a screen, one of them is wrong.
+- **Games are the exception for players.** On a game board, the two players are jet red and carbon purple (discs, men, marks, lines): the duel reads at a glance. The exception stops at the board's edge: the buttons, streaks and labels around it follow One red.
 - **Figures are purple.** Any number the user reads to decide goes in Courier Prime, carbon purple.
 
 ## Typography
@@ -164,6 +165,13 @@ One-line lavender baggage tags on the right of the top bar: the weather (Lucide 
 
 ### Stamps
 VOID (jet red) and VALIDATED (carbon purple), 5px border, rotated -11°, pressed in from 1.7× in 320ms. Reduced motion: instant.
+
+### Games
+- **Game window:** one shared frame (`ui/js/game-window.js`): a navy coupon head (icon, name, then who or which number in figures, 44px head buttons), the status line, the board, the rule, the buttons. "Your turn" is a lavender band on the status line.
+- **Two-player tiles:** each tile shows a small game under way, drawn by the game's own board (not an icon), on a lavender stub with a dashed perforation, then the name and rule. Both actions are outlined: the page's one red is the quiz.
+- **Games of the day:** mini tickets two by two (Path, Zones, Guess the activity, Problem of the day), the number in figures, the play action outlined.
+- **Marks are drawn:** crosses, rings, dots and checks are Lucide icons, never unicode glyphs.
+- **Motion:** a move slides, drops or pops once (`ui/js/play/fx.js`), under 300ms; nothing moves under reduced motion.
 
 ## Do's and Don'ts
 
