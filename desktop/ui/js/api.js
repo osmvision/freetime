@@ -15,6 +15,17 @@ export const api = {
   suggest: (req, exclude = [], party = [], mates = []) => invoke('suggest', { req, exclude, perCategory: 4, party, mates }),
   surprise: (exclude = []) => invoke('surprise', { exclude }),
   pick: (id) => invoke('pick', { id }),
+  // Passed over for now (a light, fading signal) / never again (undone from Settings).
+  passIdea: (id) => invoke('pass_idea', { id }),
+  hideIdea: (id) => invoke('hide_idea', { id }),
+  unhideIdea: (id) => invoke('unhide_idea', { id }),
+  hiddenIdeas: () => invoke('hidden_ideas'),
+  // Your own ideas (Settings): stored with the settings, ranked with the built-in ones.
+  myIdeas: () => invoke('my_ideas'),
+  addMyIdea: (input) => invoke('add_my_idea', { input }),
+  removeMyIdea: (id) => invoke('remove_my_idea', { id }),
+  // Real places near your city for an idea (OpenStreetMap, only when asked).
+  nearbyPlaces: (id) => invoke('nearby_places', { id }),
   open: (url) => invoke('open_link', { url }),
   rate: (id, ts, rating) => invoke('rate', { id, ts, rating }),
   history: () => invoke('get_history'),

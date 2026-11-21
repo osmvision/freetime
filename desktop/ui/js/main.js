@@ -175,7 +175,7 @@ function renderTags(online) {
   } else if (!city && online.ready) {
     weather = h(
       'button',
-      { type: 'button', class: 'tag', title: 'Your city is only used for the weather', onclick: () => goto('settings') },
+      { type: 'button', class: 'tag', title: 'Your city is used for the weather and, when you ask, places nearby', onclick: () => goto('settings') },
       icon('map-pin'),
       h('span', { class: 'tag-value' }, 'Set your city'),
     );

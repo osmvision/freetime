@@ -290,6 +290,7 @@ mod tests {
                 entry("idea:hike", Category::Sport, t - 50, Some(-1)),      // did it, didn't like it
                 entry("steam:620", Category::Game, t - 10, None),
             ],
+            ..Default::default()
         };
         let b = book(&h, &cat, now);
         assert_eq!(b.stamped, 2, "run-5k and hike");
@@ -320,6 +321,7 @@ mod tests {
                 entry("idea:aglio-olio", Category::Food, mon + 120, Some(1)),
                 entry(&daily_today.id, daily_today.category, now.timestamp() - 60, None),
             ],
+            ..Default::default()
         };
         let c = challenge(&h, &cat, now);
         assert_eq!(c.week, "2026-W47");
@@ -343,7 +345,7 @@ mod tests {
         for (id, title, _, target) in CHALLENGES {
             assert!(!id.is_empty() && !title.is_empty() && target > 0);
         }
-        let b = book(&History { dismissals: Vec::new(), entries: vec![] }, &catalog::load(), at(2026, 1, 5, 9));
+        let b = book(&History { entries: vec![], ..Default::default() }, &catalog::load(), at(2026, 1, 5, 9));
         assert!(b.badges.iter().all(|x| !x.earned && x.target > 0 && !x.how.is_empty()));
         assert_eq!(b.stamped, 0);
     }

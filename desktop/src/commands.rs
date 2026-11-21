@@ -5,7 +5,10 @@
 
 use freetime_core::{
     account::{self, Client, ConversationEntry, FriendEntry, Invite, Message as ChatMessage, NewInvite, OnlineProfile, ProfileEdit, Session},
+    catalog,
     config::{self, Config},
+    mine::{self, MyIdea, MyIdeaInput},
+    places::{self, PlaceKind},
     history::{self, History},
     keys::{self, KeySource, Keys},
     net::HttpNet,
@@ -241,6 +244,8 @@ pub struct Card {
     pub(crate) duration: String,
     pub(crate) icon: &'static str,
     pub(crate) category_label: &'static str,
+    /// Where it happens, when real places nearby can be looked up (built-in ideas only).
+    place: Option<PlaceKind>,
 }
 
 pub(crate) fn card(r: &Ranked) -> Card {
@@ -250,6 +255,7 @@ pub(crate) fn card(r: &Ranked) -> Card {
         duration: r.s.duration_label(),
         icon: r.s.category.icon(),
         category_label: r.s.category.label(),
+        place: catalog::place_of(&r.s.id),
     }
 }
 
@@ -573,6 +579,117 @@ pub fn pick(state: State<'_, AppState>, id: String) -> Res<Picked> {
     h.record_pick(&s);
     h.save().map_err(err)?;
     Ok(Picked { title: s.title, icon: s.category.icon(), link: s.link })
+}
+
+/// The lead idea was passed over ("Not this one", "Other picks"): it sinks a little for a while.
+#[tauri::command(async)]
+pub fn pass_idea(id: String) -> Res<()> {
+    let mut h = History::load();
+    if h.record_pass(&id, history::now()) {
+        h.save().map_err(err)?;
+    }
+    Ok(())
+}
+
+/// "Never suggest this": the idea stops coming back until it's restored from Settings.
+#[tauri::command(async)]
+pub fn hide_idea(state: State<'_, AppState>, id: String) -> Res<()> {
+    let s = lock(&state.shown)
+        .get(&id)
+        .cloned()
+        .ok_or_else(|| "That idea isn't available anymore. Refresh your picks.".to_string())?;
+    let mut h = History::load();
+    h.hide(&s, history::now());
+    h.save().map_err(err)
+}
+
+/// Undoes "Never suggest this".
+#[tauri::command(async)]
+pub fn unhide_idea(id: String) -> Res<Vec<HiddenIdea>> {
+    let mut h = History::load();
+    if h.unhide(&id) {
+        h.save().map_err(err)?;
+    }
+    Ok(hidden_list(&h))
+}
+
+#[derive(Serialize)]
+pub struct HiddenIdea {
+    id: String,
+    title: String,
+    category: Category,
+    category_label: &'static str,
+    ago: String,
+}
+
+fn hidden_list(h: &History) -> Vec<HiddenIdea> {
+    let now = history::now();
+    h.never
+        .iter()
+        .rev()
+        .map(|n| HiddenIdea {
+            id: n.id.clone(),
+            title: n.title.clone(),
+            category: n.category,
+            category_label: n.category.label(),
+            ago: history::ago(now - n.ts),
+        })
+        .collect()
+}
+
+/// Ideas hidden with "Never suggest this", newest first.
+#[tauri::command(async)]
+pub fn hidden_ideas() -> Vec<HiddenIdea> {
+    hidden_list(&History::load())
+}
+
+// ---------------------------------------------------------------- your own ideas
+
+#[tauri::command(async)]
+pub fn my_ideas() -> Res<Vec<MyIdea>> {
+    Ok(Config::load().map_err(err)?.my_ideas)
+}
+
+#[tauri::command(async)]
+pub fn add_my_idea(input: MyIdeaInput) -> Res<Vec<MyIdea>> {
+    let mut cfg = Config::load().map_err(err)?;
+    mine::add(&mut cfg.my_ideas, input).map_err(err)?;
+    cfg.save().map_err(err)?;
+    Ok(cfg.my_ideas)
+}
+
+#[tauri::command(async)]
+pub fn remove_my_idea(id: String) -> Res<Vec<MyIdea>> {
+    let mut cfg = Config::load().map_err(err)?;
+    if mine::remove(&mut cfg.my_ideas, &id) {
+        cfg.save().map_err(err)?;
+    }
+    Ok(cfg.my_ideas)
+}
+
+// ---------------------------------------------------------------- places nearby
+
+#[derive(Serialize)]
+pub struct Nearby {
+    /// None when no city is set: the UI offers to set one instead.
+    city: Option<String>,
+    label: &'static str,
+    places: Vec<places::Place>,
+}
+
+/// Real places near the user's city for an idea that happens somewhere. Only on request: this is
+/// the one moment freetime talks to OpenStreetMap, with the city's coordinates (cached a month).
+#[tauri::command(async)]
+pub fn nearby_places(id: String) -> Res<Nearby> {
+    let kind = catalog::place_of(&id).ok_or_else(|| "This idea doesn't happen in a particular place.".to_string())?;
+    let cfg = Config::load().map_err(err)?;
+    let (Some(lat), Some(lon)) = (cfg.latitude, cfg.longitude) else {
+        return Ok(Nearby { city: None, label: kind.label(), places: Vec::new() });
+    };
+    let net = HttpNet::new().map_err(err)?;
+    let places = places::nearby_cached(&net, kind, lat, lon, history::now())
+        .map_err(|_| "Couldn't reach OpenStreetMap. Try again in a moment.".to_string())?;
+    Ok(Nearby { city: cfg.city, label: kind.label(), places })
 }
 
 #[tauri::command(async)]

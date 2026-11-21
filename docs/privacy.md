@@ -23,6 +23,7 @@ To work, the app contacts these services, and only for what you see on screen:
 | Service | Why | What it receives |
 | --- | --- | --- |
 | Open-Meteo | Weather and the city search | The coordinates of the city you chose, or what you type in the city box |
+| OpenStreetMap (Overpass API: overpass-api.de, or overpass.kumi.systems when it is busy) | "Nearby" on an idea, only when you click it | The coordinates of the city you chose and the kind of place (a park, a pool...). Answers are kept on your PC for a month |
 | Steam store | Store picks and prices | Your country code |
 | Epic Games Store | This week's free games | Your country code |
 | Open Trivia Database | The bonus quiz (English), only when you open it | Nothing about you: a plain request for 5 questions |

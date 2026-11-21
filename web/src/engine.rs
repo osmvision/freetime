@@ -4,7 +4,7 @@ use freetime_core::{
     account, assistant, book, catalog,
     config::Config,
     history::{self, History},
-    location,
+    location, mine, places,
     model::*,
     net::HttpNet,
     party::{self, Avatar, Friend, Party},
@@ -24,6 +24,9 @@ use std::sync::{
 
 type AssistantJobs = std::collections::HashMap<String, Arc<AtomicBool>>;
 static ASSISTANT_JOBS: OnceLock<Mutex<AssistantJobs>> = OnceLock::new();
+
+/// Places near a city, shared by every browser (the server keeps no per-user data).
+static PLACES_CACHE: OnceLock<Mutex<places::Cache>> = OnceLock::new();
 
 fn assistant_jobs() -> std::sync::MutexGuard<'static, AssistantJobs> {
     ASSISTANT_JOBS
@@ -75,6 +78,7 @@ fn card(s: &Suggestion, reasons: &[String]) -> Value {
     value["category_label"] = json!(s.category.label());
     value["icon"] = json!(s.category.icon());
     value["reasons"] = json!(reasons);
+    value["place"] = json!(catalog::place_of(&s.id));
     value
 }
 
@@ -341,6 +345,10 @@ pub fn invoke(call: Call, token: Option<&str>) -> Result<Value> {
         keys,
     } = call;
     if state.history.entries.len() > 500
+        || state.history.passes.len() > history::MAX_PASSES
+        || state.history.never.len() > history::MAX_NEVER
+        || state.config.my_ideas.len() > mine::MAX_IDEAS
+        || state.config.my_ideas.iter().any(|i| !i.is_valid())
         || state.history.dismissals.len() > 300
         || state.friends.len() > 50
         || state.online.len() > 1000
@@ -359,6 +367,8 @@ pub fn invoke(call: Call, token: Option<&str>) -> Result<Value> {
         .entries
         .iter()
         .any(|e| e.minutes.is_some_and(|m| m > 600) || e.ts < 0 || e.ts > 4_102_444_800)
+        || state.history.passes.iter().any(|p| p.ts < 0 || p.ts > 4_102_444_800 || p.id.len() > 300)
+        || state.history.never.iter().any(|n| n.ts < 0 || n.ts > 4_102_444_800 || n.id.len() > 300 || n.title.len() > 400)
         || state.history.dismissals.iter().any(|d| d.ts < 0 || d.ts > 4_102_444_800 || d.idea_minutes > 1440 || d.free_minutes > 600 || d.id.len() > 200)
         || state
             .online
@@ -442,6 +452,81 @@ pub fn invoke(call: Call, token: Option<&str>) -> Result<Value> {
                 "icon": item.category.icon(),
                 "link": item.link
             })
+        }
+        "my_ideas" => json!(state.config.my_ideas),
+        "add_my_idea" => {
+            let input: mine::MyIdeaInput = arg(&args, "input")?;
+            mine::add(&mut state.config.my_ideas, input)?;
+            patch["config"] = json!(state.config);
+            json!(state.config.my_ideas)
+        }
+        "remove_my_idea" => {
+            let id: String = arg(&args, "id")?;
+            if mine::remove(&mut state.config.my_ideas, &id) {
+                patch["config"] = json!(state.config);
+            }
+            json!(state.config.my_ideas)
+        }
+        "nearby_places" => {
+            let id: String = arg(&args, "id")?;
+            let kind = catalog::place_of(&id).context("This idea doesn't happen in a particular place.")?;
+            match (state.config.latitude, state.config.longitude) {
+                (Some(lat), Some(lon)) => {
+                    let now = history::now();
+                    let cache = PLACES_CACHE.get_or_init(|| Mutex::new(places::Cache::default()));
+                    let hit = cache.lock().ok().and_then(|c| c.get(kind, lat, lon, now));
+                    let found = match hit {
+                        Some(found) => found,
+                        None => {
+                            let found = places::nearby(HttpNet::shared()?.as_ref(), kind, lat, lon)
+                                .context("Couldn't reach OpenStreetMap. Try again in a moment.")?;
+                            if let Ok(mut c) = cache.lock() {
+                                c.put(kind, lat, lon, now, found.clone());
+                            }
+                            found
+                        }
+                    };
+                    json!({ "city": state.config.city, "label": kind.label(), "places": found })
+                }
+                _ => json!({ "city": null, "label": kind.label(), "places": [] }),
+            }
+        }
+        "pass_idea" => {
+            let id: String = arg(&args, "id")?;
+            if state.history.record_pass(&id, history::now()) {
+                patch["history"] = json!(state.history);
+            }
+            Value::Null
+        }
+        "hide_idea" => {
+            let id: String = arg(&args, "id")?;
+            let item = state
+                .shown
+                .iter()
+                .chain(state.online.iter())
+                .find(|s| s.id == id)
+                .cloned()
+                .or_else(|| catalog::load().into_iter().find(|s| s.id == id))
+                .context("Refresh your picks to find this idea")?;
+            state.history.hide(&item, history::now());
+            patch["history"] = json!(state.history);
+            Value::Null
+        }
+        "unhide_idea" | "hidden_ideas" => {
+            if cmd == "unhide_idea" {
+                let id: String = arg(&args, "id")?;
+                if state.history.unhide(&id) {
+                    patch["history"] = json!(state.history);
+                }
+            }
+            let now = history::now();
+            json!(state.history.never.iter().rev().map(|n| json!({
+                "id": n.id,
+                "title": n.title,
+                "category": n.category,
+                "category_label": n.category.label(),
+                "ago": history::ago(now - n.ts)
+            })).collect::<Vec<_>>())
         }
         "rate" => {
             let id: String = arg(&args, "id")?;

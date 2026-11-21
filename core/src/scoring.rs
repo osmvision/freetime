@@ -53,6 +53,12 @@ pub fn weighted_pick(ranked: &[Ranked], top: usize) -> Option<usize> {
     Some(n - 1)
 }
 
+/// Each recent pass sinks an idea a little: 0.8, 0.64, 0.51... never below 0.35, so an idea
+/// you skipped often still turns up when little else fits.
+pub fn pass_factor(passes: u32) -> f64 {
+    0.8f64.powi(passes.min(10) as i32).max(0.35)
+}
+
 /// `None` means "doesn't fit at all" (over budget, outside when staying in, way too long...).
 pub fn score(
     s: &Suggestion,
@@ -65,6 +71,7 @@ pub fn score(
         || s.cost > req.budget
         || (s.outdoor && !req.can_go_out)
         || prefs.disliked.contains(&s.id)
+        || prefs.never.contains(&s.id)
         || prefs.resting.contains(&s.id)
         || req.minutes * 2 < s.min_minutes
     {
@@ -141,7 +148,7 @@ pub fn score(
         (true, _) => 0.4,
         (false, true) => 1.1,
         (false, false) => 1.0,
-    };
+    } * pass_factor(prefs.passed.get(&s.id).copied().unwrap_or(0));
     if liked {
         reasons.insert(0, "you loved this last time".to_string());
     } else if cat_aff > 0.25 || tag_aff > 0.25 {
@@ -228,6 +235,26 @@ mod tests {
         let rainy = weather(63, 12.0);
         assert!(s(&run, &r, Some(&sunny)) >= s(&gym, &r, Some(&sunny)));
         assert!(s(&run, &r, Some(&rainy)).unwrap() < 0.5 * s(&gym, &r, Some(&rainy)).unwrap());
+    }
+
+    #[test]
+    fn passes_sink_an_idea_and_never_removes_it() {
+        let r = req();
+        let run = item("run", Energy::High, false);
+        let fresh = s(&run, &r, None).unwrap();
+
+        let mut prefs = Prefs::default();
+        prefs.passed.insert("run".into(), 1);
+        let once = score(&run, &r, None, &prefs, 1.0).unwrap().0;
+        prefs.passed.insert("run".into(), 3);
+        let thrice = score(&run, &r, None, &prefs, 1.0).unwrap().0;
+        assert!(once < fresh && thrice < once, "each pass sinks it further");
+        prefs.passed.insert("run".into(), 50);
+        let many = score(&run, &r, None, &prefs, 1.0).unwrap().0;
+        assert!((many / fresh - 0.35).abs() < 1e-9, "but it never sinks below the floor");
+
+        prefs.never.insert("run".into());
+        assert!(score(&run, &r, None, &prefs, 1.0).is_none());
     }
 
     #[test]

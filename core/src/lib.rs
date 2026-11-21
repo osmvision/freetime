@@ -12,8 +12,10 @@ pub mod keys;
 pub mod location;
 pub mod net;
 pub mod model;
+pub mod mine;
 pub mod open;
 pub mod party;
+pub mod places;
 pub mod providers;
 pub mod quiz;
 pub mod ranked;
@@ -36,6 +38,7 @@ use std::collections::HashSet;
 /// Everything that could be suggested right now: built-in ideas, online picks, YouTube searches.
 pub fn candidates(cfg: &Config, minutes: u32, online: &Online) -> Vec<Suggestion> {
     let mut items = catalog::load();
+    items.extend(cfg.my_ideas.iter().filter(|i| i.is_valid()).map(mine::MyIdea::to_suggestion));
     items.extend(online.items.iter().cloned());
     // Search links only as a last resort: when no real video could be found (offline, feeds down).
     if !online.items.iter().any(|s| s.id.starts_with("yt:")) {
@@ -99,6 +102,29 @@ mod tests {
         video.id = "yt:abc123DEF45".into();
         let online = Online { items: vec![video], ..Default::default() };
         assert!(!candidates(&cfg, 30, &online).iter().any(is_search));
+    }
+
+    #[test]
+    fn your_own_ideas_are_ranked_too_but_not_tampered_ones() {
+        let mut cfg = Config::default();
+        let input = |title: &str| mine::MyIdeaInput {
+            title: title.into(),
+            detail: String::new(),
+            category: model::Category::Social,
+            minutes: 30,
+            energy: model::Energy::Low,
+            outdoor: false,
+            social: model::Social::Either,
+            cost: model::Cost::Free,
+            link: None,
+        };
+        let ok = mine::add(&mut cfg.my_ideas, input("Feed the ducks")).unwrap();
+        let mut bad = mine::add(&mut cfg.my_ideas, input("Bad")).unwrap();
+        bad.link = Some("file:///etc/passwd".into());
+        cfg.my_ideas[1] = bad.clone();
+        let ids: Vec<String> = candidates(&cfg, 30, &Online::default()).into_iter().map(|s| s.id).collect();
+        assert!(ids.contains(&ok.suggestion_id()));
+        assert!(!ids.contains(&bad.suggestion_id()));
     }
 
     #[test]

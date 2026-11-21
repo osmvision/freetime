@@ -21,6 +21,7 @@ energy = "high"
 outdoor = true
 social = "either"
 cost = "free"
+place = "park"
 tags = ["cardio", "running"]
 quality = 0.75
 
@@ -154,6 +155,7 @@ energy = "high"
 outdoor = true
 social = "either"
 cost = "free"
+place = "fitness_station"
 tags = ["strength", "calisthenics"]
 quality = 0.7
 
@@ -168,6 +170,7 @@ energy = "high"
 outdoor = true
 social = "group"
 cost = "free"
+place = "football"
 tags = ["team", "football"]
 quality = 0.8
 
@@ -182,6 +185,7 @@ energy = "high"
 outdoor = true
 social = "either"
 cost = "free"
+place = "basketball"
 tags = ["team", "basketball"]
 quality = 0.7
 
@@ -196,6 +200,7 @@ energy = "medium"
 outdoor = true
 social = "group"
 cost = "cheap"
+place = "park"
 tags = ["racket"]
 quality = 0.65
 
@@ -210,6 +215,7 @@ energy = "medium"
 outdoor = true
 social = "group"
 cost = "cheap"
+place = "park"
 tags = ["team"]
 quality = 0.65
 
@@ -223,6 +229,7 @@ max = 90
 energy = "medium"
 social = "group"
 cost = "cheap"
+place = "table_tennis"
 tags = ["racket"]
 quality = 0.65
 
@@ -236,6 +243,7 @@ max = 90
 energy = "medium"
 social = "either"
 cost = "cheap"
+place = "pool"
 tags = ["cardio", "swimming"]
 quality = 0.7
 
@@ -249,6 +257,7 @@ max = 150
 energy = "high"
 social = "either"
 cost = "paid"
+place = "climbing"
 tags = ["climbing", "strength"]
 quality = 0.8
 
@@ -263,6 +272,7 @@ energy = "medium"
 outdoor = true
 social = "solo"
 cost = "cheap"
+place = "skatepark"
 tags = ["skill", "board"]
 quality = 0.6
 
@@ -501,6 +511,7 @@ energy = "low"
 outdoor = true
 social = "solo"
 cost = "free"
+place = "park"
 tags = ["walk", "podcast"]
 quality = 0.7
 
@@ -610,6 +621,7 @@ energy = "low"
 outdoor = true
 social = "group"
 cost = "cheap"
+place = "park"
 tags = ["friends", "food"]
 quality = 0.75
 
@@ -831,6 +843,7 @@ energy = "high"
 outdoor = true
 social = "either"
 cost = "free"
+place = "park"
 tags = ["cardio", "running", "nature"]
 quality = 0.75
 
@@ -873,6 +886,7 @@ energy = "low"
 outdoor = true
 social = "either"
 cost = "free"
+place = "viewpoint"
 tags = ["walk", "nature", "evening"]
 quality = 0.8
 
@@ -1111,6 +1125,7 @@ energy = "low"
 outdoor = true
 social = "either"
 cost = "free"
+place = "viewpoint"
 tags = ["walk", "explore"]
 quality = 0.7
 
@@ -1153,6 +1168,7 @@ energy = "low"
 outdoor = true
 social = "group"
 cost = "cheap"
+place = "market"
 tags = ["food", "explore"]
 quality = 0.7
 
@@ -1167,6 +1183,7 @@ energy = "low"
 outdoor = true
 social = "group"
 cost = "cheap"
+place = "boules"
 tags = ["outdoor", "games"]
 quality = 0.75
 
@@ -1323,3 +1340,1552 @@ social = "solo"
 cost = "free"
 tags = ["backlog"]
 quality = 0.7
+
+# ---------------------------------------------------------------- more ideas (0.5)
+# place: what to look for nearby on OpenStreetMap (see core/src/places.rs)
+
+# game
+
+[[activity]]
+id = "sudoku"
+category = "game"
+title = "One hard sudoku"
+detail = "Skip the easy grids: pick a hard one and finish it without hints."
+min = 15
+max = 30
+energy = "low"
+social = "solo"
+cost = "free"
+tags = ["puzzle", "mind"]
+quality = 0.6
+
+[[activity]]
+id = "crossword"
+category = "game"
+title = "A crossword with a coffee"
+detail = "Newspaper, app or book. Two people on one grid works well too."
+min = 15
+max = 40
+energy = "low"
+social = "either"
+cost = "free"
+tags = ["puzzle", "words"]
+quality = 0.6
+
+[[activity]]
+id = "patience-cards"
+category = "game"
+title = "A game of patience with real cards"
+detail = "Klondike, then FreeCell if it goes too well. No screen needed."
+min = 10
+max = 30
+energy = "low"
+social = "solo"
+cost = "free"
+tags = ["cards", "relax"]
+quality = 0.55
+
+[[activity]]
+id = "card-night"
+category = "game"
+title = "Card night: tarot, belote or president"
+detail = "One deck, a few rules everyone knows, and a scoreboard on paper."
+min = 45
+max = 120
+energy = "medium"
+social = "group"
+cost = "free"
+tags = ["cards", "friends"]
+quality = 0.75
+
+[[activity]]
+id = "childhood-game"
+category = "game"
+title = "Revisit a game from your childhood"
+detail = "The one you still hum the music of. See if it holds up."
+min = 30
+max = 120
+energy = "medium"
+social = "solo"
+cost = "free"
+tags = ["backlog", "memories"]
+quality = 0.65
+
+[[activity]]
+id = "couch-coop"
+category = "game"
+title = "Couch co-op session"
+detail = "Same screen, same sofa: a co-op game where you win or lose together."
+min = 45
+max = 150
+energy = "medium"
+social = "group"
+cost = "free"
+tags = ["games", "friends"]
+quality = 0.75
+
+[[activity]]
+id = "rpg-one-shot"
+category = "game"
+title = "Run a one-shot tabletop RPG"
+detail = "A free starter adventure, pre-made characters and three hours. No experience needed."
+min = 120
+max = 240
+energy = "medium"
+social = "group"
+cost = "free"
+tags = ["rpg", "friends", "storytelling"]
+quality = 0.75
+
+[[activity]]
+id = "print-escape-room"
+category = "game"
+title = "Print-and-play escape room"
+detail = "Many are free to print. Scissors, a timer and a table are all you need."
+min = 60
+max = 90
+energy = "medium"
+social = "either"
+cost = "cheap"
+tags = ["puzzle", "friends"]
+quality = 0.7
+
+[[activity]]
+id = "chess960"
+category = "game"
+title = "Play Chess960"
+detail = "The back pieces are shuffled: no opening theory, just thinking."
+min = 15
+max = 45
+energy = "low"
+social = "either"
+cost = "free"
+tags = ["chess", "mind"]
+quality = 0.6
+
+[[activity]]
+id = "go-game"
+category = "game"
+title = "Learn Go on a small board"
+detail = "Start on 9x9: the rules fit on a napkin, the depth doesn't."
+min = 30
+max = 60
+energy = "low"
+social = "either"
+cost = "free"
+tags = ["board", "mind"]
+quality = 0.6
+
+[[activity]]
+id = "trivia-night"
+category = "game"
+title = "Host a trivia night"
+detail = "Five rounds of five questions, one round picked by each guest."
+min = 60
+max = 120
+energy = "medium"
+social = "group"
+cost = "free"
+tags = ["quiz", "friends"]
+quality = 0.7
+
+[[activity]]
+id = "darts"
+category = "game"
+title = "Darts tournament"
+detail = "501 or Around the Clock, best of three, loser picks the music."
+min = 30
+max = 60
+energy = "medium"
+social = "group"
+cost = "cheap"
+tags = ["friends", "skill"]
+quality = 0.55
+
+[[activity]]
+id = "mini-golf"
+category = "game"
+title = "Mini golf round"
+detail = "Eighteen holes, one scorecard, no excuses about the windmill."
+min = 45
+max = 90
+energy = "low"
+outdoor = true
+social = "either"
+cost = "cheap"
+place = "minigolf"
+tags = ["friends", "outdoor"]
+quality = 0.65
+
+[[activity]]
+id = "bowling"
+category = "game"
+title = "Bowling night"
+detail = "Two games, rental shoes and a side bet on the last frame."
+min = 60
+max = 120
+energy = "medium"
+social = "group"
+cost = "paid"
+place = "bowling"
+tags = ["friends", "evening"]
+quality = 0.65
+
+[[activity]]
+id = "nonograms"
+category = "game"
+title = "Nonograms (picross)"
+detail = "Numbers on the edges, a hidden picture inside. Quietly addictive."
+min = 15
+max = 40
+energy = "low"
+social = "solo"
+cost = "free"
+tags = ["puzzle", "mind"]
+quality = 0.55
+
+[[activity]]
+id = "roguelike-run"
+category = "game"
+title = "One run of a roguelike you own"
+detail = "One run, win or lose, then stop. That's the deal."
+min = 20
+max = 60
+energy = "medium"
+social = "solo"
+cost = "free"
+tags = ["backlog", "games"]
+quality = 0.6
+
+[[activity]]
+id = "online-friend-night"
+category = "game"
+title = "Online game night with a faraway friend"
+detail = "A voice call and any game you both own. Distance doesn't count."
+min = 60
+max = 150
+energy = "medium"
+social = "either"
+cost = "free"
+tags = ["games", "friends"]
+quality = 0.7
+
+[[activity]]
+id = "backgammon"
+category = "game"
+title = "Backgammon"
+detail = "A five-thousand-year-old race with dice. Learn it in ten minutes."
+min = 20
+max = 45
+energy = "low"
+social = "either"
+cost = "free"
+tags = ["board", "dice"]
+quality = 0.55
+
+[[activity]]
+id = "kubb"
+category = "game"
+title = "Kubb in the park"
+detail = "Viking skittles: throw sticks, knock blocks, topple the king last."
+min = 45
+max = 90
+energy = "medium"
+outdoor = true
+social = "group"
+cost = "cheap"
+place = "park"
+tags = ["friends", "outdoor"]
+quality = 0.7
+
+[[activity]]
+id = "scavenger-hunt"
+category = "game"
+title = "Neighbourhood scavenger hunt"
+detail = "Ten things to photograph, two teams, one hour."
+min = 45
+max = 120
+energy = "medium"
+outdoor = true
+social = "group"
+cost = "free"
+tags = ["friends", "explore"]
+quality = 0.7
+
+[[activity]]
+id = "dice-night"
+category = "game"
+title = "Dice games: Yahtzee and friends"
+detail = "Five dice and a score sheet keep a table busy all evening."
+min = 20
+max = 60
+energy = "low"
+social = "group"
+cost = "free"
+tags = ["dice", "friends"]
+quality = 0.55
+
+# sport
+
+[[activity]]
+id = "brisk-walk"
+category = "sport"
+title = "Brisk 45-minute walk"
+detail = "Fast enough to feel it, slow enough to talk. Underrated exercise."
+min = 30
+max = 60
+energy = "medium"
+outdoor = true
+social = "either"
+cost = "free"
+place = "park"
+tags = ["walk", "cardio"]
+quality = 0.65
+
+[[activity]]
+id = "tennis"
+category = "sport"
+title = "Tennis rally"
+detail = "No scoring at first: just keep the ball going. Many public courts are free."
+min = 45
+max = 90
+energy = "high"
+outdoor = true
+social = "group"
+cost = "cheap"
+place = "tennis"
+tags = ["racket"]
+quality = 0.7
+
+[[activity]]
+id = "volleyball"
+category = "sport"
+title = "Park volleyball"
+detail = "A net, a ball and four people make a game."
+min = 45
+max = 120
+energy = "high"
+outdoor = true
+social = "group"
+cost = "free"
+place = "volleyball"
+tags = ["team"]
+quality = 0.65
+
+[[activity]]
+id = "desk-stretch"
+category = "sport"
+title = "Five-minute desk stretch"
+detail = "Neck, wrists, hips, calves. Stand up first."
+min = 5
+max = 10
+energy = "low"
+social = "solo"
+cost = "free"
+tags = ["mobility", "quick"]
+quality = 0.6
+
+[[activity]]
+id = "gym-session"
+category = "sport"
+title = "Strength session at the gym"
+detail = "Squat, push, pull, hinge: three sets each, nothing fancy."
+min = 45
+max = 90
+energy = "high"
+social = "solo"
+cost = "paid"
+place = "gym"
+tags = ["strength"]
+quality = 0.65
+
+[[activity]]
+id = "trial-class"
+category = "sport"
+title = "Try a martial arts or dance class"
+detail = "Most clubs offer a free or cheap first class. Go once."
+min = 60
+max = 90
+energy = "medium"
+social = "group"
+cost = "paid"
+tags = ["skill", "discovery"]
+quality = 0.65
+
+# chill
+
+[[activity]]
+id = "cloud-watching"
+category = "chill"
+title = "Lie on the grass and watch the clouds"
+detail = "Find shapes. That's the whole plan."
+min = 15
+max = 30
+energy = "low"
+outdoor = true
+social = "either"
+cost = "free"
+place = "park"
+tags = ["nature", "relax"]
+quality = 0.55
+
+[[activity]]
+id = "audiobook"
+category = "chill"
+title = "Start an audiobook"
+detail = "Libraries lend them free through apps. Lie down, press play."
+min = 30
+max = 90
+energy = "low"
+social = "solo"
+cost = "free"
+tags = ["reading", "relax"]
+quality = 0.65
+
+[[activity]]
+id = "coloring"
+category = "chill"
+title = "Colouring for grown-ups"
+detail = "A detailed page, good pencils and a podcast in the background."
+min = 20
+max = 60
+energy = "low"
+social = "solo"
+cost = "cheap"
+tags = ["drawing", "relax"]
+quality = 0.55
+
+[[activity]]
+id = "ball-massage"
+category = "chill"
+title = "Self-massage with a tennis ball"
+detail = "Feet, shoulders, back against a wall. Slow and gentle."
+min = 10
+max = 20
+energy = "low"
+social = "solo"
+cost = "free"
+tags = ["recovery", "home"]
+quality = 0.55
+
+[[activity]]
+id = "cafe-terrace"
+category = "chill"
+title = "A coffee alone on a café terrace"
+detail = "No phone for the first ten minutes. Just watch the street."
+min = 20
+max = 60
+energy = "low"
+outdoor = true
+social = "solo"
+cost = "cheap"
+tags = ["relax", "explore"]
+quality = 0.6
+
+[[activity]]
+id = "library-wander"
+category = "chill"
+title = "Wander a library"
+detail = "Pick a shelf you'd never visit and read the first page of three books."
+min = 30
+max = 90
+energy = "low"
+social = "solo"
+cost = "free"
+place = "library"
+tags = ["reading", "discovery"]
+quality = 0.65
+
+[[activity]]
+id = "slow-tv"
+category = "chill"
+title = "Slow TV: a train journey from the cab"
+detail = "Hours of landscape with no plot. Strangely soothing."
+min = 20
+max = 90
+energy = "low"
+social = "either"
+cost = "free"
+tags = ["video", "relax"]
+quality = 0.5
+
+[[activity]]
+id = "park-sit"
+category = "chill"
+title = "Sit in a park and do nothing"
+detail = "Twenty minutes on a bench. Notice five sounds."
+min = 15
+max = 30
+energy = "low"
+outdoor = true
+social = "solo"
+cost = "free"
+place = "park"
+tags = ["nature", "relax"]
+quality = 0.6
+
+[[activity]]
+id = "museum-one-room"
+category = "chill"
+title = "Visit one room of a museum"
+detail = "Just one room, slowly. Many museums are free on certain days."
+min = 30
+max = 60
+energy = "low"
+social = "either"
+cost = "cheap"
+place = "museum"
+tags = ["art", "discovery"]
+quality = 0.65
+
+[[activity]]
+id = "early-night"
+category = "chill"
+title = "Early night: stretch, lights out"
+detail = "Screens off an hour early, a few stretches, and sleep."
+min = 15
+max = 30
+energy = "low"
+social = "solo"
+cost = "free"
+tags = ["rest", "evening"]
+quality = 0.65
+
+[[activity]]
+id = "phone-cleanup"
+category = "chill"
+title = "Clean up your phone"
+detail = "Delete blurry photos and apps you haven't opened in a month."
+min = 15
+max = 30
+energy = "low"
+social = "solo"
+cost = "free"
+tags = ["home", "quick"]
+quality = 0.5
+
+[[activity]]
+id = "nature-sounds"
+category = "chill"
+title = "Ten minutes of nature sounds"
+detail = "Rain, forest or waves, eyes closed, nothing else."
+min = 10
+max = 20
+energy = "low"
+social = "solo"
+cost = "free"
+tags = ["relax", "mind"]
+quality = 0.5
+
+[[activity]]
+id = "sauna"
+category = "chill"
+title = "Sauna or hammam"
+detail = "Heat, cold shower, rest. Repeat twice."
+min = 45
+max = 90
+energy = "low"
+social = "either"
+cost = "paid"
+tags = ["relax", "recovery"]
+quality = 0.6
+
+[[activity]]
+id = "botanical-garden"
+category = "chill"
+title = "Visit a botanical garden"
+detail = "Read the labels. Find the oldest tree."
+min = 45
+max = 120
+energy = "low"
+outdoor = true
+social = "either"
+cost = "cheap"
+place = "garden"
+tags = ["nature", "plants"]
+quality = 0.65
+
+[[activity]]
+id = "body-scan"
+category = "chill"
+title = "Guided body scan"
+detail = "Lie down and move your attention from toes to head. Free recordings abound."
+min = 10
+max = 20
+energy = "low"
+social = "solo"
+cost = "free"
+tags = ["mind", "relax"]
+quality = 0.55
+
+# learn
+
+[[activity]]
+id = "rubiks-cube"
+category = "learn"
+title = "Learn to solve a Rubik's Cube"
+detail = "The beginner method is seven steps. Today, get the first layer."
+min = 30
+max = 90
+energy = "low"
+social = "solo"
+cost = "cheap"
+tags = ["puzzle", "skill"]
+quality = 0.65
+
+[[activity]]
+id = "history-podcast"
+category = "learn"
+title = "One episode of a history podcast"
+detail = "Pick an era you know nothing about."
+min = 30
+max = 60
+energy = "low"
+social = "solo"
+cost = "free"
+tags = ["podcast", "history"]
+quality = 0.6
+
+[[activity]]
+id = "ukulele-chords"
+category = "learn"
+title = "Learn three ukulele chords"
+detail = "C, Am, F: enough for dozens of songs."
+min = 20
+max = 45
+energy = "low"
+social = "solo"
+cost = "cheap"
+tags = ["music", "skill"]
+quality = 0.6
+
+[[activity]]
+id = "tiny-web-page"
+category = "learn"
+title = "Build a tiny web page from scratch"
+detail = "One HTML file, one CSS file, about something you love."
+min = 30
+max = 90
+energy = "medium"
+social = "solo"
+cost = "free"
+tags = ["coding", "making"]
+quality = 0.65
+
+[[activity]]
+id = "spreadsheet-trick"
+category = "learn"
+title = "Learn one spreadsheet trick"
+detail = "Pivot tables or XLOOKUP. Use it on real data right away."
+min = 20
+max = 40
+energy = "low"
+social = "solo"
+cost = "free"
+tags = ["skill", "quick"]
+quality = 0.5
+
+[[activity]]
+id = "birdwatching"
+category = "learn"
+title = "Identify five birds near you"
+detail = "A free bird app and a park bench. Listen before you look."
+min = 30
+max = 90
+energy = "low"
+outdoor = true
+social = "either"
+cost = "free"
+place = "park"
+tags = ["nature", "curiosity"]
+quality = 0.65
+
+[[activity]]
+id = "tree-id"
+category = "learn"
+title = "Learn the trees on your street"
+detail = "Leaves, bark, shape. Five names by the end."
+min = 20
+max = 45
+energy = "low"
+outdoor = true
+social = "either"
+cost = "free"
+place = "park"
+tags = ["nature", "curiosity"]
+quality = 0.55
+
+[[activity]]
+id = "memory-palace"
+category = "learn"
+title = "Build a memory palace"
+detail = "Memorise a 15-item list by placing it around your home."
+min = 20
+max = 40
+energy = "low"
+social = "solo"
+cost = "free"
+tags = ["mind", "skill"]
+quality = 0.6
+
+[[activity]]
+id = "mental-math"
+category = "learn"
+title = "Mental maths tricks"
+detail = "Multiply by 11, square numbers ending in 5, split a bill in your head."
+min = 15
+max = 30
+energy = "low"
+social = "solo"
+cost = "free"
+tags = ["mind", "quick"]
+quality = 0.5
+
+[[activity]]
+id = "budget-basics"
+category = "learn"
+title = "Understand your budget in half an hour"
+detail = "Last month's spending in three columns: needs, wants, savings."
+min = 30
+max = 60
+energy = "low"
+social = "solo"
+cost = "free"
+tags = ["skill", "home"]
+quality = 0.55
+
+[[activity]]
+id = "one-painting"
+category = "learn"
+title = "Learn everything about one painting"
+detail = "Who painted it, why, and what everyone misses at first."
+min = 20
+max = 45
+energy = "low"
+social = "solo"
+cost = "free"
+tags = ["art", "curiosity"]
+quality = 0.6
+
+[[activity]]
+id = "longread"
+category = "learn"
+title = "Read one long-form article"
+detail = "A deep piece on a subject you'd never search for."
+min = 20
+max = 45
+energy = "low"
+social = "solo"
+cost = "free"
+tags = ["reading", "curiosity"]
+quality = 0.6
+
+[[activity]]
+id = "language-podcast"
+category = "learn"
+title = "A podcast in the language you're learning"
+detail = "Slow-speech podcasts exist for most languages."
+min = 15
+max = 30
+energy = "low"
+social = "solo"
+cost = "free"
+tags = ["language", "podcast"]
+quality = 0.6
+
+[[activity]]
+id = "knots"
+category = "learn"
+title = "Learn five useful knots"
+detail = "Bowline, clove hitch, figure eight, trucker's hitch, square knot."
+min = 15
+max = 30
+energy = "low"
+social = "solo"
+cost = "free"
+tags = ["skill", "quick"]
+quality = 0.55
+
+[[activity]]
+id = "os-shortcuts"
+category = "learn"
+title = "Learn ten keyboard shortcuts"
+detail = "Window snapping, screenshots, emoji panel, clipboard history."
+min = 10
+max = 20
+energy = "low"
+social = "solo"
+cost = "free"
+tags = ["skill", "quick"]
+quality = 0.5
+
+[[activity]]
+id = "library-borrow"
+category = "learn"
+title = "Borrow a book at the library"
+detail = "Membership is usually free. Ask a librarian for their favourite."
+min = 30
+max = 60
+energy = "low"
+social = "solo"
+cost = "free"
+place = "library"
+tags = ["reading", "discovery"]
+quality = 0.6
+
+[[activity]]
+id = "town-history"
+category = "learn"
+title = "Learn the history of where you live"
+detail = "Why it's there, what it used to be, where the old names come from."
+min = 30
+max = 60
+energy = "low"
+social = "solo"
+cost = "free"
+tags = ["history", "curiosity"]
+quality = 0.55
+
+# create
+
+[[activity]]
+id = "hand-lettering"
+category = "create"
+title = "Hand lettering practice"
+detail = "One quote, written ten times, a little better each time."
+min = 20
+max = 45
+energy = "low"
+social = "solo"
+cost = "cheap"
+tags = ["drawing", "craft"]
+quality = 0.6
+
+[[activity]]
+id = "collage"
+category = "create"
+title = "Magazine collage"
+detail = "Old magazines, scissors, glue, and one theme."
+min = 30
+max = 60
+energy = "low"
+social = "either"
+cost = "free"
+tags = ["craft", "making"]
+quality = 0.55
+
+[[activity]]
+id = "short-poem"
+category = "create"
+title = "Write a short poem"
+detail = "Eight lines about something you saw today."
+min = 10
+max = 30
+energy = "low"
+social = "solo"
+cost = "free"
+tags = ["writing"]
+quality = 0.55
+
+[[activity]]
+id = "friend-playlist"
+category = "create"
+title = "Make a playlist for a friend"
+detail = "Ten songs that remind you of them. Send it with no explanation."
+min = 20
+max = 45
+energy = "low"
+social = "solo"
+cost = "free"
+tags = ["music", "friends"]
+quality = 0.6
+
+[[activity]]
+id = "clay-figurine"
+category = "create"
+title = "Air-dry clay figurine"
+detail = "No kiln needed. Make a tiny animal and paint it tomorrow."
+min = 45
+max = 120
+energy = "low"
+social = "either"
+cost = "cheap"
+tags = ["craft", "making"]
+quality = 0.6
+
+[[activity]]
+id = "crochet-stitch"
+category = "create"
+title = "Learn a crochet stitch"
+detail = "A hook, some yarn and a ten-minute video. A coaster by the end."
+min = 30
+max = 60
+energy = "low"
+social = "solo"
+cost = "cheap"
+tags = ["craft", "skill"]
+quality = 0.55
+
+[[activity]]
+id = "cover-song"
+category = "create"
+title = "Record a cover on your phone"
+detail = "One take, imperfect, kept for yourself."
+min = 30
+max = 90
+energy = "medium"
+social = "solo"
+cost = "free"
+tags = ["music", "making"]
+quality = 0.55
+
+[[activity]]
+id = "stop-motion"
+category = "create"
+title = "Make a 30-second stop-motion film"
+detail = "Toys, a phone on a stack of books, a free app."
+min = 60
+max = 120
+energy = "low"
+social = "either"
+cost = "free"
+tags = ["video", "making"]
+quality = 0.65
+
+[[activity]]
+id = "tshirt-custom"
+category = "create"
+title = "Customise an old T-shirt"
+detail = "Fabric paint, stencils or a simple embroidery."
+min = 30
+max = 90
+energy = "low"
+social = "solo"
+cost = "cheap"
+tags = ["craft", "diy"]
+quality = 0.5
+
+[[activity]]
+id = "blog-post"
+category = "create"
+title = "Write about something you know well"
+detail = "A short guide only you could write. Publish it or not."
+min = 45
+max = 90
+energy = "low"
+social = "solo"
+cost = "free"
+tags = ["writing"]
+quality = 0.55
+
+[[activity]]
+id = "memory-map"
+category = "create"
+title = "Draw your neighbourhood from memory"
+detail = "Then walk it and see what you forgot."
+min = 20
+max = 45
+energy = "low"
+social = "solo"
+cost = "free"
+tags = ["drawing", "memories"]
+quality = 0.55
+
+[[activity]]
+id = "photo-edit"
+category = "create"
+title = "Edit your best photos of the month"
+detail = "Pick five, crop, straighten, print one."
+min = 20
+max = 45
+energy = "low"
+social = "solo"
+cost = "free"
+tags = ["photo"]
+quality = 0.5
+
+[[activity]]
+id = "zine"
+category = "create"
+title = "Make an eight-page zine"
+detail = "One sheet of paper, one fold pattern, any subject."
+min = 30
+max = 90
+energy = "low"
+social = "either"
+cost = "free"
+tags = ["writing", "drawing"]
+quality = 0.6
+
+[[activity]]
+id = "podcast-duo"
+category = "create"
+title = "Record a ten-minute podcast with a friend"
+detail = "One topic you disagree on. Phones are good enough."
+min = 30
+max = 60
+energy = "medium"
+social = "group"
+cost = "free"
+tags = ["writing", "friends"]
+quality = 0.55
+
+[[activity]]
+id = "level-editor"
+category = "create"
+title = "Build a level in a game's editor"
+detail = "Many games ship one. Make a level a friend can't finish."
+min = 45
+max = 120
+energy = "medium"
+social = "solo"
+cost = "free"
+tags = ["gamedev", "games"]
+quality = 0.6
+
+[[activity]]
+id = "morning-pages"
+category = "create"
+title = "Three pages of free writing"
+detail = "Whatever comes, no rereading, no editing."
+min = 15
+max = 30
+energy = "low"
+social = "solo"
+cost = "free"
+tags = ["writing", "journal"]
+quality = 0.55
+
+[[activity]]
+id = "board-game-prototype"
+category = "create"
+title = "Prototype your own board game"
+detail = "Paper, a die and one rule. Playtest it with someone tonight."
+min = 60
+max = 150
+energy = "medium"
+social = "group"
+cost = "free"
+tags = ["games", "making"]
+quality = 0.6
+
+[[activity]]
+id = "cafe-sketching"
+category = "create"
+title = "Sketch people in a café"
+detail = "Quick gestures, two minutes each. Nobody notices."
+min = 30
+max = 60
+energy = "low"
+outdoor = true
+social = "solo"
+cost = "cheap"
+tags = ["drawing", "explore"]
+quality = 0.55
+
+# social
+
+[[activity]]
+id = "coffee-catch-up"
+category = "social"
+title = "Coffee with a friend you haven't seen in a while"
+detail = "Send the message now and suggest a time."
+min = 30
+max = 90
+energy = "low"
+social = "group"
+cost = "cheap"
+tags = ["friends"]
+quality = 0.75
+
+[[activity]]
+id = "walk-and-talk"
+category = "social"
+title = "Walk and talk with a friend"
+detail = "Easier conversations happen side by side."
+min = 30
+max = 90
+energy = "low"
+outdoor = true
+social = "group"
+cost = "free"
+place = "park"
+tags = ["friends", "walk"]
+quality = 0.7
+
+[[activity]]
+id = "potluck"
+category = "social"
+title = "Potluck dinner"
+detail = "Everyone brings one dish from their family."
+min = 90
+max = 180
+energy = "medium"
+social = "group"
+cost = "cheap"
+tags = ["friends", "food"]
+quality = 0.75
+
+[[activity]]
+id = "real-letter"
+category = "social"
+title = "Write a real letter to someone"
+detail = "On paper, by post. It will be kept."
+min = 20
+max = 45
+energy = "low"
+social = "solo"
+cost = "cheap"
+tags = ["writing", "friends"]
+quality = 0.6
+
+[[activity]]
+id = "neighbour-treat"
+category = "social"
+title = "Bring a neighbour something you baked"
+detail = "The easiest way to know who lives next door."
+min = 20
+max = 60
+energy = "low"
+social = "solo"
+cost = "cheap"
+tags = ["community", "baking"]
+quality = 0.6
+
+[[activity]]
+id = "hobby-meetup"
+category = "social"
+title = "Go to a local meetup on a hobby"
+detail = "Board games, coding, running, languages: pick one this week."
+min = 60
+max = 150
+energy = "medium"
+social = "group"
+cost = "free"
+tags = ["community", "discovery"]
+quality = 0.6
+
+[[activity]]
+id = "language-exchange"
+category = "social"
+title = "Language exchange evening"
+detail = "Half the time in your language, half in theirs."
+min = 60
+max = 120
+energy = "medium"
+social = "group"
+cost = "free"
+tags = ["language", "community"]
+quality = 0.6
+
+[[activity]]
+id = "club-tryout"
+category = "social"
+title = "Try a club session"
+detail = "Running club, choir, chess club: most welcome newcomers for free."
+min = 60
+max = 120
+energy = "medium"
+social = "group"
+cost = "free"
+tags = ["community", "discovery"]
+quality = 0.6
+
+[[activity]]
+id = "old-photo-send"
+category = "social"
+title = "Send an old photo to someone in it"
+detail = "Dig one up from five years ago. Watch the reply come in."
+min = 5
+max = 15
+energy = "low"
+social = "solo"
+cost = "free"
+tags = ["friends", "memories"]
+quality = 0.6
+
+[[activity]]
+id = "plan-a-trip"
+category = "social"
+title = "Plan the next trip with friends"
+detail = "Pick a date and a place tonight. Details later."
+min = 45
+max = 90
+energy = "low"
+social = "group"
+cost = "free"
+tags = ["friends"]
+quality = 0.6
+
+[[activity]]
+id = "teach-a-friend"
+category = "social"
+title = "Teach a friend something you know"
+detail = "A recipe, a game, a shortcut. Then ask them to teach you one."
+min = 30
+max = 90
+energy = "medium"
+social = "group"
+cost = "free"
+tags = ["friends", "skill"]
+quality = 0.6
+
+[[activity]]
+id = "community-garden"
+category = "social"
+title = "Help at a community garden"
+detail = "Most welcome a spare pair of hands, no experience needed."
+min = 60
+max = 120
+energy = "medium"
+outdoor = true
+social = "group"
+cost = "free"
+place = "garden"
+tags = ["community", "plants"]
+quality = 0.6
+
+[[activity]]
+id = "watch-party"
+category = "social"
+title = "Online watch party"
+detail = "Same film, same second, one group chat for the jokes."
+min = 90
+max = 180
+energy = "low"
+social = "group"
+cost = "free"
+tags = ["movies", "friends"]
+quality = 0.6
+
+[[activity]]
+id = "board-game-cafe"
+category = "social"
+title = "Board game café"
+detail = "Staff explain the rules. You just pick the box."
+min = 90
+max = 180
+energy = "low"
+social = "group"
+cost = "paid"
+tags = ["boardgame", "friends"]
+quality = 0.7
+
+[[activity]]
+id = "give-blood"
+category = "social"
+title = "Book a blood donation"
+detail = "Under an hour, a snack afterwards, and it helps someone for real."
+min = 45
+max = 90
+energy = "low"
+social = "solo"
+cost = "free"
+tags = ["community"]
+quality = 0.65
+
+[[activity]]
+id = "dance-night"
+category = "social"
+title = "Go dancing"
+detail = "A salsa night, a club or a ceilidh. Beginners welcome at most."
+min = 120
+max = 240
+energy = "high"
+social = "group"
+cost = "paid"
+tags = ["music", "night", "party"]
+quality = 0.6
+
+[[activity]]
+id = "local-gig"
+category = "social"
+title = "See a local band"
+detail = "Small venues, cheap tickets, and you may see them before they're famous."
+min = 90
+max = 180
+energy = "medium"
+social = "group"
+cost = "paid"
+tags = ["music", "night"]
+quality = 0.65
+
+[[activity]]
+id = "video-call-cooking"
+category = "social"
+title = "Cook a family recipe on a video call"
+detail = "Ask a parent or grandparent to guide you step by step."
+min = 45
+max = 90
+energy = "low"
+social = "group"
+cost = "cheap"
+tags = ["family", "cooking"]
+quality = 0.6
+
+[[activity]]
+id = "litter-pick"
+category = "social"
+title = "Litter pick with friends"
+detail = "Gloves, bags, one street or park. Visible results in an hour."
+min = 45
+max = 90
+energy = "medium"
+outdoor = true
+social = "group"
+cost = "free"
+place = "park"
+tags = ["community", "outdoor"]
+quality = 0.55
+
+# food
+
+[[activity]]
+id = "new-cuisine"
+category = "food"
+title = "Cook a dish from a country you've never eaten from"
+detail = "Spin a globe, find its national dish, adapt with what you have."
+min = 45
+max = 90
+energy = "medium"
+social = "either"
+cost = "cheap"
+tags = ["cooking", "discovery"]
+quality = 0.7
+
+[[activity]]
+id = "soup-pot"
+category = "food"
+title = "A big pot of soup for the week"
+detail = "Onion, carrots, whatever is left, stock. Freeze half."
+min = 45
+max = 75
+energy = "low"
+social = "solo"
+cost = "cheap"
+tags = ["cooking", "healthy"]
+quality = 0.6
+
+[[activity]]
+id = "focaccia"
+category = "food"
+title = "No-knead focaccia"
+detail = "Mix tonight, bake tomorrow. Olive oil, salt, rosemary."
+min = 30
+max = 60
+energy = "low"
+social = "either"
+cost = "cheap"
+tags = ["baking"]
+quality = 0.7
+
+[[activity]]
+id = "fresh-pasta"
+category = "food"
+title = "Fresh pasta by hand"
+detail = "Flour and eggs, a rolling pin and patience. Tagliatelle is the easiest."
+min = 60
+max = 90
+energy = "medium"
+social = "either"
+cost = "cheap"
+tags = ["cooking", "skill"]
+quality = 0.7
+
+[[activity]]
+id = "chickpea-curry"
+category = "food"
+title = "Simple chickpea curry"
+detail = "One pan, tinned chickpeas, coconut milk, spices. Rice on the side."
+min = 30
+max = 45
+energy = "low"
+social = "either"
+cost = "cheap"
+tags = ["cooking", "healthy"]
+quality = 0.65
+
+[[activity]]
+id = "fridge-clearout"
+category = "food"
+title = "Fridge clear-out dinner"
+detail = "Everything that needs eating, one pan, a fried egg on top."
+min = 20
+max = 40
+energy = "low"
+social = "solo"
+cost = "free"
+tags = ["cooking", "quick"]
+quality = 0.6
+
+[[activity]]
+id = "sushi-rolls"
+category = "food"
+title = "Make sushi rolls"
+detail = "Rice, nori, cucumber, avocado. Messy the first time, better the third."
+min = 60
+max = 90
+energy = "medium"
+social = "group"
+cost = "cheap"
+tags = ["cooking", "friends"]
+quality = 0.65
+
+[[activity]]
+id = "dumplings"
+category = "food"
+title = "Fold dumplings together"
+detail = "Everyone folds, nobody's are the same. Freeze the extras."
+min = 60
+max = 120
+energy = "low"
+social = "group"
+cost = "cheap"
+tags = ["cooking", "friends"]
+quality = 0.7
+
+[[activity]]
+id = "quick-pickles"
+category = "food"
+title = "A jar of quick pickles"
+detail = "Vinegar, water, sugar, salt over sliced vegetables. Ready tomorrow."
+min = 15
+max = 30
+energy = "low"
+social = "solo"
+cost = "cheap"
+tags = ["cooking", "quick"]
+quality = 0.55
+
+[[activity]]
+id = "salad-bowl"
+category = "food"
+title = "A big colourful salad bowl"
+detail = "Five colours, one grain, one crunch, one good dressing."
+min = 15
+max = 30
+energy = "low"
+social = "solo"
+cost = "cheap"
+tags = ["healthy", "quick"]
+quality = 0.55
+
+[[activity]]
+id = "seasonal-market"
+category = "food"
+title = "Shop the market, cook what's in season"
+detail = "Ask a stallholder what's best this week."
+min = 60
+max = 120
+energy = "low"
+outdoor = true
+social = "either"
+cost = "cheap"
+place = "market"
+tags = ["cooking", "explore"]
+quality = 0.65
+
+[[activity]]
+id = "cookies"
+category = "food"
+title = "Bake a batch of cookies"
+detail = "Brown the butter first. Share half."
+min = 30
+max = 45
+energy = "low"
+social = "either"
+cost = "cheap"
+tags = ["baking"]
+quality = 0.6
+
+[[activity]]
+id = "french-omelette"
+category = "food"
+title = "Master the French omelette"
+detail = "Low heat, constant stirring, no colour. Three eggs, three tries."
+min = 10
+max = 20
+energy = "low"
+social = "solo"
+cost = "cheap"
+tags = ["cooking", "skill"]
+quality = 0.55
+
+[[activity]]
+id = "no-churn-ice-cream"
+category = "food"
+title = "No-churn ice cream"
+detail = "Whipped cream, condensed milk, one flavour. Freeze overnight."
+min = 15
+max = 30
+energy = "low"
+social = "either"
+cost = "cheap"
+tags = ["baking"]
+quality = 0.6
+
+[[activity]]
+id = "slow-brunch"
+category = "food"
+title = "Slow weekend brunch"
+detail = "Eggs, bread, fruit, a second coffee. No clock."
+min = 60
+max = 120
+energy = "low"
+social = "either"
+cost = "cheap"
+tags = ["cooking", "friends"]
+quality = 0.65
+
+[[activity]]
+id = "blind-tasting"
+category = "food"
+title = "Blind tasting with friends"
+detail = "Three chocolates, coffees or juices. Guess the cheapest."
+min = 30
+max = 60
+energy = "low"
+social = "group"
+cost = "cheap"
+tags = ["friends", "drinks"]
+quality = 0.6
+
+[[activity]]
+id = "street-food"
+category = "food"
+title = "Try a street food stall you've never tried"
+detail = "Order whatever the person before you ordered."
+min = 20
+max = 60
+energy = "low"
+outdoor = true
+social = "either"
+cost = "cheap"
+tags = ["restaurant", "discovery"]
+quality = 0.6
+
+[[activity]]
+id = "homemade-burgers"
+category = "food"
+title = "Homemade burgers"
+detail = "Smash the patties thin on a hot pan. Toast the buns."
+min = 40
+max = 60
+energy = "medium"
+social = "group"
+cost = "cheap"
+tags = ["cooking", "friends"]
+quality = 0.65
+
+[[activity]]
+id = "granola"
+category = "food"
+title = "A jar of homemade granola"
+detail = "Oats, honey, nuts, a low oven. Breakfast for two weeks."
+min = 30
+max = 45
+energy = "low"
+social = "solo"
+cost = "cheap"
+tags = ["baking", "healthy"]
+quality = 0.55

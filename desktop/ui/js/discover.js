@@ -67,6 +67,7 @@ const state = {
   pending: [],
   hidden: new Set(), // voided during this session
   shuffled: new Set(), // already shown, skipped by "Other picks"
+  lead: null, // { c, el }: the ticket on top, for the S / N shortcuts and "Other picks"
   shown: [],
   results: null,
   loading: false,
@@ -100,6 +101,7 @@ export function init(root, boot, context) {
   els.evenings = h('div');
   els.week = h('div');
   els.today = h('div');
+  els.root = root;
   root.replaceChildren(els.head, els.context, els.shortcuts, els.free, els.playNow, els.evenings, els.week, els.today, els.cityPrompt, els.rate, els.why, els.results);
   weekStrip(els.week);
   renderToday();
@@ -237,8 +239,8 @@ function renderHead() {
       h(
         'div',
         { class: 'head-actions' },
-        btn({ label: 'Other picks', icon: 'refresh-cw', small: true, onclick: shuffle, title: 'Show other ideas for the same context' }),
-        btn({ label: 'Surprise me', icon: 'shuffle', small: true, onclick: surprise, title: 'A random idea that still fits' }),
+        btn({ label: 'Other picks', icon: 'refresh-cw', small: true, onclick: shuffle, title: 'Show other ideas for the same context (O)' }),
+        btn({ label: 'Surprise me', icon: 'shuffle', small: true, onclick: surprise, title: 'A random idea that still fits (R)' }),
       ),
     ),
   );
@@ -494,6 +496,25 @@ document.addEventListener('pointerdown', (e) => {
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape' && openMenu) closeMenu(true);
 });
+
+// Single-key shortcuts on Discover: S starts the lead ticket, N passes it ("Not this one"),
+// O shows other picks, R draws a surprise. Never while typing, with a modifier, or under a dialog.
+document.addEventListener('keydown', (e) => {
+  if (e.altKey || e.ctrlKey || e.metaKey || e.repeat || e.isComposing) return;
+  if (!els.root || els.root.hidden || document.hidden || openMenu || state.loading) return;
+  if (e.target instanceof Element && e.target.closest('input, textarea, select, [contenteditable], [role="dialog"]')) return;
+  if (document.querySelector('dialog[open], .quiz-backdrop, [aria-modal="true"]')) return;
+  const lead = state.lead?.el?.isConnected ? state.lead : null;
+  const action = {
+    s: lead && (() => start(lead.c, lead.el)),
+    n: lead && (() => voidCoupon(lead.c, lead.el)),
+    o: () => shuffle(),
+    r: () => surprise(),
+  }[e.key.toLowerCase()];
+  if (!action) return;
+  e.preventDefault();
+  action();
+});
 // The menu is placed against the window, so it can't follow a scroll: close it instead.
 document.addEventListener(
   'scroll',
@@ -632,7 +653,7 @@ function select({ name, icon: iconOf, value, options, isOn, pick, multi = false,
 
 // ---------------------------------------------------------------- first launch: where are you?
 
-/** Asked once: the city is only used for the weather, and skipping is fine. */
+/** Asked once: the city is used for the weather (and places nearby, on request); skipping is fine. */
 function renderCityPrompt() {
   if (!els.cityPrompt) return;
   if (!state.setup?.needs_city) {
@@ -764,6 +785,7 @@ function renderLoading() {
 }
 
 function renderResults(res) {
+  state.lead = null;
   if (!res.best) {
     const seenAll = state.shuffled.size > 0 || state.hidden.size > 0;
     fill(
@@ -775,14 +797,19 @@ function renderResults(res) {
           ? 'You have seen every idea for this context.'
           : 'Try more time, a bigger budget, more kinds of ideas, or going outside.',
         actions: seenAll
-          ? [btn({ label: 'Start over', icon: 'refresh-cw', onclick: () => { state.hidden.clear(); runSuggest(); } })]
-          : [],
+          ? [
+              btn({ label: 'Start over', icon: 'refresh-cw', onclick: () => { state.hidden.clear(); runSuggest(); } }),
+              btn({ label: 'Add your own idea', icon: 'pencil', onclick: () => ctx.goto('settings', { focus: 'my-ideas' }) }),
+            ]
+          : [btn({ label: 'Add your own idea', icon: 'pencil', onclick: () => ctx.goto('settings', { focus: 'my-ideas' }) })],
       }),
     );
     return;
   }
   const rest = res.groups.flatMap((g) => g.items);
   state.shown = [res.best, ...rest].map((c) => c.id);
+  const lead = coupon(res.best);
+  state.lead = { c: res.best, el: lead };
   fill(
     els.results,
     res.partial
@@ -793,7 +820,7 @@ function renderResults(res) {
           h('span', {}, 'Steam, YouTube and the weather are still loading. Your picks will refresh by themselves.'),
         )
       : null,
-    coupon(res.best),
+    lead,
     rest.length
       ? [
           h(
@@ -810,8 +837,39 @@ function renderResults(res) {
 }
 
 function shuffle() {
+  // Only the lead ticket counts as passed over: the rest of the book was barely looked at.
+  passed(state.lead?.c);
   state.shown.forEach((id) => state.shuffled.add(id));
   runSuggest({ keepShuffle: true });
+}
+
+/** A light, fading "not now" for this idea (it sinks a little for three weeks). */
+function passed(c) {
+  if (c?.id) api.passIdea(c.id).catch(() => {});
+}
+
+/** "Never suggest this": hidden for good, with an undo right away and in Settings later. */
+async function never(c, onHidden) {
+  try {
+    await api.hideIdea(c.id);
+  } catch (e) {
+    toast(errText(e), 'error');
+    return;
+  }
+  state.hidden.add(c.id);
+  await onHidden();
+  toast('You won’t see this idea again. Settings can bring it back.', 'ok', 7000, {
+    label: 'Undo',
+    onclick: async () => {
+      try {
+        await api.unhideIdea(c.id);
+        state.hidden.delete(c.id);
+        runSuggest({ keepShuffle: true, quiet: true });
+      } catch (e) {
+        toast(errText(e), 'error');
+      }
+    },
+  });
 }
 
 // ---------------------------------------------------------------- the coupon
@@ -872,8 +930,11 @@ function coupon(c, { label = 'Admit one' } = {}) {
         h(
           'div',
           { class: 'coupon-actions' },
-          btn({ label: 'Start', icon: 'play', kind: 'primary', onclick: () => start(c, el) }),
+          btn({ label: 'Start', icon: 'play', kind: 'primary', onclick: () => start(c, el), title: 'Start (S)' }),
           link ? btn({ label: link.text, icon: link.icon, onclick: () => openLink(c.link) }) : null,
+          c.place
+            ? btn({ label: 'Nearby', icon: 'map-pin', onclick: (e) => toggleNearby(c, e.currentTarget.closest('.coupon-actions')), title: 'Real places near your city (OpenStreetMap)' })
+            : null,
           state.together?.friends().length && invitable(c)
             ? btn({
                 label: 'Invite',
@@ -906,7 +967,8 @@ function coupon(c, { label = 'Admit one' } = {}) {
               })
             : null,
           btn({ label: 'Share as an image', icon: 'send', square: true, onclick: () => shareTicket(c) }),
-          btn({ label: 'Not this one', icon: 'x', kind: 'quiet', onclick: () => voidCoupon(c, el) }),
+          btn({ label: 'Not this one', icon: 'x', kind: 'quiet', onclick: () => voidCoupon(c, el), title: 'Not now: it comes back less often (N)' }),
+          btn({ label: 'Never suggest this', icon: 'ban', kind: 'quiet', square: true, onclick: () => never(c, () => tearCoupon(el)) }),
         ),
       ),
     ),
@@ -924,6 +986,50 @@ function coupon(c, { label = 'Admit one' } = {}) {
     ),
   );
   return el;
+}
+
+/** "Nearby": the closest real places for this idea, under the ticket's buttons. Asked only on
+    click (OpenStreetMap, with the city's coordinates); a second click closes it. */
+async function toggleNearby(c, actions) {
+  const open = actions.nextElementSibling;
+  if (open?.classList.contains('nearby-panel')) return open.remove();
+  const panel = h('div', { class: 'invite-panel nearby-panel', 'aria-live': 'polite' }, h('p', { class: 'hint' }, icon('loader-circle', 'spin'), ' Looking around your city…'));
+  actions.after(panel);
+  let res;
+  try {
+    res = await api.nearbyPlaces(c.id);
+  } catch (e) {
+    fill(panel, h('p', { class: 'hint' }, errText(e)));
+    return;
+  }
+  if (!res.city) {
+    fill(
+      panel,
+      h('p', {}, 'Set your city to see real places nearby.'),
+      h('div', {}, btn({ label: 'Set my city', icon: 'map-pin', small: true, onclick: () => ctx.goto('settings', { focus: 'location' }) })),
+    );
+    return;
+  }
+  const km = (m) => (m < 1000 ? `${Math.round(m / 10) * 10} m` : `${(m / 1000).toFixed(1)} km`);
+  fill(
+    panel,
+    res.places.length
+      ? h(
+          'ul',
+          { class: 'nearby-list' },
+          res.places.map((p) =>
+            h(
+              'li',
+              {},
+              h('span', { class: 'nearby-name', translate: p.named ? 'no' : null }, p.name),
+              h('span', { class: 'nearby-dist figures' }, km(p.distance_m)),
+              btn({ label: `Open the map: ${p.name}`, icon: 'external-link', small: true, square: true, onclick: () => openLink(p.link) }),
+            ),
+          ),
+        )
+      : h('p', { class: 'hint' }, 'Nothing found within 8 km of your city.'),
+    h('p', { class: 'nearby-credit' }, 'Map data © OpenStreetMap contributors'),
+  );
 }
 
 function fareBox(label, value) {
@@ -962,10 +1068,17 @@ function stamp(el, kind) {
   el.append(h('div', { class: `stamp ${kind}`, 'aria-hidden': 'true' }, kind === 'void' ? 'Void' : 'Validated'));
 }
 
-/** "Not this one": stamp VOID, tear the coupon off, rank again without it. */
+/** "Not this one": stamp VOID, tear the coupon off, rank again without it. The idea is passed
+    over: it sinks a little for a while instead of coming back as the lead next time. */
 async function voidCoupon(c, el) {
+  passed(c);
   state.hidden.add(c.id);
   askWhy(c);
+  await tearCoupon(el);
+}
+
+async function tearCoupon(el) {
+  state.lead = null;
   stamp(el, 'void');
   if (!reducedMotion()) {
     await wait(380);
@@ -1031,6 +1144,7 @@ export async function startIdea(c) {
 async function start(c, el) {
   try {
     await api.pick(c.id);
+    if (el && state.lead?.el === el) state.lead = null; // started: not "passed over", and S won't repeat it
     api.syncPoints().catch(() => {}); // ranked points (signed in only; quiet otherwise)
     // The week is now active: the "last week" strip goes, the streak chip may appear.
     if (els.week) weekStrip(els.week);
@@ -1059,6 +1173,10 @@ async function openLink(url) {
 
 function leaf(c, i) {
   const link = c.link ? linkLabel(c) : null;
+  const removeLeaf = () => {
+    el.classList.add('voided');
+    setTimeout(() => el.remove(), reducedMotion() ? 0 : 260);
+  };
   const meta = [span(c), FARE[c.cost] ?? c.cost, c.outdoor ? 'Outside' : null, c.social === 'group' ? 'Group' : null];
   const el = h(
     'article',
@@ -1077,17 +1195,25 @@ function leaf(c, i) {
         btn({ label: 'Start', icon: 'play', small: true, onclick: () => start(c, null) }),
         link ? btn({ label: link.text, icon: link.icon, small: true, square: true, onclick: () => openLink(c.link) }) : null,
         btn({
-          label: `Not for me: ${c.title}`,
+          label: `Not now: ${c.title}`,
           icon: 'x',
           kind: 'quiet',
           small: true,
           square: true,
           onclick: () => {
+            passed(c);
             state.hidden.add(c.id);
             askWhy(c);
-            el.classList.add('voided');
-            setTimeout(() => el.remove(), reducedMotion() ? 0 : 260);
+            removeLeaf();
           },
+        }),
+        btn({
+          label: `Never suggest: ${c.title}`,
+          icon: 'ban',
+          kind: 'quiet',
+          small: true,
+          square: true,
+          onclick: () => never(c, removeLeaf),
         }),
       ),
     ),
@@ -1121,13 +1247,16 @@ async function surprise() {
     const started = performance.now();
     const s = await api.surprise([...state.hidden]);
     await wait(Math.max(0, 350 - (performance.now() - started)));
+    state.lead = null;
     if (!s.pick) {
       fill(els.results, emptyState({ icon: 'shuffle', title: 'Nothing left to draw', text: 'Every idea has been voided this session.' }));
       return;
     }
+    const lead = coupon(s.pick, { label: 'Surprise' });
+    state.lead = { c: s.pick, el: lead };
     fill(
       els.results,
-      coupon(s.pick, { label: 'Surprise' }),
+      lead,
       s.alternatives?.length
         ? [
             h('div', { class: 'section-head' }, h('h2', { class: 'section-title' }, 'Or maybe')),

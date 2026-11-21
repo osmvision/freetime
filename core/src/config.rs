@@ -38,6 +38,8 @@ pub struct Config {
     pub quiet_hours: bool,
     /// After a 👍: "ask" to share it with friends, "always" share it, or "never".
     pub share_activity: String,
+    /// Ideas the user typed in Settings (see `mine`).
+    pub my_ideas: Vec<crate::mine::MyIdea>,
 }
 
 /// The chat assistant (needs a MISTRAL_API_KEY, see `keys`).
@@ -87,6 +89,7 @@ impl Default for Config {
             notify_free_together: true,
             quiet_hours: true,
             share_activity: "ask".to_string(),
+            my_ideas: Vec::new(),
         }
     }
 }

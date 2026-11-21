@@ -1,7 +1,8 @@
 //! Built-in ideas that work offline. Edit `data/activities.toml` to add your own.
 
-use crate::model::*;
+use crate::{model::*, places::PlaceKind};
 use serde::Deserialize;
+use std::collections::HashMap;
 
 const DATA: &str = include_str!("../data/activities.toml");
 
@@ -29,15 +30,33 @@ struct Activity {
     link: Option<String>,
     #[serde(default = "default_quality")]
     quality: f64,
+    /// Where it happens, to look up real places nearby (OpenStreetMap, on request only).
+    #[serde(default)]
+    place: Option<PlaceKind>,
 }
 
 fn default_quality() -> f64 {
     0.6
 }
 
+fn file() -> File {
+    toml::from_str(DATA).expect("built-in catalog is valid (checked by tests)")
+}
+
+/// The kind of place each built-in idea happens in, by suggestion id ("idea:swim" -> pool).
+pub fn places() -> HashMap<String, PlaceKind> {
+    file().activity.into_iter().filter_map(|a| a.place.map(|p| (format!("idea:{}", a.id), p))).collect()
+}
+
+/// Same, for one idea, without parsing the catalog again (called for every card shown).
+pub fn place_of(id: &str) -> Option<PlaceKind> {
+    static PLACES: std::sync::OnceLock<HashMap<String, PlaceKind>> = std::sync::OnceLock::new();
+    PLACES.get_or_init(places).get(id).copied()
+}
+
 pub fn load() -> Vec<Suggestion> {
-    let file: File = toml::from_str(DATA).expect("built-in catalog is valid (checked by tests)");
-    file.activity
+    file()
+        .activity
         .into_iter()
         .map(|a| Suggestion {
             id: format!("idea:{}", a.id),
@@ -66,7 +85,7 @@ mod tests {
     #[test]
     fn catalog_is_valid() {
         let items = load();
-        assert!(items.len() > 40);
+        assert!(items.len() >= 200, "{} ideas", items.len());
         let mut ids = HashSet::new();
         for s in &items {
             assert!(ids.insert(&s.id), "duplicate id {}", s.id);
@@ -74,7 +93,11 @@ mod tests {
             assert!((0.0..=1.0).contains(&s.quality), "{}: quality out of range", s.id);
         }
         for c in Category::ALL.iter().filter(|c| **c != Category::Video) {
-            assert!(items.iter().any(|s| s.category == *c), "no built-in idea for {c:?}");
+            let n = items.iter().filter(|s| s.category == *c).count();
+            assert!(n >= 25, "only {n} built-in ideas for {c:?}: keep the kinds balanced");
         }
+        let places = places();
+        assert!(places.len() >= 30);
+        assert!(places.keys().all(|id| items.iter().any(|s| &s.id == id)));
     }
 }

@@ -88,15 +88,27 @@ export const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 export const capitalize = (s) => (s ? s[0].toUpperCase() + s.slice(1) : s);
 export const reducedMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-export function toast(text, kind = 'info', ms = 3400) {
+/** A short message. `action` ({ label, onclick }) adds one button, like "Undo"; the toast closes
+    when it's used. */
+export function toast(text, kind = 'info', ms = 3400, action = null) {
   const box = document.getElementById('toasts');
   const name = kind === 'error' ? 'triangle-alert' : kind === 'ok' ? 'check' : 'info';
-  const el = h('div', { class: `toast ${kind}` }, icon(name), h('span', {}, text));
-  box.append(el);
-  setTimeout(() => {
+  const leave = () => {
+    if (el.classList.contains('leaving')) return;
     el.classList.add('leaving');
     setTimeout(() => el.remove(), 260);
-  }, ms);
+  };
+  const el = h(
+    'div',
+    { class: `toast ${kind}` },
+    icon(name),
+    h('span', {}, text),
+    action
+      ? h('button', { type: 'button', class: 'toast-action', onclick: () => { leave(); action.onclick(); } }, action.label)
+      : null,
+  );
+  box.append(el);
+  setTimeout(leave, ms);
 }
 
 export function pageHead(title, subtitle, aside = null) {

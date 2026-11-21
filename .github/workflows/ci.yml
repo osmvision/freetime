@@ -25,9 +25,9 @@ jobs:
         working-directory: supabase/tests
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
-          node-version: 22
+          node-version: 26
       - run: npm ci
       - run: npm test
 
