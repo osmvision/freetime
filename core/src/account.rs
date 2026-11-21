@@ -634,13 +634,20 @@ impl Client {
     /// (supabase/functions/games/handler.js). The games Edge Function checks it with the rules.
     pub fn game_action(&self, s: &Session, request: &Value) -> Result<Value> {
         let action = request.get("action").and_then(Value::as_str).unwrap_or("");
-        if !matches!(action, "start" | "move") {
+        if !matches!(action, "start" | "move" | "flag") {
             bail!("unknown game action");
         }
         if request.to_string().len() > 4000 {
             bail!("that move is too big");
         }
         self.call("POST", "/functions/v1/games", Some(&s.access_token), Some(request), None)
+    }
+
+    /// Notes that you have this game open, and says how many seconds ago the other player had it
+    /// open (`other_seconds`, null if never): "Sam is here" in a live game.
+    pub fn match_here(&self, s: &Session, id: &str) -> Result<Value> {
+        ensure_uuid(id)?;
+        self.call("POST", "/rest/v1/rpc/match_here", Some(&s.access_token), Some(&json!({ "p_match": id })), None)
     }
 
     /// Your games: your turn first, then waiting, then finished (last 30 days).

@@ -783,6 +783,14 @@ export const exact = {
   'Giant tic-tac-toe': 'Morpion géant',
   'Draughts': 'Dames',
   'Ultimate tic-tac-toe': 'Morpion ultime',
+  // live games
+  'is here': 'est là',
+  'is away': 'n’est pas là',
+  'Your time ran out': 'Ton temps est écoulé',
+  'Their time ran out': 'Son temps est écoulé',
+  'Clock': 'Pendule',
+  'Turn by turn': 'Chacun son tour',
+  'Live': 'En direct',
   // variants
   'Size': 'Taille',
   'Opening': 'Ouverture',
@@ -1362,6 +1370,8 @@ export const patterns = [
   ['{0}’s card', 'Carte de {0}'],
   ['{n0}/{n1} today', '{0}/{1} aujourd’hui'],
   ['{n0} days in a row', '{0} jours de suite'],
+  ['Their clock: {0}', 'Son temps : {0}'],
+  ['Your clock: {0}', 'Ton temps : {0}'],
   // the new boards, read by screen readers
   ['Grid {n0}, square {n1}, cross', 'Grille {0}, case {1}, croix'],
   ['Grid {n0}, square {n1}, circle', 'Grille {0}, case {1}, rond'],

@@ -152,6 +152,7 @@ function statusLine(state, me, otherName, thinking) {
   if (state.winner !== null) {
     const text = state.winner === 'draw' ? 'Draw!' : state.winner === me ? 'You won!' : otherName ? null : 'The computer won';
     parts.push(h('strong', { class: `game-result ${state.winner === me ? 'won' : state.winner === 'draw' ? 'draw' : 'lost'}` }, text ?? h('span', {}, h('span', { translate: 'no' }, otherName), ' ', h('span', {}, 'won'))));
+    if (state.timeout === 0 || state.timeout === 1) parts.push(h('span', { class: 'game-hint' }, state.timeout === me ? 'Your time ran out' : 'Their time ran out'));
   } else if (state.game === 'gomoku' && state.phase === 'opening' && state.turn === me) {
     parts.push(h('strong', { class: 'game-your-turn' }, h('span', {}, state.placed === 1 ? 'Opening: place one of their stones' : 'Opening: place one of your stones'), ' ', h('span', { class: 'figures' }, `${state.placed + 1}/3`)));
   } else if (state.game === 'gomoku' && state.phase === 'choose' && state.turn === me) {
@@ -188,6 +189,44 @@ const OPTION_LABELS = {
   swap: { name: 'Opening', value: (v) => (v ? 'Swap' : 'Classic') },
   salvo: { name: 'Shots', value: (v) => (v ? 'Salvo' : 'One a turn') },
 };
+
+// ---------------------------------------------------------------- live games
+
+/** The clocks a live game may have, in seconds (the games server checks them; none for Torpedoes). */
+export const CLOCKS = [180, 300, 600];
+const CLOCK_KEY = 'freetime.play.clock';
+
+export function savedClock(game) {
+  if (game === 'torpedoes') return null;
+  const v = store.get(CLOCK_KEY);
+  return CLOCKS.includes(v) ? v : null;
+}
+
+/** "Turn by turn" or a live game with a clock of 3, 5 or 10 minutes each. */
+export function clockPicker(game, current, onChange) {
+  if (game === 'torpedoes') return null;
+  return h(
+    'div',
+    { class: 'seg small', role: 'radiogroup', 'aria-label': 'Clock' },
+    [null, ...CLOCKS].map((v) =>
+      h(
+        'button',
+        {
+          type: 'button',
+          role: 'radio',
+          class: 'seg-btn',
+          'aria-checked': String(current === v),
+          onclick: () => {
+            if (current === v) return;
+            store.set(CLOCK_KEY, v);
+            onChange(v);
+          },
+        },
+        v ? `${v / 60} min` : 'Turn by turn',
+      ),
+    ),
+  );
+}
 
 /** The variant last chosen for a game (null for a game without any). */
 export function savedOptions(game) {
@@ -336,11 +375,11 @@ export function playComputer(game) {
 // ---------------------------------------------------------------- against a friend
 
 /** Starts a game with a friend (Torpedoes: place your ships first), then opens it. */
-export async function challenge(game, friend, onChange = () => {}, options = savedOptions(game)) {
+export async function challenge(game, friend, onChange = () => {}, options = savedOptions(game), clock = null) {
   const start = async (fleet) => {
     let r;
     try {
-      r = await api.gameAction({ action: 'start', game, opponent: friend.user_id, fleet, ...(options ? { options } : {}) });
+      r = await api.gameAction({ action: 'start', game, opponent: friend.user_id, fleet, ...(options ? { options } : {}), ...(clock ? { clock } : {}) });
     } catch (e) {
       toast(errText(e), 'error', 6000);
       return false;
@@ -372,8 +411,85 @@ export function playOnline(match, onChange = () => {}) {
   const name = m.other.display_name;
   const ui = frame(m.game, h('span', { translate: 'no' }, name), () => {
     document.removeEventListener('matches-changed', reload);
+    clearInterval(tick);
+    clearInterval(presence);
     onChange();
   });
+
+  // ---- live: is the other player here, and the clocks (the server keeps the time)
+  const live = h('div', { class: 'game-live' });
+  let here = null; // seconds since the other player last had the game open, or null
+  let flagging = false;
+  const isOver = () => Boolean(m.outcome);
+  const clockLeft = (p) => {
+    const c = m.state.clock;
+    let left = c.left[p];
+    if (!isOver() && c.since != null && c.moved?.[p] && m.state.turn === p) left -= Date.now() - c.since;
+    return Math.max(0, left);
+  };
+  const clockText = (ms) => {
+    const secs = Math.ceil(ms / 1000);
+    return `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}`;
+  };
+  function drawLive() {
+    const present = !isOver() && here !== null && here <= 25;
+    // Whether they're here: a dot by their name (said in words for screen readers).
+    const them = h(
+      'span',
+      { class: `game-presence${present ? ' here' : ''}`, title: present ? 'is here' : 'is away' },
+      h('span', { class: 'presence-dot', 'aria-hidden': 'true' }),
+      h('span', { translate: 'no' }, name),
+      h('span', { class: 'visually-hidden' }, ' ', present ? 'is here' : 'is away'),
+    );
+    const c = m.state.clock;
+    if (!c) {
+      live.replaceChildren(...(isOver() ? [] : [them]));
+      live.hidden = isOver();
+      return;
+    }
+    const chip = (p, who, label) => {
+      const left = clockLeft(p);
+      const running = !isOver() && m.state.turn === p && c.moved?.[p];
+      return h(
+        'span',
+        { class: `game-clock${running ? ' running' : ''}${left < 20000 ? ' low' : ''}`, role: 'timer', 'aria-label': `${label}: ${clockText(left)}` },
+        who,
+        h('span', { class: 'figures' }, clockText(left)),
+      );
+    };
+    live.replaceChildren(chip(1 - m.me, them, 'Their clock'), chip(m.me, h('span', {}, 'You'), 'Your clock'));
+    live.hidden = false;
+  }
+  // Someone's time ran out: ask the server to call it (it checks; too early just waits a bit).
+  async function flagIfOut() {
+    const c = m.state.clock;
+    if (!c || isOver() || flagging || m.state.turn === null || !c.moved?.[m.state.turn] || clockLeft(m.state.turn) > 0) return;
+    flagging = true;
+    try {
+      const r = await api.gameAction({ action: 'flag', match: m.id });
+      m = { ...m, state: r.state, version: r.version, outcome: r.state.winner === m.me ? 'won' : 'lost' };
+      draw();
+    } catch {
+      await reload();
+    }
+    setTimeout(() => (flagging = false), 1500);
+  }
+  const tick = setInterval(() => {
+    if (!m.state.clock || isOver()) return;
+    drawLive();
+    flagIfOut();
+  }, 250);
+  async function checkPresence() {
+    if (isOver()) return;
+    try {
+      here = (await api.matchHere(m.id))?.other_seconds ?? null;
+    } catch {
+      here = null;
+    }
+    drawLive();
+  }
+  const presence = setInterval(checkPresence, 10000);
+  checkPresence();
 
   async function reload() {
     try {
@@ -430,12 +546,14 @@ export function playOnline(match, onChange = () => {}) {
       parts.splice(0, 1, h('strong', { class: 'game-result lost' }, 'You resigned'));
     }
     ui.status.replaceChildren(...parts);
-    const myTurn = !over && s.turn === m.me && !busy;
+    const myTurn = !over && s.turn === m.me && !busy && !(s.clock && s.clock.moved?.[m.me] && clockLeft(m.me) === 0);
     const placing = s.game === 'torpedoes' && s.phase === 'setup' && s.turn === m.me && !s.ready[m.me] && !over;
     const finished = ['won', 'lost', 'draw'].includes(m.outcome);
     if (finished && !endBox) endBox = gameEnd(m, name);
     if (finished && !idea) idea = ideaLine(m.game, ui.close);
+    drawLive();
     ui.area.replaceChildren(
+      live,
       placing ? fleetEditor({ randomFleet, onReady: (fleet) => send({ fleet }) }) : board(s, { me: m.me, active: myTurn, onMove: send, secret: m.my_secret }),
       ...(finished ? [endBox, idea] : []),
     );
@@ -475,7 +593,7 @@ export function playOnline(match, onChange = () => {}) {
 /** Starts the same game again with the same friend, in one click. */
 function rematch(m, name, close, onChange) {
   close();
-  challenge(m.game, { user_id: m.other.id, display_name: name }, onChange, m.state.options ?? null);
+  challenge(m.game, { user_id: m.other.id, display_name: name }, onChange, m.state.options ?? null, m.state.clock ? m.state.clock.limit / 1000 : null);
 }
 
 const POINTS = { won: 3, draw: 1, lost: 0 };

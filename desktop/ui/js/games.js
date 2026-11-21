@@ -9,7 +9,7 @@ import { btn, emptyState, errText, fill, h, icon, pageHead, toast } from './dom.
 import { openQuiz, quizBanner, quizCard, setDuelDot } from './quiz.js';
 import { renderGameRanking } from './game-ranking.js';
 import { renderPuzzles } from './puzzles/screen.js';
-import { GAME_INFO, challenge, optionsPicker, playComputer, playOnline, savedOptions } from './play/screen.js';
+import { GAME_INFO, challenge, clockPicker, optionsPicker, playComputer, playOnline, savedClock, savedOptions } from './play/screen.js';
 import { board } from './play/boards.js';
 import { newGame, play } from './play/rules.js';
 
@@ -93,12 +93,20 @@ function renderGames(box, ctx, reloadMatches) {
       return;
     }
     let options = savedOptions(id);
-    const variant = () => optionsPicker(id, options, (o) => {
-      options = o;
-      picker.replaceChildren(variant());
-    });
-    const picker = h('div', { class: 'pick-options' }, variant());
-    pickFriend(ctx, GAME_INFO[id].name, (f) => challenge(id, f, reloadMatches, options), options ? picker : null);
+    let clock = savedClock(id);
+    // A variant, and turn by turn or live with a clock.
+    const controls = () => [
+      optionsPicker(id, options, (o) => {
+        options = o;
+        picker.replaceChildren(...controls());
+      }),
+      clockPicker(id, clock, (c) => {
+        clock = c;
+        picker.replaceChildren(...controls());
+      }),
+    ].filter(Boolean);
+    const picker = h('div', { class: 'pick-options' }, controls());
+    pickFriend(ctx, GAME_INFO[id].name, (f) => challenge(id, f, reloadMatches, options, clock), picker.childNodes.length ? picker : null);
   };
   fill(
     box,
@@ -257,7 +265,7 @@ function matchRow(m, reload) {
       'div',
       { class: 'duel-main' },
       h('div', { class: 'duel-who' }, h('strong', { translate: 'no' }, m.other.display_name), ' ', line),
-      h('div', { class: 'match-game' }, icon(info.icon), h('span', {}, info.name)),
+      h('div', { class: 'match-game' }, icon(info.icon), h('span', {}, info.name), m.state?.clock ? h('span', { class: 'match-live' }, icon('timer'), h('span', {}, 'Live')) : null),
     ),
     side,
     h(
