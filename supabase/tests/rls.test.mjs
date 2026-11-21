@@ -1382,6 +1382,23 @@ test('games: only the Edge Function (service role) writes games; players only re
   });
 });
 
+test('games: the classics (reversi, awalé, ultimate) start, play and rank like the others', async () => {
+  await withPeople(async ({ step }) => {
+    await befriend(ALICE, BOB);
+    for (const game of ['reversi', 'awale', 'ultimate']) {
+      const start = await games(ALICE, { action: 'start', game, opponent: BOB }, 0);
+      assert.ok(start.id, `${game} starts`);
+      const first = { reversi: { cell: 19 }, awale: { pit: 2 }, ultimate: { cell: 40 } }[game];
+      const r = await games(ALICE, { action: 'move', match: start.id, version: 0, move: first });
+      assert.ok(r.state, `${game}: a move is saved`);
+    }
+    await step(ALICE, async (q) => {
+      assert.ok((await q.one("select public.head_to_head($1, 'ultimate') as r", [BOB])).r);
+      assert.ok((await q.one("select public.game_leaderboard('awale', 'friends') as b")).b);
+    });
+  });
+});
+
 test('games: a whole game of four in a row, checked move by move', async () => {
   await withPeople(async ({ step }) => {
     assert.equal((await games(ALICE, { action: 'start', game: 'four', opponent: BOB })).code, 'not_found', 'friends only');

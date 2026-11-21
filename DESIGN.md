@@ -170,6 +170,7 @@ VOID (jet red) and VALIDATED (carbon purple), 5px border, rotated -11°, pressed
 - **Game window:** one shared frame (`ui/js/game-window.js`): a navy coupon head (icon, name, then who or which number in figures, 44px head buttons), the status line, the board, the rule, the buttons. "Your turn" is a lavender band on the status line.
 - **Two-player tiles:** each tile shows a small game under way, drawn by the game's own board (not an icon), on a lavender stub with a dashed perforation, then the name and rule. Both actions are outlined: the page's one red is the quiz.
 - **Games of the day:** mini tickets two by two (Path, Zones, Guess the activity, Problem of the day), the number in figures, the play action outlined.
+- **Boards keep their material:** wood for draughts, chess and awalé, navy for Four in a row, Reversi and Ultimate tic-tac-toe, paper for Giant tic-tac-toe and Dots and boxes; where you may play is a small ring or a lavender grid, never a colour of its own.
 - **Marks are drawn:** crosses, rings, dots and checks are Lucide icons, never unicode glyphs.
 - **Motion:** a move slides, drops or pops once (`ui/js/play/fx.js`), under 300ms; nothing moves under reduced motion.
 

@@ -650,7 +650,7 @@ impl Client {
 
     /// The completed multiplayer results for one game, ranked by points.
     pub fn game_leaderboard(&self, s: &Session, game: &str, scope: &str) -> Result<Value> {
-        if !matches!(game, "four" | "gomoku" | "draughts" | "dots" | "torpedoes" | "chess" | "quiz-duel")
+        if !matches!(game, "four" | "gomoku" | "draughts" | "dots" | "torpedoes" | "chess" | "reversi" | "awale" | "ultimate" | "quiz-duel")
             || !matches!(scope, "friends" | "global")
         {
             bail!("unknown game leaderboard");
@@ -688,7 +688,7 @@ impl Client {
     /// or all of them.
     pub fn head_to_head(&self, s: &Session, other: &str, game: Option<&str>) -> Result<Value> {
         ensure_uuid(other)?;
-        if game.is_some_and(|g| !matches!(g, "four" | "gomoku" | "draughts" | "dots" | "torpedoes" | "chess")) {
+        if game.is_some_and(|g| !matches!(g, "four" | "gomoku" | "draughts" | "dots" | "torpedoes" | "chess" | "reversi" | "awale" | "ultimate")) {
             bail!("unknown game");
         }
         self.call("POST", "/rest/v1/rpc/head_to_head", Some(&s.access_token), Some(&json!({ "p_other": other, "p_game": game })), None)

@@ -426,3 +426,105 @@ test('chess computer opponent: hard answers in about a second, even in a crowded
   assert.ok(took < 2500, `took ${took} ms`);
   play(busy, 0, m);
 });
+
+// ---------------------------------------------------------------- reversi, awalé, ultimate
+
+test('reversi: four opening moves, lines turn over, a blocked player is skipped, most discs wins', () => {
+  const s = newGame('reversi', 0);
+  assert.deepEqual(legalMoves(s, 0).map((m) => m.cell).sort((a, b) => a - b), [19, 26, 37, 44]);
+  illegal(() => play(s, 0, { cell: 0 }), /trap/);
+  illegal(() => play(s, 0, { cell: 27 }), /trap/);
+  const next = play(s, 0, { cell: 19 }).state;
+  assert.equal(next.board[27], 0, 'the trapped disc turned');
+  assert.deepEqual(next.flipped, [27]);
+  assert.deepEqual(scores(next), [4, 1]);
+  // Player 1 has no move left but 0 does: 0 plays again.
+  const board = Array(64).fill(-1);
+  board[0] = 0;
+  board[1] = 1;
+  board[3] = 1;
+  board[4] = 0;
+  board[10] = 0;
+  const blocked = play({ ...newGame('reversi', 0), board }, 0, { cell: 2 }).state;
+  assert.equal(blocked.turn, null, 'nobody can move: the game ends');
+  assert.equal(blocked.winner, 0);
+  assert.deepEqual(scores(blocked), [6, 0]);
+});
+
+test('awalé: sowing anticlockwise, captures of 2 and 3 in a row, no grand slam, feeding', () => {
+  let s = newGame('awale', 0);
+  illegal(() => play(s, 0, { pit: 7 }), /your pits/);
+  s = play(s, 0, { pit: 5 }).state;
+  assert.deepEqual(s.pits, [4, 4, 4, 4, 4, 0, 5, 5, 5, 5, 4, 4]);
+  // The last seed makes 3, the pit before it 2: both captured.
+  let pits = [0, 0, 0, 0, 0, 2, 1, 2, 0, 0, 0, 1];
+  let r = play({ ...newGame('awale', 0), pits }, 0, { pit: 5 }).state;
+  assert.deepEqual(r.last.captured, [7, 6], 'the 2 just before the last pit too');
+  assert.equal(r.stores[0], 5);
+  // Taking every seed they have captures nothing.
+  pits = [0, 0, 0, 0, 0, 2, 1, 1, 0, 0, 0, 0];
+  r = play({ ...newGame('awale', 0), pits, stores: [10, 10] }, 0, { pit: 5 }).state;
+  assert.deepEqual(r.last.captured, []);
+  // They have nothing: you must give them some.
+  pits = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0];
+  assert.deepEqual(legalMoves({ ...newGame('awale', 0), pits }, 0), [{ pit: 5 }]);
+  illegal(() => play({ ...newGame('awale', 0), pits }, 0, { pit: 0 }), /give them some/);
+  // Twelve seeds or more skip the pit they came from.
+  pits = Array(12).fill(0);
+  pits[0] = 12;
+  pits[6] = 1;
+  r = play({ ...newGame('awale', 0), pits }, 0, { pit: 0 }).state;
+  assert.equal(r.pits[0], 0);
+  assert.equal(r.pits[1], 2);
+});
+
+test('awalé: the game ends past 24 seeds, or when nobody can move (each keeps their side)', () => {
+  const pits = [0, 0, 0, 0, 0, 1, 1, 0, 0, 1, 0, 0];
+  const won = play({ ...newGame('awale', 0), pits, stores: [23, 22] }, 0, { pit: 5 }).state;
+  assert.equal(won.stores[0], 25);
+  assert.equal(won.winner, 0);
+  // Player 0 gives away their last seed, and player 1 can't give one back: each keeps their side.
+  const stuck = play({ ...newGame('awale', 0), pits: [0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0], stores: [20, 25] }, 0, { pit: 5 }).state;
+  assert.deepEqual(stuck.stores, [20, 26]);
+  assert.equal(stuck.winner, 1);
+  assert.ok(stuck.pits.every((n) => n === 0));
+});
+
+test('ultimate tic-tac-toe: sent to the matching grid, free play when it is decided, three grids win', () => {
+  let s = newGame('ultimate', 0);
+  assert.equal(legalMoves(s, 0).length, 81);
+  s = play(s, 0, { cell: 4 }).state; // grid 0, square 4: player 1 goes to grid 4
+  assert.equal(s.next, 4);
+  assert.ok(legalMoves(s, 1).every((m) => Math.floor(m.cell / 9) === 4));
+  illegal(() => play(s, 1, { cell: 0 }), /grid you were sent/);
+  // Player 0 wins grid 0 (squares 0, 4, 8), which sends player 1 to grid 8.
+  const start = { ...newGame('ultimate', 0), cells: Array(81).fill(-1), next: 0 };
+  start.cells[0] = start.cells[4] = 0;
+  s = play(start, 0, { cell: 8 }).state;
+  assert.equal(s.grids[0], 0);
+  assert.equal(s.next, 8);
+  // Square 0 of grid 8 sends player 0 to the decided grid 0: anywhere open instead.
+  const free = play(s, 1, { cell: 72 }).state;
+  assert.equal(free.next, -1);
+  assert.equal(legalMoves(free, 0).length, 81 - 9 - 1 - 0);
+  // Three grids in a row win the game.
+  const cells = Array(81).fill(-1);
+  const grids = [0, 0, -1, 1, 1, -1, -1, -1, -1];
+  const near = { ...newGame('ultimate', 0), cells, grids, next: 2 };
+  for (const k of [18, 19]) near.cells[k] = 0;
+  const win = play(near, 0, { cell: 20 }).state;
+  assert.equal(win.grids[2], 0);
+  assert.equal(win.winner, 0);
+  assert.deepEqual(win.line, [0, 1, 2]);
+});
+
+test('reversi, awalé, ultimate: the computer only plays legal moves and finishes games', () => {
+  for (const game of ['reversi', 'awale', 'ultimate']) {
+    for (const levels of [[1, 2], [2, 1]]) {
+      let s = newGame(game, 0);
+      while (s.winner === null && s.plies < 300) s = play(s, s.turn, computerMove(s, s.turn, levels[s.turn])).state;
+      assert.notEqual(s.winner, null, `${game} ends`);
+      assert.ok(JSON.stringify(s).length < 16000, `${game}: the state stays small`);
+    }
+  }
+});

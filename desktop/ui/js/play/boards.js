@@ -20,6 +20,12 @@ export function board(state, opts) {
       return dotsBoard(state, opts);
     case 'torpedoes':
       return torpedoBoards(state, opts);
+    case 'reversi':
+      return reversiBoard(state, opts);
+    case 'awale':
+      return awaleBoard(state, opts);
+    case 'ultimate':
+      return ultimateBoard(state, opts);
     default:
       return h('p', {}, 'Unknown game');
   }
@@ -323,6 +329,106 @@ function takenRow(board, white) {
     { class: 'ch-taken', 'aria-hidden': 'true' },
     pieces.map((t) => chessPiece(t, !white)),
     lead > 0 ? h('span', { class: 'ch-lead figures' }, `+${lead}`) : null,
+  );
+}
+
+// ---------------------------------------------------------------- reversi
+
+function reversiBoard(state, { me, active, onMove }) {
+  const legal = new Set(active ? legalMoves(state, state.turn).map((m) => m.cell) : []);
+  const flipped = new Set(state.flipped ?? []);
+  const colour = (v) => (v === me ? 'yours' : 'theirs');
+  return h(
+    'div',
+    { class: 'board reversi-board', role: 'grid', 'aria-label': 'Reversi' },
+    state.board.map((v, cell) =>
+      h(
+        'button',
+        {
+          type: 'button',
+          class: `rv-cell${legal.has(cell) ? ' target' : ''}${state.last === cell ? ' last' : ''}${flipped.has(cell) ? ' flipped' : ''}`,
+          disabled: !legal.has(cell),
+          'data-cell': cell,
+          'aria-label': `${String.fromCharCode(97 + (cell % 8))}${8 - Math.floor(cell / 8)}${v === -1 ? '' : `, ${colour(v)}`}`,
+          onclick: () => onMove({ cell }),
+        },
+        v === -1 ? null : piece(v),
+      ),
+    ),
+  );
+}
+
+// ---------------------------------------------------------------- awalé
+
+function awaleBoard(state, { me, active, onMove }) {
+  const legal = new Set(active ? legalMoves(state, state.turn).map((m) => m.pit) : []);
+  const last = state.last ?? { pit: -1, sown: [], captured: [] };
+  const sown = new Set(last.sown);
+  const captured = new Set(last.captured);
+  const other = 1 - me;
+  // Your pits along the bottom, left to right; theirs along the top, right to left: the seeds go
+  // round anticlockwise.
+  const bottom = [0, 1, 2, 3, 4, 5].map((k) => me * 6 + k);
+  const top = [5, 4, 3, 2, 1, 0].map((k) => other * 6 + k);
+  const pit = (i, mine) => {
+    const n = state.pits[i];
+    return h(
+      'button',
+      {
+        type: 'button',
+        class: `aw-pit${mine ? ' mine' : ''}${legal.has(i) ? ' target' : ''}${last.pit === i ? ' last' : ''}${sown.has(i) ? ' sown' : ''}${captured.has(i) ? ' captured' : ''}`,
+        disabled: !legal.has(i),
+        'data-cell': i,
+        'aria-label': `${mine ? 'Your pit' : 'Their pit'} ${(i % 6) + 1}, ${n} ${n === 1 ? 'seed' : 'seeds'}`,
+        onclick: () => onMove({ pit: i }),
+      },
+      h('span', { class: 'aw-seeds', 'aria-hidden': 'true' }, Array.from({ length: Math.min(n, 15) }, () => h('span', { class: 'aw-seed' }))),
+      h('span', { class: 'aw-count figures', 'aria-hidden': 'true' }, String(n)),
+    );
+  };
+  const store = (p) =>
+    h(
+      'div',
+      { class: `aw-store${p === me ? ' mine' : ''}`, 'aria-label': `${p === me ? 'Your seeds' : 'Their seeds'}: ${state.stores[p]}` },
+      h('span', { class: 'aw-count figures' }, String(state.stores[p])),
+    );
+  return h('div', { class: 'board awale-board', role: 'group', 'aria-label': 'Awalé' }, store(other), top.map((i) => pit(i, false)), bottom.map((i) => pit(i, true)), store(me));
+}
+
+// ---------------------------------------------------------------- ultimate tic-tac-toe
+
+function ultimateBoard(state, { active, onMove }) {
+  const legal = new Set(active ? legalMoves(state, state.turn).map((m) => m.cell) : []);
+  const line = new Set(state.line ?? []);
+  const mark = (v) => h('span', { class: `mark p${v}`, 'aria-hidden': 'true' }, icon(v === 0 ? 'x' : 'circle'));
+  return h(
+    'div',
+    { class: 'board ultimate-board', role: 'grid', 'aria-label': 'Ultimate tic-tac-toe' },
+    [...Array(9).keys()].map((g) => {
+      const owner = state.grids[g];
+      const open = [...Array(9).keys()].some((k) => legal.has(g * 9 + k));
+      return h(
+        'div',
+        { class: `ut-grid${open ? ' open' : ''}${owner === 0 || owner === 1 ? ` won p${owner}` : ''}${owner === 2 ? ' dead' : ''}${line.has(g) ? ' win' : ''}`, 'data-grid': g },
+        [...Array(9).keys()].map((k) => {
+          const cell = g * 9 + k;
+          const v = state.cells[cell];
+          return h(
+            'button',
+            {
+              type: 'button',
+              class: `ut-cell${state.last === cell ? ' last' : ''}`,
+              disabled: !legal.has(cell),
+              'data-cell': cell,
+              'aria-label': `Grid ${g + 1}, square ${k + 1}${v === -1 ? '' : v === 0 ? ', cross' : ', circle'}`,
+              onclick: () => onMove({ cell }),
+            },
+            v === -1 ? null : mark(v),
+          );
+        }),
+        owner === 0 || owner === 1 ? h('span', { class: 'ut-big' }, mark(owner)) : null,
+      );
+    }),
   );
 }
 

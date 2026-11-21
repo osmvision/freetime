@@ -324,7 +324,10 @@ expire after 24 h. Plan this phase once phases 1 to 5 have been used for a few w
    Steam account.
 5. **UI polish of the games** (`games-more`, with the impeccable skill): one shared game window,
    real boards on the game tiles, drawn marks instead of unicode glyphs, one red per screen.
-6. Then phases 2 (replay and review), 3 and 6 in any order, and phase 7 last.
+6. **Phase 6 — done** (`new-classics`): Reversi, Awalé (oware, abapa rules) and Ultimate
+   tic-tac-toe, against the computer (easy and hard) and friends, ranked like the others.
+7. Then phase 3 (variants) and the friends' times; phase 2 (replay and review) was set aside, and
+   phase 7 comes last.
 
 ## Sources
 
