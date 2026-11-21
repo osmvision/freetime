@@ -783,7 +783,16 @@ pub fn invoke(call: Call, token: Option<&str>) -> Result<Value> {
         // "Too long", "already done", "another time" about an idea on screen.
         "not_now" => {
             let id: String = arg(&args, "id")?;
-            let item = state.shown.iter().chain(state.online.iter()).find(|s| s.id == id).cloned().context("Refresh your picks to find this idea")?;
+            // The answer comes after "Not this one" has already drawn new picks without this idea,
+            // so it is usually no longer in `shown`: fall back to the catalog, like "pick" does.
+            let item = state
+                .shown
+                .iter()
+                .chain(state.online.iter())
+                .find(|s| s.id == id)
+                .cloned()
+                .or_else(|| catalog::load().into_iter().find(|s| s.id == id))
+                .context("Refresh your picks to find this idea")?;
             let reason: history::NotNow = arg(&args, "reason")?;
             state.history.not_now(&item, reason, arg(&args, "minutes")?, history::now());
             patch["history"] = json!(state.history);
