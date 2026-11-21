@@ -1392,6 +1392,10 @@ test('games: the classics (reversi, awalé, ultimate) start, play and rank like 
       const r = await games(ALICE, { action: 'move', match: start.id, version: 0, move: first });
       assert.ok(r.state, `${game}: a move is saved`);
     }
+    // A variant travels with the challenge, checked by the rules.
+    const small = await games(ALICE, { action: 'start', game: 'dots', opponent: BOB, options: { size: 3 } }, 0);
+    assert.equal(small.state.boxes.length, 9);
+    assert.equal((await games(BOB, { action: 'start', game: 'gomoku', opponent: ALICE, options: { size: 12 } })).code, 'illegal');
     await step(ALICE, async (q) => {
       assert.ok((await q.one("select public.head_to_head($1, 'ultimate') as r", [BOB])).r);
       assert.ok((await q.one("select public.game_leaderboard('awale', 'friends') as b")).b);
@@ -1952,5 +1956,49 @@ test('surprise: the highway code book is a kind of its own, and nothing else is 
     // An unknown kind can't be stored.
     await assert.rejects(db.query("insert into public.surprises (user_id, kind) values ($1, 'spam')", [BOB]), /surprises_kind_check|check constraint/);
     await db.exec('rollback to savepoint s').catch(() => {});
+  });
+});
+
+test('daily results: shared by choice, seen by friends only, never across a block, in the export', async () => {
+  await withPeople(async ({ step }) => {
+    const share = (who, kind, secs, score = null, day = null) =>
+      step(who, (q) => q.rows('select public.share_daily_result(coalesce($1::date, current_date), $2, $3, $4)', [day, kind, secs, score]));
+    const seen = async (who) => (await step(who, (q) => q.one('select public.friends_daily_results(current_date) as r'))).r;
+    await befriend(ALICE, BOB);
+    await befriend(BOB, CAROL);
+    await share(ALICE, 'path', 95);
+    await share(ALICE, 'path', 30); // the first result counts
+    await share(BOB, 'guess', 70, 37);
+    await share(CAROL, 'zones', 120);
+
+    const forAlice = await seen(ALICE);
+    assert.deepEqual(forAlice.map((r) => [r.kind, r.secs, r.me]).sort(), [['guess', 70, false], ['path', 95, true]]);
+    assert.equal(forAlice.find((r) => r.kind === 'guess').score, 37);
+    assert.equal((await seen(BOB)).length, 3, 'Bob sees both of his friends');
+    // A block hides results both ways.
+    await step(BOB, (q) => q.rows('insert into public.blocks (blocker, blocked) values ($1, $2)', [BOB, CAROL]));
+    assert.equal((await seen(BOB)).length, 2);
+    assert.equal((await seen(CAROL)).length, 1, 'only her own');
+
+    await step(ALICE, async (q) => {
+      await fails(q.one("select public.share_daily_result(current_date - 5, 'path', 10)"), /only today/);
+    });
+    await step(ALICE, async (q) => {
+      await fails(q.one("select public.share_daily_result(current_date, 'chess', 10)"), /unknown game/);
+    });
+    await step(ALICE, async (q) => {
+      await fails(q.one("select public.share_daily_result(current_date, 'guess', 10, 99)"), /can't be right/);
+    });
+    await step(ALICE, async (q) => {
+      await fails(q.rows("insert into public.daily_results (user_id, day, kind, secs) values ($1, current_date, 'zones', 1)", [ALICE]), /permission denied/);
+    });
+    await step(null, async (q) => {
+      await fails(q.one('select public.friends_daily_results(current_date)'), /permission denied/);
+    });
+    const data = (await step(ALICE, (q) => q.one('select public.export_my_data() as d'))).d;
+    assert.equal(data.daily_results.length, 1);
+    // Switching off deletes them.
+    await step(ALICE, (q) => q.rows('select public.stop_sharing_daily_results()'));
+    assert.equal((await seen(BOB)).length, 1);
   });
 });

@@ -9,6 +9,7 @@ import { gameWindow } from '../game-window.js';
 import { t } from '../i18n.js';
 import { photoCredits } from '../photos.js';
 import { tryIdea } from '../play/screen.js';
+import { shareResult } from './friends.js';
 import { sound } from '../play/sound.js';
 
 export const GUESS_MAX = 50;
@@ -164,6 +165,7 @@ export async function openGuess(today, onDone = () => {}) {
       const view = await api.finishPuzzle('guess', secs, score);
       done = view.solved.guess ?? done;
       api.syncPoints().catch(() => {});
+      shareResult(today.date, 'guess', done.secs, done.score);
     } catch (e) {
       toast(errText(e), 'error', 5000);
     }

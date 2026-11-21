@@ -155,6 +155,16 @@ pub fn invoke(
         "game_leaderboard" => client.game_leaderboard(&session, &text("game")?, &text("scope")?)?,
         "leave_match" => json!(client.leave_match(&session, &text("id")?)?),
         "head_to_head" => client.head_to_head(&session, &text("other")?, arg::<Option<String>>(args, "game").ok().flatten().as_deref())?,
+        "share_daily_result" => {
+            let score = arg::<Option<u32>>(args, "score").ok().flatten();
+            client.share_daily_result(&session, &text("day")?, &text("kind")?, arg(args, "secs")?, score)?;
+            Value::Null
+        }
+        "stop_sharing_daily_results" => {
+            client.stop_sharing_daily_results(&session)?;
+            Value::Null
+        }
+        "friends_daily_results" => client.friends_daily_results(&session, &text("day")?)?,
         "create_evening" => json!(client.create_evening(&session, &arg::<NewEvening>(args, "evening")?)?),
         "answer_evening" => {
             client.answer_evening(&session, arg(args, "id")?, &arg::<Vec<bool>>(args, "slots")?, arg::<Option<u8>>(args, "activity").ok().flatten())?;

@@ -528,3 +528,77 @@ test('reversi, awalé, ultimate: the computer only plays legal moves and finishe
     }
   }
 });
+
+// ---------------------------------------------------------------- variants
+
+test('variants: options are checked, missing ones are the defaults', () => {
+  assert.deepEqual(newGame('dots', 0).options, { size: 5 });
+  assert.equal(newGame('dots', 0, { size: 3 }).lines.length, 24);
+  assert.equal(newGame('dots', 0, { size: 7 }).boxes.length, 49);
+  illegal(() => newGame('dots', 0, { size: 4 }), /options/);
+  illegal(() => newGame('dots', 0, { colour: 'red' }), /options/);
+  illegal(() => newGame('four', 0, { size: 9 }), /no options/);
+  illegal(() => newGame('gomoku', 0, 'big'), /options/);
+  assert.equal(newGame('four', 0).options, undefined, 'a game without variants stays as it was');
+  // A state from before variants plays as the default.
+  const old = { ...newGame('dots', 0) };
+  delete old.options;
+  assert.ok(play(old, 0, { line: 0 }).state);
+});
+
+test('variants: dots and boxes on 3 × 3 closes boxes and ends', () => {
+  let s = newGame('dots', 0, { size: 3 });
+  // Box 0 of a 3 × 3 grid: horizontal lines 0 and 3, vertical lines 12 and 13.
+  s = run(s, [0, 3, 12].map((line) => ({ line })));
+  const closed = play(s, s.turn, { line: 13 }).state;
+  assert.equal(closed.boxes[0], s.turn);
+  assert.equal(closed.turn, s.turn, 'closing a box plays again');
+  let end = closed;
+  while (end.winner === null) end = play(end, end.turn, legalMoves(end, end.turn)[0]).state;
+  assert.equal(scores(end)[0] + scores(end)[1], 9);
+});
+
+test('variants: giant tic-tac-toe on 15 × 15, and the swap opening', () => {
+  const big = newGame('gomoku', 0, { size: 15 });
+  assert.equal(big.board.length, 225);
+  const win = run(big, [0, 15, 1, 16, 2, 17, 3, 18, 4].map((cell) => ({ cell })));
+  assert.equal(win.winner, 0);
+  // The swap opening: the opener places theirs, the other's, theirs; then the other chooses.
+  let s = newGame('gomoku', 0, { swap: true });
+  s = run(s, [60, 61, 62].map((cell) => ({ cell })));
+  assert.deepEqual([s.board[60], s.board[61], s.board[62]], [0, 1, 0]);
+  assert.equal(s.phase, 'choose');
+  assert.equal(s.turn, 1);
+  assert.deepEqual(legalMoves(s, 1), [{ swap: false }, { swap: true }]);
+  illegal(() => play(s, 1, { cell: 0 }), /colour/);
+  const kept = play(s, 1, { swap: false }).state;
+  assert.equal(kept.turn, 1, 'kept: the chooser plays');
+  const swapped = play(s, 1, { swap: true }).state;
+  assert.deepEqual([swapped.board[60], swapped.board[61], swapped.board[62]], [1, 0, 1]);
+  assert.equal(swapped.turn, 0, 'swapped: the opener plays, with one stone');
+});
+
+test('variants: a torpedoes salvo is one shot per ship still afloat', () => {
+  const fleet = { ships: [[0, 1, 2, 3], [8, 9, 10], [16, 17, 18], [24, 25]] };
+  let s = newGame('torpedoes', 0, { salvo: true });
+  let secrets = [null, null];
+  for (const p of [0, 1]) {
+    const r = play(s, p, { fleet }, secrets);
+    secrets = Object.assign([...secrets], { [p]: r.secret });
+    s = r.state;
+  }
+  assert.equal(s.turn, 0);
+  for (const cell of [63, 62, 61]) {
+    s = play(s, 0, { cell }, secrets).state;
+    assert.equal(s.turn, 0, 'still shooting');
+  }
+  s = play(s, 0, { cell: 60 }, secrets).state;
+  assert.equal(s.turn, 1, 'four ships, four shots');
+  // Player 1 sinks player 0's two-square ship: from then on, player 0 fires three shots a turn.
+  s = run(s, [24, 25, 59, 58].map((cell) => ({ cell })), secrets);
+  assert.equal(s.turn, 0);
+  s = run(s, [40, 41].map((cell) => ({ cell })), secrets);
+  assert.equal(s.turn, 0);
+  s = play(s, 0, { cell: 42 }, secrets).state;
+  assert.equal(s.turn, 1, 'a ship lost: three shots');
+});

@@ -8,7 +8,7 @@ import { btn, errText, fill, h, icon, toast } from '../dom.js';
 import { computerMove, randomFleet } from './ai.js';
 import { board, fleetEditor } from './boards.js';
 import { moved, yourTurn } from './fx.js';
-import { legalMoves, newGame, play, scores } from './rules.js';
+import { OPTIONS, TORPEDOES, legalMoves, newGame, play, scores } from './rules.js';
 import { setSound, sound, soundOn } from './sound.js';
 
 export const GAME_INFO = {
@@ -152,6 +152,10 @@ function statusLine(state, me, otherName, thinking) {
   if (state.winner !== null) {
     const text = state.winner === 'draw' ? 'Draw!' : state.winner === me ? 'You won!' : otherName ? null : 'The computer won';
     parts.push(h('strong', { class: `game-result ${state.winner === me ? 'won' : state.winner === 'draw' ? 'draw' : 'lost'}` }, text ?? h('span', {}, h('span', { translate: 'no' }, otherName), ' ', h('span', {}, 'won'))));
+  } else if (state.game === 'gomoku' && state.phase === 'opening' && state.turn === me) {
+    parts.push(h('strong', { class: 'game-your-turn' }, h('span', {}, state.placed === 1 ? 'Opening: place one of their stones' : 'Opening: place one of your stones'), ' ', h('span', { class: 'figures' }, `${state.placed + 1}/3`)));
+  } else if (state.game === 'gomoku' && state.phase === 'choose' && state.turn === me) {
+    parts.push(h('strong', { class: 'game-your-turn' }, 'Keep your colour, or take the two stones'));
   } else if (state.game === 'torpedoes' && state.phase === 'setup') {
     parts.push(h('strong', {}, state.turn === me ? 'Place your ships' : otherName ? h('span', {}, h('span', { translate: 'no' }, otherName), ' ', h('span', {}, 'is placing their ships')) : 'The computer is placing its ships'));
   } else if (state.turn === me) {
@@ -168,8 +172,61 @@ function statusLine(state, me, otherName, thinking) {
   if (state.game === 'torpedoes' && state.phase === 'play') {
     parts.push(h('span', { class: 'game-score' }, h('span', { class: 'figures' }, `${state.sunk[me].length}/4`), ' ', h('span', {}, 'sunk')));
     parts.push(h('span', { class: 'game-score' }, h('span', { class: 'figures' }, `${state.sunk[1 - me].length}/4`), ' ', h('span', {}, 'ships lost')));
+    if (state.options?.salvo && state.turn === me && state.winner === null) {
+      const left = TORPEDOES.fleet.length - state.sunk[1 - me].length - (state.fired ?? 0);
+      parts.push(h('span', { class: 'game-hint' }, h('span', {}, 'Salvo'), ' ', h('span', { class: 'figures' }, String(left)), ' ', h('span', {}, left === 1 ? 'shot left' : 'shots left')));
+    }
   }
   return parts;
+}
+
+// ---------------------------------------------------------------- variants
+
+// What each option is called, and its values (OPTIONS in rules.js says which are allowed).
+const OPTION_LABELS = {
+  size: { name: 'Size', value: (v) => `${v} × ${v}` },
+  swap: { name: 'Opening', value: (v) => (v ? 'Swap' : 'Classic') },
+  salvo: { name: 'Shots', value: (v) => (v ? 'Salvo' : 'One a turn') },
+};
+
+/** The variant last chosen for a game (null for a game without any). */
+export function savedOptions(game) {
+  if (!OPTIONS[game]) return null;
+  const saved = store.get(`freetime.play.options.${game}`) ?? {};
+  return Object.fromEntries(Object.entries(OPTIONS[game]).map(([k, values]) => [k, values.includes(saved[k]) ? saved[k] : values[0]]));
+}
+
+/** Small switches for a game's variants (null if it has none); `onChange(options)` once saved. */
+export function optionsPicker(game, current, onChange) {
+  if (!OPTIONS[game]) return null;
+  return h(
+    'div',
+    { class: 'game-options' },
+    Object.entries(OPTIONS[game]).map(([k, values]) =>
+      h(
+        'div',
+        { class: 'seg small', role: 'radiogroup', 'aria-label': OPTION_LABELS[k].name },
+        [...values].sort((a, b) => Number(a) - Number(b)).map((v) =>
+          h(
+            'button',
+            {
+              type: 'button',
+              role: 'radio',
+              class: 'seg-btn',
+              'aria-checked': String(current[k] === v),
+              onclick: () => {
+                if (current[k] === v) return;
+                const next = { ...current, [k]: v };
+                store.set(`freetime.play.options.${game}`, next);
+                onChange(next);
+              },
+            },
+            OPTION_LABELS[k].value(v),
+          ),
+        ),
+      ),
+    ),
+  );
 }
 
 // ---------------------------------------------------------------- against the computer
@@ -180,7 +237,8 @@ export function playComputer(game) {
   if (!saved || saved.state?.game !== game || saved.state.winner !== null) saved = null;
   let level = saved?.level ?? store.get('freetime.play.level') ?? 1;
   let humanFirst = saved?.humanFirst ?? true;
-  let state = saved?.state ?? newGame(game, 0);
+  let options = savedOptions(game);
+  let state = saved?.state ?? newGame(game, 0, options);
   let secrets = saved?.secrets ?? [null, null];
   let thinking = false;
   const ui = frame(game, h('span', {}, 'the computer'));
@@ -188,7 +246,7 @@ export function playComputer(game) {
 
   const restart = () => {
     humanFirst = !humanFirst;
-    state = newGame(game, humanFirst ? 0 : 1);
+    state = newGame(game, humanFirst ? 0 : 1, options);
     secrets = [null, null];
     idea = null;
     save();
@@ -262,7 +320,13 @@ export function playComputer(game) {
         ),
       ),
     );
-    ui.tools.replaceChildren(levels, btn({ label: state.winner === null ? 'Start again' : 'Play again', icon: 'refresh-cw', small: true, kind: state.winner === null ? '' : 'primary', onclick: restart }));
+    // A variant starts a new game straight away.
+    const variant = optionsPicker(game, options, (o) => {
+      options = o;
+      humanFirst = !humanFirst; // restart() flips it back
+      restart();
+    });
+    ui.tools.replaceChildren(levels, variant ?? '', btn({ label: state.winner === null ? 'Start again' : 'Play again', icon: 'refresh-cw', small: true, kind: state.winner === null ? '' : 'primary', onclick: restart }));
   }
 
   draw();
@@ -272,11 +336,11 @@ export function playComputer(game) {
 // ---------------------------------------------------------------- against a friend
 
 /** Starts a game with a friend (Torpedoes: place your ships first), then opens it. */
-export async function challenge(game, friend, onChange = () => {}) {
+export async function challenge(game, friend, onChange = () => {}, options = savedOptions(game)) {
   const start = async (fleet) => {
     let r;
     try {
-      r = await api.gameAction({ action: 'start', game, opponent: friend.user_id, fleet });
+      r = await api.gameAction({ action: 'start', game, opponent: friend.user_id, fleet, ...(options ? { options } : {}) });
     } catch (e) {
       toast(errText(e), 'error', 6000);
       return false;
@@ -411,7 +475,7 @@ export function playOnline(match, onChange = () => {}) {
 /** Starts the same game again with the same friend, in one click. */
 function rematch(m, name, close, onChange) {
   close();
-  challenge(m.game, { user_id: m.other.id, display_name: name }, onChange);
+  challenge(m.game, { user_id: m.other.id, display_name: name }, onChange, m.state.options ?? null);
 }
 
 const POINTS = { won: 3, draw: 1, lost: 0 };

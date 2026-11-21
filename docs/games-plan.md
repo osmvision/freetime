@@ -326,8 +326,12 @@ expire after 24 h. Plan this phase once phases 1 to 5 have been used for a few w
    real boards on the game tiles, drawn marks instead of unicode glyphs, one red per screen.
 6. **Phase 6 — done** (`new-classics`): Reversi, Awalé (oware, abapa rules) and Ultimate
    tic-tac-toe, against the computer (easy and hard) and friends, ranked like the others.
-7. Then phase 3 (variants) and the friends' times; phase 2 (replay and review) was set aside, and
-   phase 7 comes last.
+7. **Phase 3 — done** (`game-variants`): Dots and boxes 3, 5 or 7 a side, Giant tic-tac-toe 11 or
+   15 a side with an optional swap opening, Torpedoes salvo; chosen for the computer and sent with
+   a challenge (and its rematch).
+8. **Friends' times (4.3) — done** (`game-variants`): opt-in and both ways, friends only, kept 30
+   days, in the data export (`*_daily_results.sql`).
+9. Still open: the puzzle run (4.4). Phase 2 (replay and review) was set aside; phase 7 last.
 
 ## Sources
 
