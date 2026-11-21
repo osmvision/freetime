@@ -9420,3 +9420,101 @@ body[data-view="messages"] .assistant-panel {
     white-space: nowrap;
   }
 }
+
+/* ---------------------------------------------------------------- live games */
+
+.game-live {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 8px 12px;
+  margin-bottom: 12px;
+}
+
+.game-live[hidden] {
+  display: none;
+}
+
+.game-presence {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-3);
+  font-size: 14px;
+}
+
+.presence-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--rule-soft);
+}
+
+.game-presence.here {
+  color: var(--text);
+}
+
+.game-presence.here .presence-dot {
+  background: var(--good);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--good) 22%, transparent);
+}
+
+.game-clock {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 150px;
+  padding: 6px 12px;
+  border: 1.5px solid var(--rule-soft);
+  border-radius: var(--r-control);
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.game-clock .figures {
+  margin-left: auto;
+}
+
+.game-clock .game-presence {
+  font-size: 15px;
+}
+
+.game-clock.running {
+  border-color: var(--lavender-line);
+  background: var(--lavender);
+}
+
+.game-clock.low.running {
+  border-color: #f7c948;
+  background: color-mix(in srgb, #f7c948 35%, var(--coupon));
+}
+
+.match-live {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 8px;
+  color: var(--purple);
+  font-weight: 600;
+}
+
+.match-live .icon {
+  width: 14px;
+  height: 14px;
+}
+
+.pick-options {
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* read by screen readers, not shown */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}

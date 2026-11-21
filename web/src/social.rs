@@ -154,6 +154,7 @@ pub fn invoke(
         "my_matches" => client.my_matches(&session)?,
         "game_leaderboard" => client.game_leaderboard(&session, &text("game")?, &text("scope")?)?,
         "leave_match" => json!(client.leave_match(&session, &text("id")?)?),
+        "match_here" => client.match_here(&session, &text("id")?)?,
         "head_to_head" => client.head_to_head(&session, &text("other")?, arg::<Option<String>>(args, "game").ok().flatten().as_deref())?,
         "share_daily_result" => {
             let score = arg::<Option<u32>>(args, "score").ok().flatten();

@@ -67,6 +67,13 @@ pub fn friends_daily_results(state: State<'_, AppState>, day: String) -> Res<Val
     Client::new().map_err(err)?.friends_daily_results(&s, &day).map_err(err)
 }
 
+/// Live games: you have this game open; is the other player there too?
+#[tauri::command(async)]
+pub fn match_here(state: State<'_, AppState>, id: String) -> Res<Value> {
+    let s = live_session(&state)?;
+    Client::new().map_err(err)?.match_here(&s, &id).map_err(err)
+}
+
 // ---------------------------------------------------------------- evenings
 
 #[tauri::command(async)]

@@ -97,6 +97,7 @@ fn main() {
             duels::hide_finished_matches,
             plans::play_now,
             plans::head_to_head,
+            plans::match_here,
             plans::share_daily_result,
             plans::stop_sharing_daily_results,
             plans::friends_daily_results,

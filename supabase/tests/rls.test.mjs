@@ -1281,9 +1281,9 @@ const serviceDb = {
 };
 
 /** Calls the Edge Function's handler as `user`; returns its answer or { status, code }. */
-async function games(user, body, first = 0) {
+async function games(user, body, first = 0, now = Date.now) {
   try {
-    return await handle(serviceDb, user, body, () => (first === 0 ? 0.1 : 0.9));
+    return await handle(serviceDb, user, body, () => (first === 0 ? 0.1 : 0.9), now);
   } catch (e) {
     if (e instanceof GameError) return { status: e.status, code: e.code, message: e.message };
     throw e;
@@ -2000,5 +2000,70 @@ test('daily results: shared by choice, seen by friends only, never across a bloc
     // Switching off deletes them.
     await step(ALICE, (q) => q.rows('select public.stop_sharing_daily_results()'));
     assert.equal((await seen(BOB)).length, 1);
+  });
+});
+
+test('live games: a clock each, free first moves, a loss on time, a flag, and presence', async () => {
+  await withPeople(async ({ step }) => {
+    await befriend(ALICE, BOB);
+    let t = 1_000_000;
+    const at = () => t;
+    assert.equal((await games(ALICE, { action: 'start', game: 'four', opponent: BOB, clock: 42 })).code, 'bad_request');
+    assert.equal((await games(ALICE, { action: 'start', game: 'torpedoes', opponent: BOB, clock: 180 })).code, 'bad_request');
+    const start = await games(ALICE, { action: 'start', game: 'four', opponent: BOB, clock: 180 }, 0, at);
+    assert.deepEqual(start.state.clock.left, [180000, 180000]);
+    let version = 0;
+    const act = async (who, body) => {
+      const r = await games(who, { match: start.id, version, ...body }, 0, at);
+      if (r.version) version = r.version;
+      return r;
+    };
+    t += 60000;
+    let r = await act(ALICE, { action: 'move', move: { col: 0 } });
+    assert.deepEqual(r.state.clock.left, [180000, 180000], 'a first move is free');
+    t += 20000;
+    r = await act(BOB, { action: 'move', move: { col: 1 } });
+    assert.deepEqual(r.state.clock.left, [180000, 180000], "Bob's first move is free too");
+    t += 30000;
+    r = await act(ALICE, { action: 'move', move: { col: 0 } });
+    assert.equal(r.state.clock.left[0], 150000);
+    t += 10000;
+    r = await act(BOB, { action: 'move', move: { col: 1 } });
+    assert.equal(r.state.clock.left[1], 170000);
+    // Alice thinks too long: Bob can call it once her 150 s are gone, not before.
+    t += 149000;
+    assert.equal((await act(BOB, { action: 'flag' })).code, 'not_yet');
+    t += 2000;
+    r = await act(BOB, { action: 'flag' });
+    assert.equal(r.state.winner, 1);
+    assert.equal(r.state.timeout, 0);
+    assert.equal((await myMatches(step, ALICE))[0].outcome, 'lost');
+
+    // A move made after the time ran out loses on time instead of counting.
+    const again = await games(BOB, { action: 'start', game: 'four', opponent: ALICE, clock: 180 }, 0, at);
+    version = 0;
+    const late = (who, col) => games(who, { action: 'move', match: again.id, version, move: { col } }, 0, at).then((x) => ((version = x.version ?? version), x));
+    await late(BOB, 3);
+    await late(ALICE, 3);
+    t += 5000;
+    await late(BOB, 3);
+    t += 181000;
+    r = await late(ALICE, 4);
+    assert.equal(r.state.winner, 0, 'Bob (player 0 here) wins on time');
+    assert.equal(r.state.board.filter((v) => v !== -1).length, 3, 'the late move was not played');
+
+    // Presence: only the two players; how long ago the other one was there.
+    const here = (who, id) => step(who, (q) => q.one('select public.match_here($1) as r', [id])).then((x) => x.r);
+    const live = await games(ALICE, { action: 'start', game: 'chess', opponent: BOB, clock: 300 });
+    assert.equal((await here(ALICE, live.id)).other_seconds, null, 'Bob has not opened it');
+    assert.equal((await here(BOB, live.id)).other_seconds, 0);
+    await step(CAROL, async (q) => {
+      await fails(q.one('select public.match_here($1)', [live.id]), /no such game/);
+    });
+    await step(ALICE, async (q) => {
+      await fails(q.rows('insert into public.match_presence (match_id, user_id) values ($1, $2)', [live.id, ALICE]), /permission denied/);
+    });
+    const data = (await step(ALICE, (q) => q.one('select public.export_my_data() as d'))).d;
+    assert.equal(data.game_presence.length, 1);
   });
 });
