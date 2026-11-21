@@ -694,6 +694,32 @@ impl Client {
         self.call("POST", "/rest/v1/rpc/head_to_head", Some(&s.access_token), Some(&json!({ "p_other": other, "p_game": game })), None)
     }
 
+    // ------------------------------------------------------------ games of the day
+
+    /// Shares a result of the games of the day with your friends (only when the player switched
+    /// it on; supabase/migrations/*_daily_results.sql). `day` is "2026-11-21".
+    pub fn share_daily_result(&self, s: &Session, day: &str, kind: &str, secs: u32, score: Option<u32>) -> Result<()> {
+        chrono::NaiveDate::parse_from_str(day, "%Y-%m-%d").map_err(|_| anyhow!("not a date"))?;
+        if !matches!(kind, "path" | "zones" | "guess" | "problem") {
+            bail!("unknown game");
+        }
+        let body = json!({ "p_day": day, "p_kind": kind, "p_secs": secs, "p_score": score });
+        self.call("POST", "/rest/v1/rpc/share_daily_result", Some(&s.access_token), Some(&body), None)?;
+        Ok(())
+    }
+
+    /// Stops sharing: deletes every result you sent.
+    pub fn stop_sharing_daily_results(&self, s: &Session) -> Result<()> {
+        self.call("POST", "/rest/v1/rpc/stop_sharing_daily_results", Some(&s.access_token), Some(&json!({})), None)?;
+        Ok(())
+    }
+
+    /// Your friends' results of one day (and yours), for those who share them.
+    pub fn friends_daily_results(&self, s: &Session, day: &str) -> Result<Value> {
+        chrono::NaiveDate::parse_from_str(day, "%Y-%m-%d").map_err(|_| anyhow!("not a date"))?;
+        self.call("POST", "/rest/v1/rpc/friends_daily_results", Some(&s.access_token), Some(&json!({ "p_day": day })), None)
+    }
+
     // ------------------------------------------------------------ evenings
 
     /// Invites friends to an evening (one or two times, one to three things to do). Returns its id.

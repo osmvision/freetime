@@ -20,6 +20,39 @@ const isInt = (n, lo, hi) => Number.isInteger(n) && n >= lo && n <= hi;
 
 export const GAMES = ['four', 'gomoku', 'draughts', 'dots', 'torpedoes', 'chess', 'reversi', 'awale', 'ultimate'];
 
+// ---------------------------------------------------------------- options (variants)
+//
+// A game can start with options, checked here: Dots and boxes with 3, 5 or 7 boxes a side; Giant
+// tic-tac-toe on 11 or 15 squares a side, with or without the swap opening; Torpedoes with one
+// shot a turn or a salvo. The first value is the default: a state without options (older games,
+// older apps) plays as before.
+
+export const OPTIONS = {
+  dots: { size: [5, 3, 7] },
+  gomoku: { size: [11, 15], swap: [false, true] },
+  torpedoes: { salvo: [false, true] },
+};
+
+/** The options of a new game, complete and checked (throws IllegalMove on anything unknown). */
+export function gameOptions(game, raw = null) {
+  const spec = OPTIONS[game];
+  if (raw !== null && raw !== undefined && (typeof raw !== 'object' || Array.isArray(raw))) fail('Unknown options.');
+  if (!spec) {
+    if (raw && Object.keys(raw).length) fail('This game has no options.');
+    return null;
+  }
+  for (const k of Object.keys(raw ?? {})) if (!(k in spec)) fail('Unknown options.');
+  const out = {};
+  for (const [k, values] of Object.entries(spec)) {
+    const v = raw?.[k] ?? values[0];
+    if (!values.includes(v)) fail('Unknown options.');
+    out[k] = v;
+  }
+  return out;
+}
+
+const option = (s, key, fallback) => s.options?.[key] ?? fallback;
+
 // ---------------------------------------------------------------- four in a row (7 × 6)
 
 export const FOUR = { cols: 7, rows: 6 };
@@ -61,12 +94,18 @@ const four = {
   },
 };
 
-// ---------------------------------------------------------------- giant tic-tac-toe (11 × 11, five in a row)
+// ---------------------------------------------------------------- giant tic-tac-toe (11 × 11 or 15 × 15, five in a row)
+//
+// With the swap opening, the first player places three stones (one of theirs, one of the other
+// player's, one of theirs); the other player then keeps their colour and plays, or swaps: the
+// stones change hands and the first player plays. Free gomoku favours whoever starts; this evens
+// it out.
 
 export const GOMOKU = { size: 11, row: 5 };
+export const gomokuSize = (board) => Math.round(Math.sqrt(board.length));
 
 function gomokuLine(board, cell, p) {
-  const n = GOMOKU.size;
+  const n = gomokuSize(board);
   const r0 = Math.floor(cell / n);
   const c0 = cell % n;
   for (const [dr, dc] of [[0, 1], [1, 0], [1, 1], [1, -1]]) {
@@ -86,11 +125,26 @@ function gomokuLine(board, cell, p) {
 }
 
 const gomoku = {
-  init: () => ({ board: Array(GOMOKU.size * GOMOKU.size).fill(-1) }),
-  legal: (s) => s.board.flatMap((v, cell) => (v === -1 ? [{ cell }] : [])),
+  init: (first, o) => {
+    const n = o?.size ?? GOMOKU.size;
+    return { board: Array(n * n).fill(-1), ...(o?.swap ? { phase: 'opening', placed: 0 } : {}) };
+  },
+  legal: (s) => (s.phase === 'choose' ? [{ swap: false }, { swap: true }] : s.board.flatMap((v, cell) => (v === -1 ? [{ cell }] : []))),
   apply(s, move, p) {
+    if (s.phase === 'choose') {
+      if (typeof move?.swap !== 'boolean') fail('Keep your colour, or take the two stones.');
+      // Swap: the stones change hands, and the first player (now with one stone) plays.
+      const board = move.swap ? s.board.map((v) => (v === -1 ? -1 : 1 - v)) : s.board;
+      return { state: { board, phase: 'play', swapped: move.swap }, winner: null, nextTurn: move.swap ? 1 - p : p };
+    }
     if (!isInt(move?.cell, 0, s.board.length - 1) || s.board[move.cell] !== -1) fail('That square is taken.');
     const board = s.board.slice();
+    if (s.phase === 'opening') {
+      // Theirs, the other's, theirs; then the other player chooses.
+      board[move.cell] = s.placed === 1 ? 1 - p : p;
+      const placed = s.placed + 1;
+      return { state: { board, placed, last: move.cell, phase: placed === 3 ? 'choose' : 'opening' }, winner: null, nextTurn: placed === 3 ? 1 - p : p };
+    }
     board[move.cell] = p;
     const line = gomokuLine(board, move.cell, p);
     const full = board.every((v) => v !== -1);
@@ -244,26 +298,33 @@ const draughts = {
 // (row r = 0..4, col c = 0..5: 30 + r * 6 + c). Closing a box scores it and plays again.
 
 export const DOTS = { size: 5 };
-const H = (r, c) => r * DOTS.size + c;
-const V = (r, c) => (DOTS.size + 1) * DOTS.size + r * (DOTS.size + 1) + c;
-export const boxSides = (b) => {
-  const r = Math.floor(b / DOTS.size);
-  const c = b % DOTS.size;
+/** Boxes a side, from the state (3, 5 or 7). */
+export const dotsSize = (s) => Math.round(Math.sqrt(s.boxes.length));
+/** The four lines around box `b` of an n × n grid: horizontal lines first, then vertical ones. */
+export const boxSides = (b, n = DOTS.size) => {
+  const r = Math.floor(b / n);
+  const c = b % n;
+  const H = (rr, cc) => rr * n + cc;
+  const V = (rr, cc) => (n + 1) * n + rr * (n + 1) + cc;
   return [H(r, c), H(r + 1, c), V(r, c), V(r, c + 1)];
 };
 export const DOT_LINES = 2 * DOTS.size * (DOTS.size + 1);
 
 const dots = {
-  init: () => ({ lines: Array(DOT_LINES).fill(-1), boxes: Array(DOTS.size * DOTS.size).fill(-1) }),
+  init: (first, o) => {
+    const n = o?.size ?? DOTS.size;
+    return { lines: Array(2 * n * (n + 1)).fill(-1), boxes: Array(n * n).fill(-1) };
+  },
   legal: (s) => s.lines.flatMap((v, line) => (v === -1 ? [{ line }] : [])),
   apply(s, move, p) {
-    if (!isInt(move?.line, 0, DOT_LINES - 1) || s.lines[move.line] !== -1) fail('That line is already drawn.');
+    const n = dotsSize(s);
+    if (!isInt(move?.line, 0, s.lines.length - 1) || s.lines[move.line] !== -1) fail('That line is already drawn.');
     const lines = s.lines.slice();
     const boxes = s.boxes.slice();
     lines[move.line] = p;
     let scored = 0;
     boxes.forEach((owner, b) => {
-      if (owner === -1 && boxSides(b).includes(move.line) && boxSides(b).every((l) => lines[l] !== -1)) {
+      if (owner === -1 && boxSides(b, n).includes(move.line) && boxSides(b, n).every((l) => lines[l] !== -1)) {
         boxes[b] = p;
         scored += 1;
       }
@@ -346,7 +407,12 @@ const torpedoes = {
     }
     shots[p].push({ c: move.cell, r: result });
     const all = target.every((sh) => sunk[p].some((x) => x[0] === sh[0]));
-    return { state: { ...s, shots, sunk, last: move.cell }, winner: all ? p : null };
+    if (all || !option(s, 'salvo', false)) return { state: { ...s, shots, sunk, last: move.cell }, winner: all ? p : null };
+    // A salvo: as many shots in a turn as you have ships afloat.
+    const afloat = TORPEDOES.fleet.length - sunk[1 - p].length;
+    const fired = (s.fired ?? 0) + 1;
+    if (fired < afloat) return { state: { ...s, shots, sunk, last: move.cell, fired }, winner: null, nextTurn: p };
+    return { state: { ...s, shots, sunk, last: move.cell, fired: 0 }, winner: null };
   },
 };
 
@@ -827,11 +893,15 @@ const ultimate = {
 
 const RULES = { four, gomoku, draughts, dots, torpedoes, chess, reversi, awale, ultimate };
 
-/** A new game. `first` is the player who moves first (Torpedoes: player 0 places first). */
-export function newGame(game, first = 0) {
+/**
+ * A new game. `first` is the player who moves first (Torpedoes: player 0 places first); `options`
+ * picks a variant (see OPTIONS).
+ */
+export function newGame(game, first = 0, options = null) {
   const rules = RULES[game];
   if (!rules) fail('Unknown game.');
-  return { game, ...rules.init(first), turn: game === 'torpedoes' ? 0 : first === 1 ? 1 : 0, winner: null, plies: 0 };
+  const o = gameOptions(game, options);
+  return { game, ...rules.init(first, o), ...(o ? { options: o } : {}), turn: game === 'torpedoes' ? 0 : first === 1 ? 1 : 0, winner: null, plies: 0 };
 }
 
 /** The moves `player` can make now ([] when it isn't their turn). */

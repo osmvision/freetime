@@ -9,7 +9,7 @@ import { btn, emptyState, errText, fill, h, icon, pageHead, toast } from './dom.
 import { openQuiz, quizBanner, quizCard, setDuelDot } from './quiz.js';
 import { renderGameRanking } from './game-ranking.js';
 import { renderPuzzles } from './puzzles/screen.js';
-import { GAME_INFO, challenge, playComputer, playOnline } from './play/screen.js';
+import { GAME_INFO, challenge, optionsPicker, playComputer, playOnline, savedOptions } from './play/screen.js';
 import { board } from './play/boards.js';
 import { newGame, play } from './play/rules.js';
 
@@ -92,7 +92,13 @@ function renderGames(box, ctx, reloadMatches) {
       toast('Sign in to play with friends (Settings → Profile)', 'error', 5000);
       return;
     }
-    pickFriend(ctx, GAME_INFO[id].name, (f) => challenge(id, f, reloadMatches));
+    let options = savedOptions(id);
+    const variant = () => optionsPicker(id, options, (o) => {
+      options = o;
+      picker.replaceChildren(variant());
+    });
+    const picker = h('div', { class: 'pick-options' }, variant());
+    pickFriend(ctx, GAME_INFO[id].name, (f) => challenge(id, f, reloadMatches, options), options ? picker : null);
   };
   fill(
     box,
@@ -422,7 +428,7 @@ async function playDuel(d, reload) {
 }
 
 /** The list of friends to challenge; `onPick(friend)` once one is chosen. */
-async function pickFriend(ctx, title, onPick) {
+async function pickFriend(ctx, title, onPick, extra = null) {
   let data;
   try {
     data = await api.socialOverview();
@@ -462,7 +468,7 @@ async function pickFriend(ctx, title, onPick) {
     'section',
     { class: 'quiz pick-friend', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Challenge a friend' },
     h('div', { class: 'coupon-head' }, h('span', {}, h('span', {}, 'Challenge a friend'), ' · ', h('span', {}, title)), h('button', { type: 'button', class: 'quiz-close', 'aria-label': 'Close', onclick: close }, icon('x'))),
-    h('div', { class: 'quiz-body' }, body),
+    h('div', { class: 'quiz-body' }, extra, body),
   );
   const backdrop = h('div', { class: 'quiz-backdrop', onclick: (e) => e.target === backdrop && close() }, card);
   document.body.append(backdrop);

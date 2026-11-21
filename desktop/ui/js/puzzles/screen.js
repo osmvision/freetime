@@ -11,6 +11,7 @@ import { DAYS, FIRST_DAY } from './days.js';
 import { decode, pathSolved, sides, zonesConflicts, zonesSolved } from './logic.js';
 import { GUESS_MAX, openGuess, shareGuess } from './guess.js';
 import { openProblem, problemLabel, problemOf, shareProblem } from './problem.js';
+import { renderFriendsToday, shareResult } from './friends.js';
 
 const KIND_INFO = {
   path: {
@@ -71,6 +72,7 @@ export async function renderPuzzles(box) {
   }
   const today = puzzlesOf(view.date);
   const again = () => renderPuzzles(box);
+  const friends = h('div', { class: 'friends-today-box', hidden: true });
   fill(
     box,
     h(
@@ -80,7 +82,9 @@ export async function renderPuzzles(box) {
       view.streak >= 2 ? h('span', { class: 'puzzle-streak' }, icon('flame'), h('span', { class: 'figures' }, String(view.streak)), ' ', h('span', {}, 'days in a row')) : null,
     ),
     h('div', { class: 'puzzles-today' }, ['path', 'zones'].map((kind) => puzzleCard(kind, today, view.solved[kind], again)), guessCard(today, view.solved.guess, again), problemCard(today, view.solved.problem, again)),
+    friends,
   );
+  renderFriendsToday(friends, view);
 }
 
 function puzzleCard(kind, today, solve, again) {
@@ -205,6 +209,7 @@ export function openPuzzle(kind, today, onDone = () => {}) {
       const view = await api.finishPuzzle(kind, secs);
       done = view.solved[kind] ?? done;
       api.syncPoints().catch(() => {}); // Ranked (signed in only; quiet otherwise)
+      shareResult(today.date, kind, done.secs);
     } catch (e) {
       toast(errText(e), 'error', 5000);
     }

@@ -12,6 +12,7 @@ import { play } from '../play/rules.js';
 import { sound } from '../play/sound.js';
 import { PROBLEMS } from './problems-days.js';
 import { bestDefence, decodeProblem, holds } from './problems.js';
+import { shareResult } from './friends.js';
 
 /** Today's problem, by its number (the same days as the Path and Zones). */
 export function problemOf(number) {
@@ -112,6 +113,7 @@ export function openProblem(today, onDone = () => {}) {
       const view = await api.finishPuzzle('problem', secs);
       done = view.solved.problem ?? done;
       api.syncPoints().catch(() => {});
+      shareResult(today.date, 'problem', done.secs);
     } catch (e) {
       toast(errText(e), 'error', 5000);
     }

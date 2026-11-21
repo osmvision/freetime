@@ -90,6 +90,10 @@ export const api = {
   hideFinishedMatches: () => invoke('hide_finished_matches'),
   playNow: (req, mate) => invoke('play_now', { req, mate }),
   headToHead: (other, game = null) => invoke('head_to_head', { other, game }),
+  // Friends' times on the games of the day (signed in, and only if the player shares theirs).
+  shareDailyResult: (day, kind, secs, score = null) => invoke('share_daily_result', { day, kind, secs, score }),
+  stopSharingDaily: () => invoke('stop_sharing_daily_results'),
+  friendsDaily: (day) => invoke('friends_daily_results', { day }),
   // Evenings: two times, up to three things to do, answers in one click.
   myEvenings: () => invoke('my_evenings'),
   createEvening: (evening) => invoke('create_evening', { evening }),

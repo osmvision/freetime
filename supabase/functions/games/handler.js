@@ -2,7 +2,8 @@
 // starts games and checks moves with the shared rules, then saves them through the database
 // functions only the service role may call (supabase/migrations/*_turn_based_games.sql).
 //
-//   { "action": "start", "game": "four", "opponent": "<uuid>", "fleet": {...} (Torpedoes) }
+//   { "action": "start", "game": "four", "opponent": "<uuid>", "fleet": {...} (Torpedoes),
+//     "options": {...} (a variant, checked by the rules) }
 //   { "action": "move", "match": "<uuid>", "version": 3, "move": {...} }
 //
 // `db.rpc(name, args)` answers like supabase-js: { data, error }.
@@ -42,7 +43,7 @@ export async function handle(db, userId, body, random = Math.random) {
       if (!GAMES.includes(body.game)) throw new GameError(400, 'bad_request', 'Unknown game.');
       if (typeof body.opponent !== 'string' || !UUID.test(body.opponent)) throw new GameError(400, 'bad_request', 'Pick a friend to play with.');
       // Who moves first is drawn here (Torpedoes: the challenger places first, then shoots first).
-      let state = newGame(body.game, random() < 0.5 ? 0 : 1);
+      let state = newGame(body.game, random() < 0.5 ? 0 : 1, body.options ?? null);
       let secret = null;
       if (body.game === 'torpedoes') ({ state, secret } = play(state, 0, { fleet: body.fleet }));
       const { data, error } = await db.rpc('match_open', {

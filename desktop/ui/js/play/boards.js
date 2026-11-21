@@ -4,7 +4,7 @@
 // `me` is your player number; `active` means it's your turn and you may click.
 
 import { h, icon } from '../dom.js';
-import { DOTS, FOUR, GOMOKU, TORPEDOES, isKing, legalMoves, ownerOf } from './rules.js';
+import { FOUR, TORPEDOES, dotsSize, gomokuSize, isKing, legalMoves, ownerOf } from './rules.js';
 
 export function board(state, opts) {
   switch (state.game) {
@@ -71,9 +71,10 @@ function fourBoard(state, { active, onMove }) {
 // ---------------------------------------------------------------- giant tic-tac-toe
 
 function gomokuBoard(state, { active, onMove }) {
-  const n = GOMOKU.size;
+  const n = gomokuSize(state.board);
   const line = new Set(state.line ?? []);
-  return h(
+  const choosing = state.phase === 'choose';
+  const grid = h(
     'div',
     { class: 'board gomoku-board', style: `--n:${n}`, role: 'grid', 'aria-label': 'Giant tic-tac-toe' },
     state.board.map((v, cell) =>
@@ -83,13 +84,26 @@ function gomokuBoard(state, { active, onMove }) {
           type: 'button',
           class: `go-cell${line.has(cell) ? ' win' : ''}${state.last === cell ? ' last' : ''}`,
           'data-cell': cell,
-          disabled: !active || v !== -1,
+          disabled: !active || choosing || v !== -1,
           'aria-label': `Row ${Math.floor(cell / n) + 1}, column ${(cell % n) + 1}${v === -1 ? '' : v === 0 ? ', cross' : ', circle'}`,
           onclick: () => onMove({ cell }),
         },
         v === -1 ? null : h('span', { class: `mark p${v}`, 'aria-hidden': 'true' }, icon(v === 0 ? 'x' : 'circle')),
       ),
     ),
+  );
+  if (!choosing || !active) return grid;
+  // The swap opening: keep your colour and play, or take the two stones (then they play).
+  return h(
+    'div',
+    { class: 'go-wrap' },
+    h(
+      'div',
+      { class: 'go-choose', role: 'group', 'aria-label': 'The swap opening' },
+      h('button', { type: 'button', class: 'btn small', onclick: () => onMove({ swap: false }) }, icon('play'), 'Keep my colour and play'),
+      h('button', { type: 'button', class: 'btn small', onclick: () => onMove({ swap: true }) }, icon('shuffle'), 'Take the two stones'),
+    ),
+    grid,
   );
 }
 
@@ -435,7 +449,7 @@ function ultimateBoard(state, { active, onMove }) {
 // ---------------------------------------------------------------- dots and boxes
 
 function dotsBoard(state, { active, onMove }) {
-  const n = DOTS.size;
+  const n = dotsSize(state);
   const items = [];
   const lineBtn = (index, dir) =>
     h('button', {

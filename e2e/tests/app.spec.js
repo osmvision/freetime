@@ -271,3 +271,29 @@ test('the classics: reversi, awalé and ultimate tic-tac-toe play against the co
   }
   expect(errors).toEqual([]);
 });
+
+test('variants: a smaller dots and boxes, and the swap opening of giant tic-tac-toe', async ({ page }) => {
+  const errors = trackErrors(page);
+  await openDiscover(page);
+  await page.getByRole('button', { name: 'Games', exact: true }).click();
+
+  await page.locator('.game-tile-dots').getByRole('button', { name: 'Computer' }).click();
+  const dots = page.getByRole('dialog', { name: 'Dots and boxes' });
+  await dots.getByRole('radio', { name: '3 × 3' }).click();
+  await expect(dots.locator('.dot-line')).toHaveCount(24);
+  await expect(dots.getByRole('radio', { name: '3 × 3' })).toHaveAttribute('aria-checked', 'true');
+  await dots.getByRole('button', { name: 'Close', exact: true }).click();
+
+  await page.locator('.game-tile-gomoku').getByRole('button', { name: 'Computer' }).click();
+  const go = page.getByRole('dialog', { name: 'Giant tic-tac-toe' });
+  await go.getByRole('radio', { name: 'Swap' }).click();
+  // Whoever opens, the three stones get placed and someone chooses; then the game goes on.
+  await expect(go.locator('.game-status.mine')).toBeVisible({ timeout: 8000 });
+  for (let i = 0; i < 6 && !(await go.locator('.go-choose').count()); i++) {
+    if (await go.locator('.game-status.mine').count()) await go.locator('.go-cell:not([disabled])').nth(40 + i).click();
+    await page.waitForTimeout(700);
+  }
+  if (await go.locator('.go-choose').count()) await go.getByRole('button', { name: 'Take the two stones' }).click();
+  await expect(go.locator('.go-choose')).toHaveCount(0, { timeout: 8000 });
+  expect(errors).toEqual([]);
+});

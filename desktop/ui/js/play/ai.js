@@ -2,7 +2,7 @@
 // mistakes on purpose), 2 = hard. Every move it returns comes from legalMoves(), so it plays by
 // the same rules as everyone.
 
-import { DOTS, FOUR, GOMOKU, TORPEDOES, boxSides, chessInCheck, chessMake, chessMoves, chessPosition, draughtsMoves, isKing, legalMoves, ownerOf, play } from './rules.js';
+import { DOTS, FOUR, GOMOKU, TORPEDOES, boxSides, dotsSize, gomokuSize, chessInCheck, chessMake, chessMoves, chessPosition, draughtsMoves, isKing, legalMoves, ownerOf, play } from './rules.js';
 
 const pickRandom = (list) => list[Math.floor(Math.random() * list.length)];
 
@@ -92,7 +92,7 @@ function fourMove(state, player, level, moves) {
 // ---------------------------------------------------------------- giant tic-tac-toe: threat scores
 
 function runScore(board, cell, p) {
-  const n = GOMOKU.size;
+  const n = gomokuSize(board);
   const r0 = Math.floor(cell / n);
   const c0 = cell % n;
   let total = 0;
@@ -116,8 +116,15 @@ function runScore(board, cell, p) {
 }
 
 function gomokuMove(state, player, level, moves) {
-  const n = GOMOKU.size;
+  const n = gomokuSize(state.board);
   const board = state.board;
+  // The swap opening: three stones near the middle, then keep or swap (either is fair).
+  if (state.phase === 'choose') return { swap: Math.random() < 0.5 };
+  if (state.phase === 'opening') {
+    const mid = (n - 1) / 2;
+    const near = moves.filter(({ cell }) => Math.abs(Math.floor(cell / n) - mid) <= 2 && Math.abs((cell % n) - mid) <= 2);
+    return pickRandom(near.length ? near : moves);
+  }
   if (board.every((v) => v === -1)) return { cell: Math.floor((n * n) / 2) };
   // Only squares next to a stone are worth looking at.
   const near = moves.filter(({ cell }) => {
@@ -307,17 +314,18 @@ function chessMove(state, player, level, moves) {
 
 // ---------------------------------------------------------------- dots and boxes: greedy and careful
 
-function sidesDrawn(lines, b) {
-  return boxSides(b).filter((l) => lines[l] !== -1).length;
+function sidesDrawn(lines, b, n = DOTS.size) {
+  return boxSides(b, n).filter((l) => lines[l] !== -1).length;
 }
 
 function dotsMove(state, player, level, moves) {
-  const boxesOf = (line) => [...Array(DOTS.size * DOTS.size).keys()].filter((b) => boxSides(b).includes(line));
+  const n = dotsSize(state);
+  const boxesOf = (line) => [...Array(n * n).keys()].filter((b) => boxSides(b, n).includes(line));
   // Close a box when you can.
-  const closing = moves.filter(({ line }) => boxesOf(line).some((b) => state.boxes[b] === -1 && sidesDrawn(state.lines, b) === 3));
+  const closing = moves.filter(({ line }) => boxesOf(line).some((b) => state.boxes[b] === -1 && sidesDrawn(state.lines, b, n) === 3));
   if (closing.length && (level === 2 || Math.random() < 0.8)) return pickRandom(closing);
   // Otherwise don't hand over a box (no third side).
-  const safe = moves.filter(({ line }) => boxesOf(line).every((b) => sidesDrawn(state.lines, b) < 2));
+  const safe = moves.filter(({ line }) => boxesOf(line).every((b) => sidesDrawn(state.lines, b, n) < 2));
   if (safe.length && (level === 2 || Math.random() < 0.7)) return pickRandom(safe);
   if (level === 1) return pickRandom(moves);
   // Forced to give something: give the fewest boxes away.
@@ -329,7 +337,7 @@ function dotsMove(state, player, level, moves) {
     // Count how many boxes the other player could then take in a row.
     let guard = 0;
     while (s.winner === null && guard++ < 40) {
-      const takers = legalMoves(s, s.turn).filter(({ line }) => boxesOf(line).some((b) => s.boxes[b] === -1 && sidesDrawn(s.lines, b) === 3));
+      const takers = legalMoves(s, s.turn).filter(({ line }) => boxesOf(line).some((b) => s.boxes[b] === -1 && sidesDrawn(s.lines, b, n) === 3));
       if (!takers.length || s.turn === player) break;
       const before = s.boxes.filter((o) => o === 1 - player).length;
       s = play(s, s.turn, takers[0]).state;

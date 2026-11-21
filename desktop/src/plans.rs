@@ -47,6 +47,26 @@ pub fn head_to_head(state: State<'_, AppState>, other: String, game: Option<Stri
     Client::new().map_err(err)?.head_to_head(&s, &other, game.as_deref()).map_err(err)
 }
 
+// ---------------------------------------------------------------- friends' times on the games of the day
+
+#[tauri::command(async)]
+pub fn share_daily_result(state: State<'_, AppState>, day: String, kind: String, secs: u32, score: Option<u32>) -> Res<()> {
+    let s = live_session(&state)?;
+    Client::new().map_err(err)?.share_daily_result(&s, &day, &kind, secs, score).map_err(err)
+}
+
+#[tauri::command(async)]
+pub fn stop_sharing_daily_results(state: State<'_, AppState>) -> Res<()> {
+    let s = live_session(&state)?;
+    Client::new().map_err(err)?.stop_sharing_daily_results(&s).map_err(err)
+}
+
+#[tauri::command(async)]
+pub fn friends_daily_results(state: State<'_, AppState>, day: String) -> Res<Value> {
+    let s = live_session(&state)?;
+    Client::new().map_err(err)?.friends_daily_results(&s, &day).map_err(err)
+}
+
 // ---------------------------------------------------------------- evenings
 
 #[tauri::command(async)]
