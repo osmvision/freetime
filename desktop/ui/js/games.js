@@ -10,6 +10,8 @@ import { openQuiz, quizBanner, quizCard, setDuelDot } from './quiz.js';
 import { renderGameRanking } from './game-ranking.js';
 import { renderPuzzles } from './puzzles/screen.js';
 import { GAME_INFO, challenge, playComputer, playOnline } from './play/screen.js';
+import { board } from './play/boards.js';
+import { newGame, play } from './play/rules.js';
 
 const DAY = 86400000;
 
@@ -102,19 +104,43 @@ function renderGames(box, ctx, reloadMatches) {
         h(
           'li',
           { class: `game-tile game-tile-${id}` },
-          h('span', { class: 'game-tile-icon' }, icon(g.icon)),
-          h('strong', {}, g.name),
+          preview(id),
+          h('strong', {}, icon(g.icon), h('span', {}, g.name)),
           h('p', { class: 'game-tile-rule' }, g.rule),
           h(
             'div',
             { class: 'game-tile-actions' },
             btn({ label: 'Computer', icon: 'monitor', small: true, onclick: () => playComputer(id) }),
-            btn({ label: 'A friend', icon: 'users', small: true, kind: 'primary', onclick: () => withFriend(id) }),
+            btn({ label: 'A friend', icon: 'users', small: true, onclick: () => withFriend(id) }),
           ),
         ),
       ),
     ),
   );
+}
+
+/**
+ * A small game under way, drawn by the game's own board (the real thing rather than a picture):
+ * on the tile, it says at a glance what the game looks like. Not interactive.
+ */
+function preview(id) {
+  const moves = {
+    four: [3, 3, 2, 4, 4, 2, 1].map((col) => ({ col })),
+    gomoku: [60, 61, 49, 72, 50, 71, 38, 39].map((cell) => ({ cell })),
+    draughts: [],
+    dots: [0, 5, 30, 31, 12, 1, 42, 7].map((line) => ({ line })),
+    chess: [[52, 36], [12, 28], [62, 45], [1, 18], [61, 34]].map(([from, to]) => ({ from, to })),
+    torpedoes: [],
+  }[id];
+  let state = newGame(id, 0);
+  for (const m of moves) state = play(state, state.turn, m).state;
+  if (id === 'torpedoes') {
+    const shots = [[{ c: 9, r: 'miss' }, { c: 27, r: 'hit' }, { c: 28, r: 'hit' }, { c: 45, r: 'miss' }, { c: 50, r: 'miss' }], []];
+    state = { ...state, phase: 'play', ready: [true, true], shots, sunk: [[], []] };
+  }
+  const el = h('div', { class: `game-tile-preview preview-${id}`, 'aria-hidden': 'true' }, board(state, { me: 0, active: false, onMove: () => {}, taken: false }));
+  el.inert = true;
+  return el;
 }
 
 /** Your games with friends: your turn first. Hidden while there are none (or signed out). */

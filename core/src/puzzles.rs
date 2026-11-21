@@ -1,4 +1,5 @@
-//! The puzzles of the day: a Path and a Zones grid, the same for everyone. The puzzles ship with
+//! The games of the day: a Path and a Zones grid, the Guess the activity round (guess.rs) and a
+//! "Win in N" problem on a two-player game's board, the same for everyone. The puzzles ship with
 //! the UI (desktop/ui/js/puzzles/days.js, made ahead of time by desktop/scripts/make-puzzles.mjs,
 //! each with one solution) and are checked there. This side keeps what was solved and how fast,
 //! in the quiz log, and records each solve in the history: a "Learn" pick, like the quiz, never
@@ -12,24 +13,31 @@ use chrono::{Duration, NaiveDate};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
-pub const KINDS: [&str; 2] = ["path", "zones"];
+pub const KINDS: [&str; 4] = ["path", "zones", "guess", "problem"];
 
 /// Ranked points for each puzzle solved on the day (still inside the daily cap).
 pub const POINTS: u32 = 2;
 
-/// A solved puzzle: how long it took, in seconds.
+/// A solved puzzle: how long it took, in seconds, and the score where there is one (Guess the
+/// activity).
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
 pub struct Solve {
     pub secs: u32,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub score: Option<u32>,
 }
 
 fn title(kind: &str) -> &'static str {
-    if kind == "path" {
-        "Path of the day"
-    } else {
-        "Zones of the day"
+    match kind {
+        "path" => "Path of the day",
+        "zones" => "Zones of the day",
+        "problem" => "Problem of the day",
+        _ => "Guess the activity",
     }
 }
+
+/// The most a Guess the activity round can score (10 a photo).
+pub const GUESS_MAX: u32 = 50;
 
 /// The history entry for a solved puzzle.
 pub fn entry_id(kind: &str, day: NaiveDate) -> String {
@@ -59,9 +67,9 @@ pub fn day_points(log: &QuizLog, day: NaiveDate) -> u32 {
     POINTS * solved(log, day).len() as u32
 }
 
-/// Records today's `kind` puzzle as solved in `secs` seconds. Counts once a day: solving it again
-/// returns the first time.
-pub fn finish(kind: &str, day: NaiveDate, secs: u32, log: &mut QuizLog, history: &mut History) -> Result<Solve> {
+/// Records today's `kind` puzzle as solved in `secs` seconds (with its `score` for Guess the
+/// activity). Counts once a day: solving it again returns the first result.
+pub fn finish(kind: &str, day: NaiveDate, secs: u32, score: Option<u32>, log: &mut QuizLog, history: &mut History) -> Result<Solve> {
     if !KINDS.contains(&kind) {
         bail!("unknown puzzle: {kind}");
     }
@@ -69,7 +77,8 @@ pub fn finish(kind: &str, day: NaiveDate, secs: u32, log: &mut QuizLog, history:
     if let Some(done) = today.get(kind) {
         return Ok(*done);
     }
-    let solve = Solve { secs: secs.min(24 * 3600) };
+    let score = if kind == "guess" { Some(score.unwrap_or(0).min(GUESS_MAX)) } else { None };
+    let solve = Solve { secs: secs.min(24 * 3600), score };
     today.insert(kind.to_string(), solve);
     history.entries.push(Entry {
         id: entry_id(kind, day),
@@ -95,16 +104,19 @@ mod tests {
     fn a_puzzle_counts_once_a_day_with_its_first_time() {
         let mut log = QuizLog::default();
         let mut h = History::default();
-        assert_eq!(finish("path", day(20), 95, &mut log, &mut h).unwrap(), Solve { secs: 95 });
-        assert_eq!(finish("path", day(20), 30, &mut log, &mut h).unwrap(), Solve { secs: 95 });
+        assert_eq!(finish("path", day(20), 95, None, &mut log, &mut h).unwrap(), Solve { secs: 95, score: None });
+        assert_eq!(finish("path", day(20), 30, None, &mut log, &mut h).unwrap(), Solve { secs: 95, score: None });
         assert_eq!(h.entries.len(), 1);
         assert_eq!(h.entries[0].id, "puzzle:path:2026-11-20");
         assert_eq!(h.entries[0].category, Category::Learn);
         assert_eq!(day_points(&log, day(20)), 2);
-        finish("zones", day(20), 200, &mut log, &mut h).unwrap();
+        finish("zones", day(20), 200, None, &mut log, &mut h).unwrap();
         assert_eq!(day_points(&log, day(20)), 4);
         assert_eq!(day_points(&log, day(19)), 0);
-        assert!(finish("sudoku", day(20), 10, &mut log, &mut h).is_err());
+        assert!(finish("sudoku", day(20), 10, None, &mut log, &mut h).is_err());
+        let guess = finish("guess", day(20), 70, Some(80), &mut log, &mut h).unwrap();
+        assert_eq!(guess.score, Some(GUESS_MAX), "a score is capped");
+        assert_eq!(day_points(&log, day(20)), 6);
     }
 
     #[test]
@@ -112,7 +124,7 @@ mod tests {
         let mut log = QuizLog::default();
         let mut h = History::default();
         for d in [17, 18, 19] {
-            finish("zones", day(d), 60, &mut log, &mut h).unwrap();
+            finish("zones", day(d), 60, None, &mut log, &mut h).unwrap();
         }
         assert_eq!(streak(&log, day(19)), 3);
         assert_eq!(streak(&log, day(20)), 3, "today still open");

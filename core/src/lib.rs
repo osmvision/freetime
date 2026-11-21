@@ -6,6 +6,7 @@ pub mod assistant;
 pub mod catalog;
 pub mod config;
 pub mod duel;
+pub mod guess;
 pub mod book;
 pub mod history;
 pub mod keys;

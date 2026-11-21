@@ -70,14 +70,15 @@ pub fn get_puzzles() -> PuzzlesView {
     puzzles_view(&quiz::QuizLog::load(), today)
 }
 
-/// Today's `kind` puzzle was solved in `secs` seconds (the UI checks the solution).
+/// Today's `kind` puzzle was solved in `secs` seconds (the UI checks the solution); `score` for
+/// Guess the activity.
 #[tauri::command(async)]
-pub fn finish_puzzle(kind: String, secs: u32) -> Res<PuzzlesView> {
+pub fn finish_puzzle(kind: String, secs: u32, score: Option<u32>) -> Res<PuzzlesView> {
     let today = chrono::Local::now().date_naive();
     let mut log = quiz::QuizLog::load();
     let mut history = History::load();
     let already = puzzles::solved(&log, today).contains_key(&kind);
-    puzzles::finish(&kind, today, secs, &mut log, &mut history).map_err(|e| e.to_string())?;
+    puzzles::finish(&kind, today, secs, score, &mut log, &mut history).map_err(|e| e.to_string())?;
     if !already {
         log.save().map_err(|e| e.to_string())?;
         history.save().map_err(|e| e.to_string())?;

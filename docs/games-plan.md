@@ -315,13 +315,16 @@ expire after 24 h. Plan this phase once phases 1 to 5 have been used for a few w
 ## Order and progress
 
 1. **Phase 1 — done** (branch `games-feel`).
-2. **Phase 4 — first part done** (branch `daily-puzzles`): Path and Zones every day, made ahead of
-   time (`desktop/scripts/make-puzzles.mjs`, one solution each, up to 2027-12-31), Ranked points,
-   a private streak, spoiler-free sharing. Still to do: "Win in N" (4.1, 3), friends' times (4.3)
-   and the puzzle run (4.4).
-3. **Phase 5.1 (Steam higher or lower): dropped for now.** Most freetime users don't have a
-   Steam account; 5.2 (guess the idea) works for everyone and comes first.
-4. Then phases 2, 3, 5.2 and 6 in any order, and phase 7 last.
+2. **Phase 4 — done** (branches `daily-puzzles`, `games-more`): Path and Zones every day, and the
+   problem of the day ("Win in N": chess mate in 2, Four in a row win in 2 or 3, made by
+   `desktop/scripts/make-problems.mjs`, one winning first move each). Ranked points, a private
+   streak, spoiler-free sharing. Still open: friends' times (4.3) and the puzzle run (4.4).
+3. **Phase 5.2 — done** (`games-more`): Guess the activity, five photos a day.
+4. **Phase 5.1 (Steam higher or lower): dropped for now.** Most freetime users don't have a
+   Steam account.
+5. **UI polish of the games** (`games-more`, with the impeccable skill): one shared game window,
+   real boards on the game tiles, drawn marks instead of unicode glyphs, one red per screen.
+6. Then phases 2 (replay and review), 3 and 6 in any order, and phase 7 last.
 
 ## Sources
 

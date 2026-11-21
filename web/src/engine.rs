@@ -2,6 +2,7 @@ use anyhow::{bail, Context as _, Result};
 use chrono::{Datelike, Local, TimeZone};
 use freetime_core::{
     account, assistant, book, catalog,
+    guess,
     config::Config,
     history::{self, History},
     location, mine, places,
@@ -604,6 +605,13 @@ pub fn invoke(call: Call, token: Option<&str>) -> Result<Value> {
                 "streak": state.quiz.streak(day)
             })
         }
+        "guess_round" => {
+            let photos: Vec<String> = arg(&args, "photos")?;
+            json!(guess::daily(&catalog::load(), &photos, day)
+                .iter()
+                .map(|r| json!({ "idea": card(&r.idea, &[]), "choices": r.choices, "answer": r.answer }))
+                .collect::<Vec<_>>())
+        }
         "get_puzzles" => json!({
             "date": day.to_string(),
             "solved": puzzles::solved(&state.quiz, day),
@@ -612,7 +620,8 @@ pub fn invoke(call: Call, token: Option<&str>) -> Result<Value> {
         "finish_puzzle" => {
             let kind: String = arg(&args, "kind")?;
             let secs: u32 = arg(&args, "secs")?;
-            puzzles::finish(&kind, day, secs, &mut state.quiz, &mut state.history)?;
+            let score: Option<u32> = arg(&args, "score")?;
+            puzzles::finish(&kind, day, secs, score, &mut state.quiz, &mut state.history)?;
             state.history.entries = state.history.entries.into_iter().rev().take(500).collect::<Vec<_>>().into_iter().rev().collect();
             patch["quiz"] = json!(state.quiz);
             patch["history"] = json!(state.history);
@@ -1068,6 +1077,18 @@ mod tests {
         assert_eq!(view["value"]["streak"], 1);
         assert!(view["value"]["solved"]["path"].is_null());
         assert!(call("finish_puzzle", json!({ "kind": "chess", "secs": 5 }), json!({})).is_err());
+    }
+
+    #[test]
+    fn guess_the_activity_gives_five_photos_and_counts_like_a_puzzle() {
+        let photos: Vec<String> = catalog::load().iter().filter_map(|s| s.id.strip_prefix("idea:")).map(String::from).collect();
+        let round = call("guess_round", json!({ "photos": photos }), json!({})).unwrap();
+        let rounds = round["value"].as_array().unwrap();
+        assert_eq!(rounds.len(), 5);
+        assert_eq!(rounds[0]["choices"].as_array().unwrap().len(), 4);
+        assert!(rounds[0]["idea"]["title"].is_string());
+        let done = call("finish_puzzle", json!({ "kind": "guess", "secs": 40, "score": 37 }), json!({})).unwrap();
+        assert_eq!(done["value"]["solved"]["guess"]["score"], 37);
     }
 
     #[test]

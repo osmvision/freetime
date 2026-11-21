@@ -72,6 +72,7 @@ fn main() {
             book::get_book,
             book::get_today,
             book::game_idea,
+            book::guess_round,
             quiz::get_quiz,
             quiz::finish_quiz,
             quiz::get_puzzles,
