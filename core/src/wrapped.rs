@@ -74,7 +74,7 @@ pub fn period(history: &History, catalog: &[Suggestion], quizzes: &QuizLog, from
         if by_id.get(e.id.as_str()).is_some_and(|s| s.outdoor) {
             r.outdoor += 1;
         }
-        if !e.id.starts_with("quiz:") {
+        if !e.id.starts_with("quiz:") && !e.id.starts_with("puzzle:") {
             let t = times.entry(e.id.as_str()).or_default();
             t.0 += 1;
             t.1 = t.1.max(e.ts);

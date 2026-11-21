@@ -123,6 +123,10 @@ pub struct Score {
 pub struct QuizLog {
     /// "2026-11-19" -> score of that day's quiz.
     pub days: BTreeMap<String, Score>,
+    /// "2026-11-19" -> "path" / "zones" -> the puzzles of the day solved (see puzzles.rs). Kept
+    /// here so they travel with the quiz results (file on desktop, browser state on the web).
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub puzzles: BTreeMap<String, BTreeMap<String, crate::puzzles::Solve>>,
 }
 
 impl QuizLog {

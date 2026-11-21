@@ -42,7 +42,7 @@ const ICONS = [
   'music', 'trophy', 'sword', 'dice-5', 'skull',
   // games and duels (see ui/js/games.js)
   'swords', 'grid-2x2', 'hash', 'circle-dot', 'square-dashed', 'anchor', 'link', 'volume-2', 'volume-x',
-  'lightbulb',
+  'lightbulb', 'route', 'grid-3x3', 'share-2',
 ];
 
 mkdirSync(join(root, 'ui', 'fonts'), { recursive: true });

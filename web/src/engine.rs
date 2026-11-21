@@ -9,6 +9,7 @@ use freetime_core::{
     net::HttpNet,
     party::{self, Avatar, Friend, Party},
     providers::{self, steam, steam_import::Library, youtube, Online},
+    puzzles,
     quiz::{self, QuizLog},
     region::Region,
     scoring::Ranked,
@@ -376,6 +377,8 @@ pub fn invoke(call: Call, token: Option<&str>) -> Result<Value> {
             .chain(state.shown.iter())
             .any(|s| s.min_minutes > 600 || s.max_minutes > 1440)
         || state.quiz.days.len() > 36500
+        || state.quiz.puzzles.len() > 36500
+        || state.quiz.puzzles.values().any(|m| m.len() > puzzles::KINDS.len())
     {
         bail!("Invalid browser history or activity duration");
     }
@@ -599,6 +602,24 @@ pub fn invoke(call: Call, token: Option<&str>) -> Result<Value> {
                 "score": score.score,
                 "total": score.total,
                 "streak": state.quiz.streak(day)
+            })
+        }
+        "get_puzzles" => json!({
+            "date": day.to_string(),
+            "solved": puzzles::solved(&state.quiz, day),
+            "streak": puzzles::streak(&state.quiz, day)
+        }),
+        "finish_puzzle" => {
+            let kind: String = arg(&args, "kind")?;
+            let secs: u32 = arg(&args, "secs")?;
+            puzzles::finish(&kind, day, secs, &mut state.quiz, &mut state.history)?;
+            state.history.entries = state.history.entries.into_iter().rev().take(500).collect::<Vec<_>>().into_iter().rev().collect();
+            patch["quiz"] = json!(state.quiz);
+            patch["history"] = json!(state.history);
+            json!({
+                "date": day.to_string(),
+                "solved": puzzles::solved(&state.quiz, day),
+                "streak": puzzles::streak(&state.quiz, day)
             })
         }
         "bonus_quiz" => json!(quiz::fetch_trivia( HttpNet::shared()?.as_ref(), &mut rand::thread_rng() )?),
@@ -1038,6 +1059,17 @@ mod tests {
             None,
         )
     }
+    #[test]
+    fn a_puzzle_of_the_day_is_kept_in_the_browser_state() {
+        let done = call("finish_puzzle", json!({ "kind": "zones", "secs": 75 }), json!({})).unwrap();
+        assert_eq!(done["value"]["solved"]["zones"]["secs"], 75);
+        let view = call("get_puzzles", json!({}), done["patch"].clone()).unwrap();
+        assert_eq!(view["value"]["solved"]["zones"]["secs"], 75);
+        assert_eq!(view["value"]["streak"], 1);
+        assert!(view["value"]["solved"]["path"].is_null());
+        assert!(call("finish_puzzle", json!({ "kind": "chess", "secs": 5 }), json!({})).is_err());
+    }
+
     #[test]
     fn game_idea_is_the_first_one_not_hidden() {
         let ids = json!({ "ids": ["idea:chess-puzzles", "idea:chess-blitz"] });

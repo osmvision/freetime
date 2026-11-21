@@ -137,3 +137,43 @@ test('a game against the computer: your turn is marked, a win ends on an idea to
   await expect(idea.getByRole('button', { name: 'Try it' })).toBeVisible();
   expect(errors).toEqual([]);
 });
+
+test('the puzzles of the day: solve both, and they stay solved with their time', async ({ page }) => {
+  const errors = trackErrors(page);
+  await openDiscover(page);
+  await page.getByRole('button', { name: 'Games', exact: true }).click();
+  const section = page.locator('.puzzles');
+  await expect(section.getByRole('heading', { name: 'Puzzles of the day' })).toBeVisible();
+  const number = Number((await section.locator('.puzzle-card .mini-sub').first().textContent()).replace('#', ''));
+
+  // The answers, from the puzzles the app ships (their solver is the generator's).
+  const answers = await page.evaluate(async (n) => {
+    const { DAYS } = await import('/js/puzzles/days.js');
+    const L = await import('/js/puzzles/logic.js');
+    const [path, zones] = DAYS[(n - 1) % DAYS.length];
+    return { path: L.pathSolutions(L.decode('path', path), 1)[0], zones: L.zonesSolutions(L.decode('zones', zones), 1)[0] };
+  }, number);
+
+  await section.getByRole('button', { name: 'Play: Zones of the day' }).click();
+  const zones = page.getByRole('dialog', { name: 'Zones of the day' });
+  for (const c of answers.zones) {
+    const cell = zones.locator(`[data-cell="${c}"]`);
+    await cell.click(); // a cross
+    await cell.click(); // a star
+  }
+  await expect(zones.locator('.game-status')).toContainText('Solved in');
+  await zones.getByRole('button', { name: 'Close', exact: true }).last().click();
+
+  await section.getByRole('button', { name: 'Play: Path of the day' }).click();
+  const path = page.getByRole('dialog', { name: 'Path of the day' });
+  for (const c of answers.path) await path.locator(`[data-cell="${c}"]`).click();
+  await expect(path.locator('.game-status')).toContainText('Solved in');
+  await path.getByRole('button', { name: 'Close', exact: true }).last().click();
+
+  await expect(section.locator('.puzzle-card.done')).toHaveCount(2);
+  await expect(section.getByRole('button', { name: 'Share my time' })).toHaveCount(2);
+  await page.reload();
+  await page.getByRole('button', { name: 'Games', exact: true }).click();
+  await expect(page.locator('.puzzles .puzzle-card.done')).toHaveCount(2);
+  expect(errors).toEqual([]);
+});

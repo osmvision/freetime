@@ -44,6 +44,7 @@ function tierBadge(tier, size = '') {
 function todayChips(t) {
   const parts = [
     [t.quiz, 'quiz'],
+    [t.puzzles ?? 0, 'puzzles'],
     [t.daily, 'ticket of the day'],
     [t.new_ideas, 'new ideas'],
     [t.challenge, 'weekly challenge'],
@@ -178,7 +179,7 @@ export async function renderRanked(box, ctx) {
       h('div', { class: 'board-head' }, h('h2', {}, scope === 'global' ? 'Global ranking' : 'Friends ranking'), tabs),
       scope === 'global' && rows[0] ? topOne(rows[0], ctx) : null,
       list,
-      h('p', { class: 'hint' }, 'Points: 1 per right quiz answer, 3 for the ticket of the day, 2 per new idea, 10 for the weekly challenge, 5 per badge. 20 a day at most. A new season starts each month.'),
+      h('p', { class: 'hint' }, 'Points: 1 per right quiz answer, 2 per puzzle of the day, 3 for the ticket of the day, 2 per new idea, 10 for the weekly challenge, 5 per badge. 20 a day at most. A new season starts each month.'),
     ),
   );
 }

@@ -280,7 +280,7 @@ impl History {
             .filter(|(_, e)| {
                 let age = now - e.ts;
                 // A finished quiz isn't asked "how was it?": you just played it in freetime.
-                e.rating.is_none() && !e.id.starts_with("quiz:") && age >= min_age_secs && age <= RATE_WINDOW_SECS
+                e.rating.is_none() && !e.id.starts_with("quiz:") && !e.id.starts_with("puzzle:") && age >= min_age_secs && age <= RATE_WINDOW_SECS
             })
             .map(|(i, _)| i)
             .take(limit)

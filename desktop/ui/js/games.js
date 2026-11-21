@@ -8,6 +8,7 @@ import { avatar } from './avatars.js';
 import { btn, emptyState, errText, fill, h, icon, pageHead, toast } from './dom.js';
 import { openQuiz, quizBanner, quizCard, setDuelDot } from './quiz.js';
 import { renderGameRanking } from './game-ranking.js';
+import { renderPuzzles } from './puzzles/screen.js';
 import { GAME_INFO, challenge, playComputer, playOnline } from './play/screen.js';
 
 const DAY = 86400000;
@@ -46,16 +47,18 @@ export async function refreshMatchDot() {
 
 export async function render(root, ctx, { invitation } = {}) {
   const quizBox = h('div', { class: 'games-quiz' });
+  const puzzlesBox = h('section', { class: 'panel puzzles' });
   const duelsBox = h('section', { class: 'panel duels' });
   const matchesBox = h('section', { class: 'panel duels matches', hidden: true });
   const gamesBox = h('section', { class: 'panel play-games' });
   const rankingBox = h('section', { class: 'panel game-ranking' });
   fill(
     root,
-    pageHead('Games', 'The quiz of the day, quiz duels, and games to play with a friend or the computer.',
+    pageHead('Games', 'The quiz and the puzzles of the day, quiz duels, and games to play with a friend or the computer.',
       btn({ label: 'Game rankings', icon: 'trophy', small: true, onclick: () => rankingBox.querySelector('h2')?.focus() })),
-    quizBox, matchesBox, gamesBox, duelsBox, rankingBox,
+    quizBox, puzzlesBox, matchesBox, gamesBox, duelsBox, rankingBox,
   );
+  renderPuzzles(puzzlesBox);
   renderGameRanking(rankingBox, ctx);
   const reloadMatches = () => renderMatches(matchesBox, ctx);
   renderQuiz(quizBox, ctx);
