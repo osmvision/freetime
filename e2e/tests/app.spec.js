@@ -109,3 +109,31 @@ test('the app speaks French when the browser does', async ({ browser }) => {
   await expect(page.getByRole('button', { name: 'Plus tard' })).toBeVisible();
   await page.close();
 });
+
+test('a game against the computer: your turn is marked, a win ends on an idea to try', async ({ page }) => {
+  const errors = trackErrors(page);
+  await openDiscover(page);
+  // A Four in a row game saved one move before your win: three of yours along the bottom row.
+  await page.evaluate(() => {
+    const board = Array(42).fill(-1);
+    for (const cell of [35, 36, 37]) board[cell] = 0;
+    for (const cell of [28, 29, 30]) board[cell] = 1;
+    const state = { game: 'four', board, last: 30, line: null, turn: 0, winner: null, plies: 6 };
+    localStorage.setItem('freetime.play.four', JSON.stringify({ state, secrets: [null, null], level: 1, humanFirst: true }));
+  });
+  await page.getByRole('button', { name: 'Games', exact: true }).click();
+  await page.locator('.game-tile-four').getByRole('button', { name: 'Computer' }).click();
+
+  const game = page.getByRole('dialog', { name: 'Four in a row' });
+  await expect(game.locator('.game-status.mine')).toContainText('Your turn');
+  await expect(game.getByRole('button', { name: 'Game sounds' })).toHaveAttribute('aria-pressed', 'false');
+
+  await game.getByRole('button', { name: 'Column 4' }).click();
+  await expect(game.locator('.game-status')).toContainText('You won!');
+  await expect(game.locator('.game-status.mine')).toHaveCount(0);
+  const idea = game.locator('.game-idea');
+  await expect(idea).toBeVisible();
+  await expect(idea.locator('strong')).not.toBeEmpty();
+  await expect(idea.getByRole('button', { name: 'Try it' })).toBeVisible();
+  expect(errors).toEqual([]);
+});

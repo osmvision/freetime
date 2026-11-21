@@ -544,6 +544,12 @@ pub fn invoke(call: Call, token: Option<&str>) -> Result<Value> {
         }
         "get_history" => history_view(&state),
         "get_book" | "get_today" => book_view(&mut state),
+        "game_idea" => {
+            let ids: Vec<String> = arg(&args, "ids")?;
+            let catalog = catalog::load();
+            let hidden = |id: &String| state.history.never.iter().any(|n| &n.id == id);
+            json!(ids.iter().filter(|id| !hidden(id)).find_map(|id| catalog.iter().find(|s| &s.id == id)).map(|s| card(s, &[])))
+        }
         "get_recap" => {
             let r = state.history.recap(now);
             let mut v = serde_json::to_value(&r)?;
@@ -1032,6 +1038,19 @@ mod tests {
             None,
         )
     }
+    #[test]
+    fn game_idea_is_the_first_one_not_hidden() {
+        let ids = json!({ "ids": ["idea:chess-puzzles", "idea:chess-blitz"] });
+        let first = call("game_idea", ids.clone(), json!({})).unwrap();
+        assert_eq!(first["value"]["id"], "idea:chess-puzzles");
+        assert!(first["value"]["title"].as_str().is_some_and(|t| !t.is_empty()));
+        let hidden = call("hide_idea", json!({ "id": "idea:chess-puzzles" }), json!({})).unwrap();
+        let next = call("game_idea", ids, hidden["patch"].clone()).unwrap();
+        assert_eq!(next["value"]["id"], "idea:chess-blitz");
+        let none = call("game_idea", json!({ "ids": ["no-such-idea"] }), json!({})).unwrap();
+        assert!(none["value"].is_null());
+    }
+
     #[test]
     fn browser_history_and_quiz_round_trip_without_desktop_storage() {
         let boot = call("bootstrap", json!({}), json!({})).unwrap();

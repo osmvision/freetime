@@ -32,8 +32,16 @@ function fourBoard(state, { active, onMove }) {
   const { cols, rows } = FOUR;
   const legal = new Set(active ? legalMoves(state, state.turn).map((m) => m.col) : []);
   const line = new Set(state.line ?? []);
-  const columns = [...Array(cols).keys()].map((c) =>
-    h(
+  // The lowest empty cell of each column you may play: where your disc would land.
+  const land = (c) => {
+    if (!legal.has(c)) return -1;
+    let r = rows - 1;
+    while (r >= 0 && state.board[r * cols + c] !== -1) r -= 1;
+    return r * cols + c;
+  };
+  const columns = [...Array(cols).keys()].map((c) => {
+    const landing = land(c);
+    return h(
       'button',
       {
         type: 'button',
@@ -45,11 +53,12 @@ function fourBoard(state, { active, onMove }) {
       [...Array(rows).keys()].map((r) => {
         const cell = r * cols + c;
         const v = state.board[cell];
-        return h('span', { class: `four-cell${line.has(cell) ? ' win' : ''}${state.last === cell ? ' last' : ''}` }, v === -1 ? null : piece(v));
+        return h('span', { class: `four-cell${line.has(cell) ? ' win' : ''}${state.last === cell ? ' last' : ''}${cell === landing ? ' land' : ''}`, 'data-cell': cell }, v === -1 ? null : piece(v));
       }),
-    ),
-  );
-  return h('div', { class: 'board four-board', role: 'group', 'aria-label': 'Four in a row' }, columns);
+    );
+  });
+  // turn-p0 / turn-p1: the colour of the disc shown over the column you point at.
+  return h('div', { class: `board four-board${active ? ` turn-p${state.turn}` : ''}`, role: 'group', 'aria-label': 'Four in a row' }, columns);
 }
 
 // ---------------------------------------------------------------- giant tic-tac-toe
@@ -66,6 +75,7 @@ function gomokuBoard(state, { active, onMove }) {
         {
           type: 'button',
           class: `go-cell${line.has(cell) ? ' win' : ''}${state.last === cell ? ' last' : ''}`,
+          'data-cell': cell,
           disabled: !active || v !== -1,
           'aria-label': `Row ${Math.floor(cell / n) + 1}, column ${(cell % n) + 1}${v === -1 ? '' : v === 0 ? ', cross' : ', circle'}`,
           onclick: () => onMove({ cell }),
@@ -108,6 +118,7 @@ function draughtsBoard(state, { me, active, onMove }) {
             type: 'button',
             class: `dr-cell${dark ? ' dark' : ''}${prefix.includes(i) ? ' chosen' : ''}${next.has(i) ? ' target' : ''}${!prefix.length && starts.has(i) ? ' movable' : ''}${last.has(i) ? ' last' : ''}`,
             disabled: !dark || !selectable,
+            'data-cell': i,
             'aria-label': `${String.fromCharCode(97 + c)}${10 - r}${o >= 0 ? (isKing(v) ? ', king' : ', man') : ''}`,
             onclick: () => pick(i),
           },
@@ -227,6 +238,7 @@ function chessBoard(state, { me, active, onMove }) {
             type: 'button',
             class: `ch-cell ${(r + c) % 2 === 1 ? 'dark' : 'light'}${i === selected ? ' chosen' : ''}${target ? (v !== 0 || (Math.abs(state.board[selected]) === 1 && i === state.ep) ? ' capture' : ' target') : ''}${movable && selected < 0 ? ' movable' : ''}${last.has(i) ? ' last' : ''}${i === kingInCheck ? ' check' : ''}`,
             disabled: promoting !== null || !(movable || target),
+            'data-cell': i,
             'aria-label': `${name(i)}${v !== 0 ? `, ${v > 0 ? 'white' : 'black'} ${PIECE_NAMES[Math.abs(v)]}` : ''}`,
             'aria-pressed': movable ? String(i === selected) : null,
             onclick: () => pick(i),
@@ -277,7 +289,39 @@ function chessBoard(state, { me, active, onMove }) {
   }
 
   draw();
-  return root;
+  const mine = me === state.white;
+  return h('div', { class: 'chess-wrap' }, takenRow(state.board, !mine), root, takenRow(state.board, mine));
+}
+
+const START_COUNT = { 1: 8, 2: 2, 3: 2, 4: 2, 5: 1 };
+const VALUE = { 1: 1, 2: 3, 3: 3, 4: 5, 5: 9 };
+
+/**
+ * The pieces `white` (true) or black has taken, smallest first, and its lead in material (pawn 1,
+ * knight and bishop 3, rook 5, queen 9). A promoted pawn counts as the piece it became.
+ */
+export function taken(board, white) {
+  const count = (sign) => {
+    const n = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+    for (const v of board) if (v * sign > 0 && Math.abs(v) !== 6) n[Math.abs(v)] += 1;
+    return n;
+  };
+  const theirs = count(white ? -1 : 1);
+  const ours = count(white ? 1 : -1);
+  const pieces = [1, 2, 3, 4, 5].flatMap((t) => Array(Math.max(0, START_COUNT[t] - theirs[t])).fill(t));
+  const material = (n) => Object.entries(n).reduce((sum, [t, k]) => sum + VALUE[t] * k, 0);
+  return { pieces, lead: material(ours) - material(theirs) };
+}
+
+// Visual only: the squares of the board already tell a screen reader every piece left.
+function takenRow(board, white) {
+  const { pieces, lead } = taken(board, white);
+  return h(
+    'div',
+    { class: 'ch-taken', 'aria-hidden': 'true' },
+    pieces.map((t) => chessPiece(t, !white)),
+    lead > 0 ? h('span', { class: 'ch-lead figures' }, `+${lead}`) : null,
+  );
 }
 
 // ---------------------------------------------------------------- dots and boxes
@@ -290,6 +334,7 @@ function dotsBoard(state, { active, onMove }) {
       type: 'button',
       class: `dot-line ${dir}${state.lines[index] >= 0 ? ` drawn p${state.lines[index]}` : ''}${state.last === index ? ' last' : ''}`,
       disabled: !active || state.lines[index] !== -1,
+      'data-line': index,
       'aria-label': `${dir === 'h' ? 'Horizontal' : 'Vertical'} line ${index + 1}`,
       onclick: () => onMove({ line: index }),
     });
@@ -301,7 +346,7 @@ function dotsBoard(state, { active, onMove }) {
       else {
         const b = ((r - 1) / 2) * n + (c - 1) / 2;
         const o = state.boxes[b];
-        items.push(h('span', { class: `dot-box${o >= 0 ? ` p${o}` : ''}` }, o >= 0 ? h('span', { 'aria-hidden': 'true' }, o === 0 ? '✕' : '◯') : null));
+        items.push(h('span', { class: `dot-box${o >= 0 ? ` p${o}` : ''}`, 'data-box': b }, o >= 0 ? h('span', { 'aria-hidden': 'true' }, o === 0 ? '✕' : '◯') : null));
       }
     }
   }
@@ -326,7 +371,7 @@ function torpedoBoards(state, { me, active, onMove, secret }) {
     const shot = theirShots.get(c);
     return h(
       'span',
-      { class: `torp-cell${myShips.has(c) ? ' ship' : ''}${shot ? ` ${shot}` : ''}${state.last === c && state.turn === me ? ' last' : ''}` },
+      { class: `torp-cell${myShips.has(c) ? ' ship' : ''}${shot ? ` ${shot}` : ''}${state.last === c && state.turn === me ? ' last' : ''}`, 'data-cell': c },
       shot ? h('span', { 'aria-hidden': 'true' }, shot === 'miss' ? '•' : '✕') : null,
     );
   });
@@ -338,6 +383,7 @@ function torpedoBoards(state, { me, active, onMove, secret }) {
         type: 'button',
         class: `torp-cell sea${shot ? ` ${shot}` : ''}${sunkThere.has(c) ? ' sunk' : ''}`,
         disabled: !active || state.phase !== 'play' || Boolean(shot),
+        'data-cell': c,
         'aria-label': `${String.fromCharCode(65 + Math.floor(c / n))}${(c % n) + 1}${shot ? `, ${shot}` : ''}`,
         onclick: () => onMove({ cell: c }),
       },

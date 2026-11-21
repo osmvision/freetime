@@ -39,6 +39,22 @@ fn daily_card(state: &AppState, catalog: &[freetime_core::model::Suggestion], da
     Some(c)
 }
 
+/// The idea offered when a game ends: the first of `ids` (built-in ideas) that isn't hidden with
+/// "Never suggest this", remembered so "Try it" records it like any other pick.
+#[tauri::command(async)]
+pub fn game_idea(state: State<'_, AppState>, ids: Vec<String>) -> Option<Card> {
+    let history = History::load();
+    let catalog = catalog::load();
+    let s = ids
+        .iter()
+        .filter(|id| !history.never.iter().any(|n| &n.id == *id))
+        .find_map(|id| catalog.iter().find(|s| &s.id == id))?
+        .clone();
+    let c = card(&Ranked { s, score: 0.0, reasons: vec![] });
+    remember(&state, std::iter::once(&c));
+    Some(c)
+}
+
 #[tauri::command(async)]
 pub fn get_book(state: State<'_, AppState>) -> Res<BookView> {
     let now = chrono::Local::now();

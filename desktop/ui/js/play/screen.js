@@ -2,10 +2,12 @@
 // friend (every move goes through the games Edge Function, which checks it with the same rules).
 
 import { api } from '../api.js';
-import { btn, errText, h, icon, toast } from '../dom.js';
+import { btn, errText, fill, h, icon, toast } from '../dom.js';
 import { computerMove, randomFleet } from './ai.js';
 import { board, fleetEditor } from './boards.js';
-import { newGame, play, scores } from './rules.js';
+import { moved, yourTurn } from './fx.js';
+import { legalMoves, newGame, play, scores } from './rules.js';
+import { setSound, sound, soundOn } from './sound.js';
 
 export const GAME_INFO = {
   four: { name: 'Four in a row', icon: 'grid-2x2', rule: 'Drop a disc in turn. Line up 4, across, down or diagonally, to win.' },
@@ -34,19 +36,43 @@ const store = {
   },
 };
 
+/** The speaker button in a game window's header: sounds are off until switched on here. */
+function soundToggle() {
+  const b = h('button', { type: 'button', class: 'quiz-close game-sound', 'aria-label': 'Game sounds' });
+  const show = () => {
+    b.setAttribute('aria-pressed', String(soundOn()));
+    b.replaceChildren(icon(soundOn() ? 'volume-2' : 'volume-x'));
+  };
+  b.addEventListener('click', () => {
+    setSound(!soundOn());
+    show();
+    sound('move');
+  });
+  show();
+  return b;
+}
+
+/** After this long on your turn without a move, the pieces you can move pulse gently. */
+const IDLE_MS = 10000;
+
 /** The window frame shared by both kinds of games. */
 function frame(game, opponent, onClose) {
   const previousFocus = document.activeElement;
   const status = h('div', { class: 'game-status', 'aria-live': 'polite' });
   const area = h('div', { class: 'game-area' });
   const tools = h('div', { class: 'game-tools' });
+  let idle = null;
+  let shown = null; // the state on screen, to animate the next move
+  let wasMine = null;
   const close = () => {
+    clearTimeout(idle);
     backdrop.remove();
     document.removeEventListener('keydown', onKey);
     previousFocus?.focus?.();
     onClose?.();
   };
   const onKey = (e) => e.key === 'Escape' && close();
+  const closeBtn = h('button', { type: 'button', class: 'quiz-close', 'aria-label': 'Close', onclick: close }, icon('x'));
   const card = h(
     'section',
     { class: `quiz game-window game-${game}`, role: 'dialog', 'aria-modal': 'true', 'aria-label': GAME_INFO[game].name },
@@ -54,15 +80,77 @@ function frame(game, opponent, onClose) {
       'div',
       { class: 'coupon-head' },
       h('span', { class: 'game-title' }, icon(GAME_INFO[game].icon), h('span', {}, GAME_INFO[game].name), h('span', { class: 'game-vs' }, h('span', {}, 'vs'), ' ', opponent)),
-      h('button', { type: 'button', class: 'quiz-close', 'aria-label': 'Close', onclick: close }, icon('x')),
+      h('span', { class: 'game-head-actions' }, soundToggle(), closeBtn),
     ),
     h('div', { class: 'quiz-body game-body' }, status, area, h('p', { class: 'game-rule' }, GAME_INFO[game].rule), tools),
   );
   const backdrop = h('div', { class: 'quiz-backdrop', onclick: (e) => e.target === backdrop && close() }, card);
   document.body.append(backdrop);
   document.addEventListener('keydown', onKey);
-  card.querySelector('.quiz-close').focus();
-  return { status, area, tools, close, isOpen: () => backdrop.isConnected };
+  closeBtn.focus();
+
+  /**
+   * Call after each draw: animates the move just played (if any), marks your turn, and starts the
+   * idle hint. `me` is your player number, `mine` whether you may play now.
+   */
+  function drawn(state, me, mine) {
+    moved(area, shown, state, me);
+    shown = state;
+    status.classList.toggle('mine', mine);
+    if (mine && wasMine === false) yourTurn(status);
+    wasMine = mine;
+    clearTimeout(idle);
+    area.classList.remove('idle');
+    if (mine) idle = setTimeout(() => area.classList.add('idle'), IDLE_MS);
+  }
+
+  return { status, area, tools, close, drawn, isOpen: () => backdrop.isConnected };
+}
+
+// ---------------------------------------------------------------- an idea for after the game
+
+// Built-in ideas (core/data/activities.toml) offered when a game ends: the first one the player
+// hasn't hidden. The fun happens off-screen, so a game ends on something real to do.
+const AFTER_GAME = {
+  chess: ['chess-puzzles', 'chess-blitz', 'board-games'],
+  four: ['board-games', 'card-night', 'daily-puzzle'],
+  gomoku: ['daily-puzzle', 'board-games'],
+  draughts: ['board-games', 'card-night'],
+  dots: ['daily-puzzle', 'board-games'],
+  torpedoes: ['board-games', 'card-night'],
+};
+const ideaIds = (game) => (AFTER_GAME[game] ?? ['board-games']).map((id) => `idea:${id}`);
+
+function ideaLine(game, closeGame) {
+  const box = h('div', { class: 'game-idea', hidden: true });
+  api.gameIdea(ideaIds(game)).then(
+    (c) => {
+      if (!c) return;
+      box.hidden = false;
+      fill(
+        box,
+        icon('lightbulb'),
+        h('div', { class: 'game-idea-text' }, h('span', { class: 'game-idea-kicker' }, 'Something else to try'), h('strong', { translate: 'no' }, c.title)),
+        btn({ label: 'Try it', icon: 'arrow-right', small: true, onclick: () => tryIdea(c, closeGame) }),
+      );
+    },
+    () => {}, // offline or an older engine: no idea, the game end stays as it was
+  );
+  return box;
+}
+
+/** "Try it": the same as Start on a ticket (recorded, so freetime asks later how it went). */
+async function tryIdea(c, closeGame) {
+  try {
+    const r = await api.pick(c.id);
+    api.syncPoints().catch(() => {});
+    toast('Enjoy. Next time freetime will ask how it went.', 'ok', 4200);
+    closeGame();
+    const link = r?.link ?? c.link;
+    if (link) await api.open(link);
+  } catch (e) {
+    toast(errText(e), 'error');
+  }
 }
 
 /** "Your turn", "Julian is playing", "You won!"... with the Dots and boxes score. */
@@ -79,10 +167,14 @@ function statusLine(state, me, otherName, thinking) {
     parts.push(h('strong', {}, h('span', { class: `piece p${1 - me}`, 'aria-hidden': 'true' }), otherName ? h('span', {}, h('span', {}, 'Waiting for'), ' ', h('span', { translate: 'no' }, otherName)) : thinking ? 'The computer is thinking…' : 'The computer’s turn'));
   }
   if (state.game === 'chess' && state.check && state.winner === null) parts.push(h('strong', { class: 'game-check' }, 'Check!'));
+  if (state.game === 'draughts' && state.winner === null && state.turn === me && legalMoves(state, me)[0]?.captured.length) {
+    parts.push(h('span', { class: 'game-hint' }, 'You must capture'));
+  }
   const sc = scores(state);
   if (sc) parts.push(h('span', { class: 'game-score figures' }, `${sc[me]} – ${sc[1 - me]}`));
   if (state.game === 'torpedoes' && state.phase === 'play') {
     parts.push(h('span', { class: 'game-score' }, h('span', { class: 'figures' }, `${state.sunk[me].length}/4`), ' ', h('span', {}, 'sunk')));
+    parts.push(h('span', { class: 'game-score' }, h('span', { class: 'figures' }, `${state.sunk[1 - me].length}/4`), ' ', h('span', {}, 'ships lost')));
   }
   return parts;
 }
@@ -99,11 +191,13 @@ export function playComputer(game) {
   let secrets = saved?.secrets ?? [null, null];
   let thinking = false;
   const ui = frame(game, h('span', {}, 'the computer'));
+  let idea = null; // the idea under a finished game, made once per game
 
   const restart = () => {
     humanFirst = !humanFirst;
     state = newGame(game, humanFirst ? 0 : 1);
     secrets = [null, null];
+    idea = null;
     save();
     draw();
     think();
@@ -139,11 +233,15 @@ export function playComputer(game) {
   function draw() {
     ui.status.replaceChildren(...statusLine(state, 0, null, thinking));
     const placing = game === 'torpedoes' && state.phase === 'setup' && state.turn === 0;
+    const mine = state.winner === null && state.turn === 0 && !thinking;
+    if (state.winner !== null) idea ??= ideaLine(game, ui.close);
     ui.area.replaceChildren(
       placing
         ? fleetEditor({ randomFleet, onReady: (fleet) => move({ fleet }, 0) })
-        : board(state, { me: 0, active: state.turn === 0 && !thinking, onMove: (m) => move(m, 0), secret: secrets[0] }),
+        : board(state, { me: 0, active: mine, onMove: (m) => move(m, 0), secret: secrets[0] }),
+      ...(state.winner !== null ? [idea] : []),
     );
+    ui.drawn(state, 0, mine);
     const levels = h(
       'div',
       { class: 'seg small', role: 'radiogroup', 'aria-label': 'Level' },
@@ -279,10 +377,12 @@ export function playOnline(match, onChange = () => {}) {
     const placing = s.game === 'torpedoes' && s.phase === 'setup' && s.turn === m.me && !s.ready[m.me] && !over;
     const finished = ['won', 'lost', 'draw'].includes(m.outcome);
     if (finished && !endBox) endBox = gameEnd(m, name);
+    if (finished && !idea) idea = ideaLine(m.game, ui.close);
     ui.area.replaceChildren(
       placing ? fleetEditor({ randomFleet, onReady: (fleet) => send({ fleet }) }) : board(s, { me: m.me, active: myTurn, onMove: send, secret: m.my_secret }),
-      finished ? endBox : null,
+      ...(finished ? [endBox, idea] : []),
     );
+    ui.drawn(s, m.me, myTurn);
     const tools = [];
     if (finished) {
       tools.push(btn({ label: 'Rematch', icon: 'rotate-ccw', small: true, kind: 'primary', onclick: () => rematch(m, name, ui.close, onChange) }));
@@ -309,6 +409,7 @@ export function playOnline(match, onChange = () => {}) {
   }
 
   let endBox = null;
+  let idea = null;
   draw();
 }
 
