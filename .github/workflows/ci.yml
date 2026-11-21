@@ -13,7 +13,7 @@ jobs:
     name: Rust core tests
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: dtolnay/rust-toolchain@stable
       - run: cargo test -p freetime-core --locked
 
@@ -24,18 +24,47 @@ jobs:
       run:
         working-directory: supabase/tests
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
         with:
           node-version: 26
       - run: npm ci
       - run: npm test
 
+  e2e:
+    name: UI tests (web version, Playwright)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 26
+      - name: Install the web bundle's packages
+        working-directory: web
+        run: npm ci
+      - name: Install Playwright and Chromium
+        working-directory: e2e
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+      # The config builds the web bundle, compiles freetime-web and starts it before the tests.
+      - name: Run the UI tests
+        working-directory: e2e
+        run: npx playwright test
+      - uses: actions/upload-artifact@v5
+        if: ${{ !cancelled() }}
+        with:
+          name: playwright-report
+          path: e2e/playwright-report/
+          retention-days: 14
+
   audit:
     name: Dependency audit (known vulnerabilities)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: taiki-e/install-action@v2
         with:
           tool: cargo-audit
