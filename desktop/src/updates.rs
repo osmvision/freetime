@@ -92,5 +92,7 @@ pub async fn install_update(app: AppHandle) -> Res<()> {
         )
         .await
         .map_err(|e| format!("The update failed: {e}"))?;
+    // On Windows the plugin has already exited to run the installer, so this line only runs on
+    // macOS and Linux, where the new version starts on the next launch.
     app.restart();
 }
