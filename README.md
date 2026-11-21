@@ -91,6 +91,12 @@ contains spaces. If yours does, copy `.cargo/config.toml.example` to `.cargo/con
 build folder without spaces. That file is personal and ignored by git. With the MSVC toolchain, or a
 path without spaces, nothing is needed.
 
+## License
+
+The code is under the [MIT License](LICENSE), © 2026 osmvision and Julien-13. The photos, fonts and
+icons bundled with the app, and the data it fetches, keep their own licences: see
+[THIRD-PARTY.md](THIRD-PARTY.md). The licence covers the code, not the name "freetime".
+
 ## Code signing policy
 
 Free code signing provided by [SignPath.io](https://about.signpath.io/), certificate by
