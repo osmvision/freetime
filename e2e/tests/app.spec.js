@@ -11,11 +11,18 @@ function trackErrors(page) {
   return errors;
 }
 
+/**
+ * The first idea of a new user. Alone, it shows in under a second; right after the server starts,
+ * with every worker opening a browser at once, it has been seen to take up to 12 s. Only this first
+ * appearance gets the extra time: every other check keeps the default 5 s.
+ */
+const FIRST_IDEA = { timeout: 20000 };
+
 /** Opens the app as a new user and skips the welcome window. */
 async function openDiscover(page) {
   await page.goto('/');
   await page.getByRole('button', { name: 'Skip for now' }).click();
-  await expect(page.locator('.coupon')).toBeVisible();
+  await expect(page.locator('.coupon')).toBeVisible(FIRST_IDEA);
 }
 
 const leadTitle = (page) => page.locator('.coupon').getByRole('heading').first();
@@ -26,7 +33,7 @@ test('a new user sees the welcome window, then a lead idea and the rest of the b
   await expect(page.getByRole('button', { name: 'Set me up' })).toBeVisible();
   await page.getByRole('button', { name: 'Skip for now' }).click();
 
-  await expect(page.locator('.coupon')).toBeVisible();
+  await expect(page.locator('.coupon')).toBeVisible(FIRST_IDEA);
   await expect(leadTitle(page)).not.toBeEmpty();
   await expect(page.locator('.leaf').first()).toBeVisible();
   expect(errors).toEqual([]);
