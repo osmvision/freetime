@@ -91,6 +91,14 @@ contains spaces. If yours does, copy `.cargo/config.toml.example` to `.cargo/con
 build folder without spaces. That file is personal and ignored by git. With the MSVC toolchain, or a
 path without spaces, nothing is needed.
 
+## Contributing
+
+Bugs go in [issues](https://github.com/osmvision/freetime/issues), ideas and questions in
+[Discussions](https://github.com/osmvision/freetime/discussions). Before a pull request, see
+[CONTRIBUTING.md](CONTRIBUTING.md); everyone follows the [Code of Conduct](CODE_OF_CONDUCT.md).
+Security problems are reported privately ([SECURITY.md](SECURITY.md)), and accessibility
+barriers are bugs ([ACCESSIBILITY.md](ACCESSIBILITY.md)).
+
 ## License
 
 The code is under the [MIT License](LICENSE), © 2026 osmvision and Julien-13. The photos, fonts and

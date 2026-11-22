@@ -1,0 +1,44 @@
+name: Something doesn't work
+description: A bug in the desktop app, the web version or the terminal version.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time! A security problem? Please don't post it here: see [SECURITY.md](https://github.com/osmvision/freetime/blob/main/SECURITY.md).
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What did you do, what did you expect, and what happened instead?
+      placeholder: I opened Games, clicked Play on Zones of the day, and the grid stayed empty.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. ...
+        2. ...
+  - type: dropdown
+    id: where
+    attributes:
+      label: Where
+      options:
+        - Desktop app (Windows)
+        - Web version
+        - Terminal version
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: In the desktop app, Settings → Updates shows it. For the web version, the browser you used.
+      placeholder: 0.6.0
+  - type: textarea
+    id: more
+    attributes:
+      label: Anything else
+      description: Screenshots, the language you use the app in, signed in or not...
