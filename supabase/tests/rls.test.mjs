@@ -1662,8 +1662,10 @@ test('evenings: two times, three activities, friends only, answers and the final
     await step(ALICE, async (q) => {
       await fails(q.one(createSql, [[at(2)], acts, '', [CAROL]]), /only invite your friends/);
     });
+    // The same instant twice: one call to the clock (two calls can land a millisecond apart).
+    const same = at(2);
     for (const [slots, activities, pattern] of [
-      [[at(2), at(2)], acts, /different times/],
+      [[same, same], acts, /different times/],
       [[at(2), at(3), at(4)], acts, /different times/],
       [[at(24 * 15)], acts, /two weeks/],
       [[at(-2)], acts, /two weeks/],

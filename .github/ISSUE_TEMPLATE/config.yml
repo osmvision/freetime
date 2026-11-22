@@ -1,0 +1,11 @@
+blank_issues_enabled: true
+contact_links:
+  - name: An idea for freetime
+    url: https://github.com/osmvision/freetime/discussions/categories/ideas
+    about: "New activities, games or features: let's talk about them in Discussions first."
+  - name: A question
+    url: https://github.com/osmvision/freetime/discussions/categories/q-a
+    about: "Wondering how something works? Ask in Discussions."
+  - name: A security problem
+    url: https://github.com/osmvision/freetime/security/advisories/new
+    about: "Report it privately, never in a public issue."
