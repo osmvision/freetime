@@ -43,8 +43,9 @@ pub fn candidates(cfg: &Config, minutes: u32, online: &Online) -> Vec<Suggestion
     items.extend(cfg.my_ideas.iter().filter(|i| i.is_valid()).map(mine::MyIdea::to_suggestion));
     items.extend(online.items.iter().cloned());
     // Search links only as a last resort: when no real video could be found (offline, feeds down).
+    // Two at most: a book full of "Browse YouTube for…" reads as filler.
     if !online.items.iter().any(|s| s.id.starts_with("yt:")) {
-        items.extend(youtube::search_links(cfg, minutes));
+        items.extend(youtube::search_links(cfg, minutes).into_iter().take(2));
     }
     items
 }
@@ -98,7 +99,7 @@ mod tests {
     fn search_links_are_a_last_resort() {
         let cfg = Config::default();
         let is_search = |s: &Suggestion| s.id.starts_with("ytsearch:");
-        assert!(candidates(&cfg, 30, &Online::default()).iter().any(is_search));
+        assert_eq!(candidates(&cfg, 30, &Online::default()).iter().filter(|s| is_search(s)).count(), 2);
 
         let mut video = catalog::load().remove(0);
         video.id = "yt:abc123DEF45".into();

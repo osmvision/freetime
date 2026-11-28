@@ -65,9 +65,11 @@ const state = {
   online: null,
   setup: null,
   pending: [],
+  now: null, // the idea in progress, see loadNow
   hidden: new Set(), // voided during this session
   shuffled: new Set(), // already shown, skipped by "Other picks"
   lead: null, // { c, el }: the ticket on top, for the S / N shortcuts and "Other picks"
+  shownLead: null, // { c, el }: the ticket on top as shown, even once started (the automatic refresh keeps it)
   shown: [],
   results: null,
   loading: false,
@@ -83,6 +85,7 @@ export function init(root, boot, context) {
   state.online = boot.online;
   state.setup = boot.setup;
   state.pending = boot.pending;
+  state.now = loadNow();
   const mood = loadMood(boot.categories);
   state.party = mood.party ?? [];
   delete mood.party;
@@ -92,17 +95,50 @@ export function init(root, boot, context) {
   els.head = h('div');
   els.context = h('div', { class: 'context', role: 'toolbar', 'aria-label': 'Your free time' });
   els.shortcuts = h('div', { class: 'shortcuts', role: 'group', 'aria-label': 'Shortcuts' });
-  els.cityPrompt = h('div');
+  // On a phone the context folds into one line ("1h · Steady · Just me…"), so the ticket shows
+  // without scrolling; on wider screens the selects are always out (see .filters in styles.css).
+  els.summary = h('span', { class: 'filters-values' });
+  els.filtersToggle = h(
+    'button',
+    { type: 'button', class: 'filters-summary', 'aria-expanded': 'false', 'aria-controls': 'discover-filters', onclick: () => toggleFilters() },
+    icon('sliders-horizontal'),
+    els.summary,
+    h('span', { class: 'filters-edit' }, 'Change'),
+    icon('chevron-down', 'chev'),
+  );
+  els.filters = h(
+    'div',
+    { class: 'filters', 'data-open': 'false' },
+    els.filtersToggle,
+    h('div', { class: 'filters-body', id: 'discover-filters' }, els.context, els.shortcuts),
+  );
+  els.cityPrompt = h('div', { class: 'city-prompt' });
   els.rate = h('div');
   els.why = h('div');
-  els.results = h('div', { 'aria-live': 'polite' });
+  els.results = h('div', { 'aria-live': 'polite' }); // the ticket on top
+  els.rest = h('div'); // the rest of the book
   els.free = h('div');
   els.playNow = h('div');
   els.evenings = h('div');
   els.week = h('div');
   els.today = h('div');
   els.root = root;
-  root.replaceChildren(els.head, els.context, els.shortcuts, els.free, els.playNow, els.evenings, els.week, els.today, els.cityPrompt, els.rate, els.why, els.results);
+  // The best pick comes first: the context, then the ticket. What's around it (friends, the rest
+  // of the book, the day's quiz and challenge) follows, so "Start" is on screen when the app opens.
+  root.replaceChildren(
+    els.head,
+    els.filters,
+    els.rate,
+    els.why,
+    els.results,
+    els.cityPrompt,
+    els.free,
+    els.playNow,
+    els.evenings,
+    els.rest,
+    els.today,
+    els.week,
+  );
   weekStrip(els.week);
   renderToday();
   // Who's free and "I'm free" (signed in only). Refreshed every minute while Discover is on screen.
@@ -148,7 +184,7 @@ export function onOnline(online) {
     state.stale = false;
     runSuggest({ keepShuffle: true, quiet: true, announce: 'Picks updated with your new settings' });
   } else if (wasPartial) {
-    runSuggest({ keepShuffle: true, quiet: true, announce: 'Picks refreshed with Steam, YouTube and the weather' });
+    runSuggest({ keepShuffle: true, quiet: true, keepLead: true, announce: 'Picks refreshed with Steam, YouTube and the weather' });
   }
 }
 
@@ -256,6 +292,7 @@ function changed() {
   saveMood();
   renderHead();
   renderShortcuts();
+  renderSummary();
   clearTimeout(state.timer);
   state.timer = setTimeout(() => runSuggest(), 220);
 }
@@ -305,13 +342,7 @@ function renderContext() {
     select({
       name: 'Mood',
       icon: () => 'heart',
-      value: () => {
-        const n = r.categories.length;
-        if (n === 0) return 'None';
-        if (n === state.categories.length) return 'Anything';
-        if (n === 1) return state.categories.find((c) => c.id === r.categories[0])?.label ?? '1 kind';
-        return `${n} kinds`;
-      },
+      value: moodValue,
       title: 'In the mood for',
       multi: true,
       options: () => state.categories.map((c) => ({ id: c.id, label: c.label, icon: categoryIcon(c.id) })),
@@ -336,6 +367,40 @@ function renderContext() {
     }),
   );
   renderShortcuts();
+  renderSummary();
+}
+
+function moodValue() {
+  const r = state.req;
+  const n = r.categories.length;
+  if (n === 0) return 'None';
+  if (n === state.categories.length) return 'Anything';
+  if (n === 1) return state.categories.find((c) => c.id === r.categories[0])?.label ?? '1 kind';
+  return `${n} kinds`;
+}
+
+/** The folded context on a phone: each value in its own span, so the page layer translates it. */
+function renderSummary() {
+  if (!els.summary) return;
+  const r = state.req;
+  const label = (list, key) => list.find((o) => o.id === r[key])?.label ?? '';
+  const values = [
+    fmtMinutes(r.minutes),
+    label(ENERGY, 'energy'),
+    label(COMPANY, 'with_friends'),
+    label(OUTSIDE, 'can_go_out'),
+    label(BUDGET, 'budget'),
+    moodValue(),
+  ].filter(Boolean);
+  fill(
+    els.summary,
+    values.flatMap((v, i) => [i ? h('span', { class: 'filters-dot', 'aria-hidden': 'true' }, '·') : null, h('span', {}, v)]),
+  );
+}
+
+function toggleFilters(open = els.filters.dataset.open !== 'true') {
+  els.filters.dataset.open = String(open);
+  els.filtersToggle.setAttribute('aria-expanded', String(open));
 }
 
 // ---------------------------------------------------------------- shortcuts
@@ -693,10 +758,66 @@ function renderCityPrompt() {
   );
 }
 
-// ---------------------------------------------------------------- "how was it?"
+// ---------------------------------------------------------------- the idea in progress, "how was it?"
 
+const NOW_KEY = 'freetime.now';
+/** Past this, an idea is no longer "in progress": the usual "how was it?" asks about it later. */
+const NOW_MAX_AGE_MS = 12 * 3600 * 1000;
+
+/** The idea started last ({ id, ts, title, category, link, at, done }), kept across reloads. */
+function loadNow() {
+  try {
+    const n = JSON.parse(localStorage.getItem(NOW_KEY) ?? 'null');
+    return n && Number.isFinite(n.ts) && Date.now() - n.at < NOW_MAX_AGE_MS ? n : null;
+  } catch {
+    return null;
+  }
+}
+
+function setNow(n, { focus = false } = {}) {
+  state.now = n;
+  try {
+    if (n) localStorage.setItem(NOW_KEY, JSON.stringify(n));
+    else localStorage.removeItem(NOW_KEY);
+  } catch {
+    // Private browsing: kept in memory only.
+  }
+  renderRate();
+  if (focus) els.rate.querySelector('.strip-actions .btn')?.focus();
+}
+
+/**
+ * The strip above the ticket. While an idea is in progress: "I'm done", then one tap to say how it
+ * was. Otherwise "how was it?" for a pick made a while ago.
+ */
 function renderRate() {
-  const p = state.pending[0];
+  const n = state.now;
+  if (n && !n.done) {
+    const time = new Date(n.at).toLocaleTimeString(locale(), { hour: '2-digit', minute: '2-digit' });
+    fill(
+      els.rate,
+      h(
+        'div',
+        { class: 'strip now-strip' },
+        h('span', { class: 'now-dot', 'aria-hidden': 'true' }),
+        h(
+          'div',
+          { class: 'strip-text' },
+          h('strong', {}, h('span', {}, 'In progress:'), ' ', h('span', { translate: 'no' }, n.title)),
+          h('span', {}, `Started at ${time}. When you finish, one tap tells freetime how it was.`),
+        ),
+        h(
+          'div',
+          { class: 'strip-actions' },
+          btn({ label: 'I’m done', icon: 'check', kind: 'primary', small: true, onclick: () => setNow({ ...n, done: true }, { focus: true }) }),
+          n.link ? btn({ label: 'Open again', icon: 'external-link', small: true, onclick: () => openLink(n.link) }) : null,
+          btn({ label: 'Close', icon: 'x', square: true, small: true, kind: 'quiet', onclick: () => setNow(null) }),
+        ),
+      ),
+    );
+    return;
+  }
+  const p = n ?? state.pending[0];
   if (!p) {
     els.rate.replaceChildren();
     return;
@@ -705,10 +826,12 @@ function renderRate() {
     try {
       state.pending = await api.rate(p.id, p.ts, rating);
       toast(rating > 0 ? 'Noted: more ideas like that' : rating < 0 ? 'Noted: fewer ideas like that' : 'Skipped', 'ok');
-      renderRate();
+      if (p === n) setNow(null);
+      else renderRate();
       if (rating > 0) offerShare({ kind: 'pick', idea_id: p.id, title: p.title, category: p.category ?? '', detail: '' });
     } catch (e) {
       toast(errText(e), 'error');
+      if (p === n) setNow(null); // gone from the history (cleared elsewhere): don't stay stuck on it
     }
   };
   fill(
@@ -721,7 +844,7 @@ function renderRate() {
         'div',
         { class: 'strip-text' },
         h('strong', {}, `How was ${p.title}?`),
-        h('span', {}, `You picked it ${p.ago}. Your answer tunes the next picks.`),
+        h('span', {}, p === n ? 'Your answer tunes the next picks.' : `You picked it ${p.ago}. Your answer tunes the next picks.`),
       ),
       h(
         'div',
@@ -736,7 +859,12 @@ function renderRate() {
 
 // ---------------------------------------------------------------- suggestions
 
-async function runSuggest({ keepShuffle = false, quiet = false, announce = null } = {}) {
+/**
+ * Asks for picks and shows them. `keepLead` is for the automatic refresh, when the online sources
+ * arrive: the user may be reading the ticket on top, so it stays put ("Other picks" is one tap
+ * away), and a failed refresh leaves the page as it is.
+ */
+async function runSuggest({ keepShuffle = false, quiet = false, keepLead = false, announce = null } = {}) {
   if (state.loading) {
     state.again = true;
     return;
@@ -749,21 +877,27 @@ async function runSuggest({ keepShuffle = false, quiet = false, announce = null 
     const { party, mates } = partyForRequest();
     const res = await api.suggest(state.req, [...state.hidden, ...state.shuffled], party, mates);
     state.results = res;
-    renderResults(res);
+    const kept = renderResults(res, { keepLead });
     renderHead();
-    if (announce) toast(announce, 'ok');
+    // A kept ticket means nothing moved under the user's eyes: no need to say so.
+    if (announce && !kept) toast(announce, 'ok');
     // The online data may have arrived while this request was running.
     refreshAfter = res.partial && Boolean(state.online?.ready) && !state.online?.loading;
   } catch (e) {
-    fill(
-      els.results,
-      emptyState({
-        icon: 'triangle-alert',
-        title: 'Something went wrong',
-        text: errText(e),
-        actions: [btn({ label: 'Try again', icon: 'refresh-cw', onclick: () => runSuggest() })],
-      }),
-    );
+    if (keepLead && state.shownLead?.el?.isConnected) {
+      els.rest.querySelector('.partial-note')?.remove();
+    } else {
+      els.rest.replaceChildren();
+      fill(
+        els.results,
+        emptyState({
+          icon: 'triangle-alert',
+          title: 'Something went wrong',
+          text: errText(e),
+          actions: [btn({ label: 'Try again', icon: 'refresh-cw', onclick: () => runSuggest() })],
+        }),
+      );
+    }
   } finally {
     state.loading = false;
   }
@@ -771,23 +905,27 @@ async function runSuggest({ keepShuffle = false, quiet = false, announce = null 
     state.again = false;
     runSuggest({ keepShuffle: true });
   } else if (refreshAfter) {
-    runSuggest({ keepShuffle: true, quiet: true, announce: 'Picks refreshed with Steam, YouTube and the weather' });
+    runSuggest({ keepShuffle: true, quiet: true, keepLead: true, announce: 'Picks refreshed with Steam, YouTube and the weather' });
   }
 }
 
 function renderLoading() {
+  fill(els.results, h('div', { class: 'ghost coupon-ghost', 'aria-label': 'Finding your best pick' }));
   fill(
-    els.results,
-    h('div', { class: 'ghost coupon-ghost', 'aria-label': 'Finding your best pick' }),
+    els.rest,
     h('div', { class: 'section-head' }, h('div', { class: 'ghost', style: 'width:260px;height:28px' })),
     h('div', { class: 'book' }, Array.from({ length: 4 }, () => h('div', { class: 'ghost leaf-ghost' }))),
   );
 }
 
-function renderResults(res) {
+/** Shows the picks. Returns true when the ticket on screen was kept (`keepLead`, see runSuggest). */
+function renderResults(res, { keepLead = false } = {}) {
+  const before = state.lead;
   state.lead = null;
   if (!res.best) {
     const seenAll = state.shuffled.size > 0 || state.hidden.size > 0;
+    state.shownLead = null;
+    els.rest.replaceChildren();
     fill(
       els.results,
       emptyState({
@@ -804,23 +942,35 @@ function renderResults(res) {
           : [btn({ label: 'Add your own idea', icon: 'pencil', onclick: () => ctx.goto('settings', { focus: 'my-ideas' }) })],
       }),
     );
-    return;
+    return false;
   }
-  const rest = res.groups.flatMap((g) => g.items);
-  state.shown = [res.best, ...rest].map((c) => c.id);
-  const lead = coupon(res.best);
-  state.lead = { c: res.best, el: lead };
+  let picks = [res.best, ...res.groups.flatMap((g) => g.items)];
+  // The ticket on screen stays (started or not): only the book below changes, and a new best pick
+  // opens the book. Not only when it is still in the new list: scores carry a little randomness, so
+  // an idea that still fits can drop out of it from one call to the next.
+  const shown = state.shownLead;
+  const kept = keepLead && shown?.el?.isConnected ? shown : null;
+  if (kept) {
+    picks = [kept.c, ...picks.filter((c) => c.id !== kept.c.id)];
+    state.lead = before?.el === kept.el ? before : null;
+  } else {
+    const lead = coupon(picks[0]);
+    state.lead = state.shownLead = { c: picks[0], el: lead };
+    fill(els.results, lead);
+  }
+  state.shown = picks.map((c) => c.id);
+  const rest = picks.slice(1);
   fill(
-    els.results,
+    els.rest,
+    // Below the ticket, so the ticket does not move when the note goes.
     res.partial
       ? h(
           'div',
-          { class: 'note', style: 'margin-bottom:14px;border:0' },
+          { class: 'note partial-note', style: 'margin:0 0 14px;border:0' },
           icon('loader-circle', 'spin'),
-          h('span', {}, 'Steam, YouTube and the weather are still loading. Your picks will refresh by themselves.'),
+          h('span', {}, 'Steam, YouTube and the weather are still loading. More ideas will show up here by themselves.'),
         )
       : null,
-    lead,
     rest.length
       ? [
           h(
@@ -834,6 +984,7 @@ function renderResults(res) {
       : null,
     notesBlock(res.notes),
   );
+  return Boolean(kept);
 }
 
 function shuffle() {
@@ -1063,6 +1214,16 @@ function timebar(c) {
   );
 }
 
+/** On a started ticket, Start becomes a quiet "In progress": a second tap would count twice. */
+function startedButton(el) {
+  const button = el.querySelector('.coupon-actions > .btn.primary');
+  if (!button) return;
+  const done = btn({ label: 'In progress', icon: 'timer', kind: 'primary', title: 'Say how it was in the strip above' });
+  done.disabled = true;
+  done.classList.add('started');
+  button.replaceWith(done);
+}
+
 function stamp(el, kind) {
   el.querySelector('.stamp')?.remove();
   el.append(h('div', { class: `stamp ${kind}`, 'aria-hidden': 'true' }, kind === 'void' ? 'Void' : 'Validated'));
@@ -1079,6 +1240,7 @@ async function voidCoupon(c, el) {
 
 async function tearCoupon(el) {
   state.lead = null;
+  if (state.shownLead?.el === el) state.shownLead = null; // torn up: never kept by a refresh
   stamp(el, 'void');
   if (!reducedMotion()) {
     await wait(380);
@@ -1140,18 +1302,28 @@ export async function startIdea(c) {
   await start(c, null);
 }
 
-/** "Start": record the pick, stamp VALIDATED, open the link if there is one. */
+/**
+ * "Start": record the pick, stamp VALIDATED, open the link if there is one. The idea is then in
+ * progress: the strip above the ticket offers "I'm done" and asks how it was right away.
+ */
 async function start(c, el) {
   try {
-    await api.pick(c.id);
+    const picked = await api.pick(c.id);
     if (el && state.lead?.el === el) state.lead = null; // started: not "passed over", and S won't repeat it
     api.syncPoints().catch(() => {}); // ranked points (signed in only; quiet otherwise)
     // The week is now active: the "last week" strip goes, the streak chip may appear.
     if (els.week) weekStrip(els.week);
     renderToday();
     renderHead();
-    if (el) stamp(el, 'validated');
-    toast('Enjoy. Next time freetime will ask how it went.', 'ok', 4200);
+    if (el) {
+      stamp(el, 'validated');
+      startedButton(el);
+    }
+    if (Number.isFinite(picked?.ts)) {
+      setNow({ id: c.id, ts: picked.ts, title: c.title, category: c.category, link: c.link ?? null, at: Date.now() });
+    }
+    // Started from further down (the book) or another screen: the strip may be out of sight.
+    if (!el || !picked?.ts) toast('Enjoy. When you are done, Discover asks how it went.', 'ok', 4200);
     if (c.link) {
       if (el && !reducedMotion()) await wait(450);
       openLink(c.link);
@@ -1247,16 +1419,17 @@ async function surprise() {
     const started = performance.now();
     const s = await api.surprise([...state.hidden]);
     await wait(Math.max(0, 350 - (performance.now() - started)));
-    state.lead = null;
+    state.lead = state.shownLead = null;
     if (!s.pick) {
+      els.rest.replaceChildren();
       fill(els.results, emptyState({ icon: 'shuffle', title: 'Nothing left to draw', text: 'Every idea has been voided this session.' }));
       return;
     }
     const lead = coupon(s.pick, { label: 'Surprise' });
-    state.lead = { c: s.pick, el: lead };
+    state.lead = state.shownLead = { c: s.pick, el: lead };
+    fill(els.results, lead);
     fill(
-      els.results,
-      lead,
+      els.rest,
       s.alternatives?.length
         ? [
             h('div', { class: 'section-head' }, h('h2', { class: 'section-title' }, 'Or maybe')),

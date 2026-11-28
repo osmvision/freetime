@@ -40,6 +40,19 @@ pub struct Config {
     pub share_activity: String,
     /// Ideas the user typed in Settings (see `mine`).
     pub my_ideas: Vec<crate::mine::MyIdea>,
+    /// The app's language ("fr" or "en"), told by the UI: YouTube channels and searches follow it.
+    pub lang: Option<String>,
+}
+
+impl Config {
+    /// The app speaks French, or (before the UI said so) the typed city is in a French-speaking
+    /// country.
+    pub fn french(&self) -> bool {
+        match self.lang.as_deref() {
+            Some(lang) => lang == "fr",
+            None => self.country.as_deref().is_some_and(|c| ["FR", "BE", "CH", "LU", "MC", "CA"].contains(&c)),
+        }
+    }
 }
 
 /// The chat assistant (needs a MISTRAL_API_KEY, see `keys`).
@@ -90,6 +103,7 @@ impl Default for Config {
             quiet_hours: true,
             share_activity: "ask".to_string(),
             my_ideas: Vec::new(),
+            lang: None,
         }
     }
 }

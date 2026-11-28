@@ -171,8 +171,7 @@
   background: var(--navy-3);
 }
 
-:root[data-theme="dark"]:not([data-contrast="high"]) button.tag:hover,
-:root[data-theme="dark"]:not([data-contrast="high"]) .tag-action:hover {
+:root[data-theme="dark"]:not([data-contrast="high"]) button.tag:not(:disabled):hover {
   background: #3a5090;
 }
 
@@ -433,29 +432,29 @@ button {
   color: var(--purple);
 }
 
-.tag-action {
-  display: grid;
-  place-items: center;
-  width: 30px;
-  height: 30px;
-  margin-right: -6px;
-  border: 0;
-  border-radius: 6px;
-  background: none;
+button.tag:not(:disabled):hover {
+  background: var(--lavender-hover);
+}
+
+/* the refresh tag: a punched hole and one icon */
+.tag-sync {
+  padding: 0 10px 0 18px;
   color: var(--ink);
 }
 
-.tag-action:hover {
-  background: var(--lavender-line);
+.tag-sync > .icon {
+  width: 17px;
+  height: 17px;
+  color: var(--ink);
 }
 
-.tag-action .icon {
-  width: 16px;
-  height: 16px;
+.tag-sync:disabled {
+  cursor: default;
 }
 
-button.tag:hover {
-  background: var(--lavender-hover);
+/* Discover already asks "Where are you?" in the page: the bar does not ask twice */
+body:has(#view-discover:not([hidden]) .city-prompt:not(:empty)) .tag-city {
+  display: none;
 }
 
 .spin {
@@ -593,6 +592,33 @@ button.tag:hover {
 }
 
 /* ---------------------------------------------------------------- context bar */
+
+/* The summary line only shows on a phone (see the 600px container query), where the selects fold. */
+.filters-summary {
+  display: none;
+}
+
+.filters-values {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 6px;
+  min-width: 0;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.filters-dot {
+  color: var(--text-3);
+}
+
+.filters-edit {
+  font: 600 13px/1 var(--display);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  white-space: nowrap;
+}
 
 .context {
   display: flex;
@@ -997,9 +1023,25 @@ button.tag:hover {
   color: var(--red);
 }
 
+/* on the photo stub, so the title and the fare box stay readable while the idea is in progress */
 .stamp.validated {
+  top: 76px;
+  left: calc(100% - 120px);
   color: var(--purple);
-  font-size: 56px;
+  font-size: 34px;
+  border-width: 4px;
+  white-space: nowrap;
+  /* paper behind the ink: readable on any photo, the purple placeholder included */
+  background: var(--coupon);
+}
+
+/* narrow windows: the stub tears off below the ticket, the stamp follows it */
+@container app-viewport (max-width: 860px) {
+  .stamp.validated {
+    top: auto;
+    bottom: 150px;
+    left: 50%;
+  }
 }
 
 .coupon.tearing {
@@ -1275,6 +1317,37 @@ button.tag:hover {
 
 .strip .city-picker {
   flex: 0 1 320px;
+}
+
+/* the idea in progress: a live dot, the title, then "I'm done" */
+.now-strip {
+  border: 1.5px solid var(--purple);
+}
+
+.now-dot {
+  flex: none;
+  width: 12px;
+  height: 12px;
+  margin-inline: 6px;
+  border-radius: 50%;
+  background: var(--purple);
+  box-shadow: 0 0 0 5px color-mix(in srgb, var(--purple) 22%, transparent);
+  animation: breathe 1.1s ease-in-out infinite alternate;
+}
+
+.now-strip .strip-text strong span {
+  color: inherit;
+  font-size: inherit;
+}
+
+/* Start on a started ticket: still the red button's place, but quiet and not clickable */
+.coupon-actions .btn.started,
+.coupon-actions .btn.started:hover {
+  border-color: var(--purple);
+  background: none;
+  color: var(--purple);
+  cursor: default;
+  opacity: 1;
 }
 
 .notes {
@@ -3399,6 +3472,55 @@ select.input {
   }
 }
 
+/* the weather tag keeps the temperature, the city tag its pin (the tooltip and label still say
+   the rest) */
+@container app-viewport (min-width: 1101px) and (max-width: 1440px) {
+  .bar-tags .tag-label,
+  .tag-city .tag-value {
+    display: none;
+  }
+}
+
+/* laptops (1101 to 1280 wide), tabs still in the top bar: the tabs keep their labels but get
+   tighter, the profile chip keeps its icon or avatar */
+@container app-viewport (min-width: 1101px) and (max-width: 1280px) {
+  header.topbar {
+    gap: 14px;
+    padding-inline: max(20px, var(--safe-left)) max(20px, var(--safe-right));
+  }
+
+  .nav {
+    gap: 0;
+  }
+
+  .nav-item {
+    gap: 7px;
+    padding: 0 10px;
+    font-size: 15px;
+    letter-spacing: 0.04em;
+  }
+
+  .nav-item .icon {
+    width: 17px;
+    height: 17px;
+  }
+
+  .me-chip .me-name {
+    display: none;
+  }
+
+  .me-chip {
+    width: 40px;
+    margin-left: 0;
+    padding: 0;
+    justify-content: center;
+  }
+
+  .me-chip > .icon {
+    margin-left: 0;
+  }
+}
+
 /* not enough room for the tabs next to the wordmark and tags (narrow windows, or low vision mode):
    the tabs move to a bar at the bottom, labels kept */
 @container app-viewport (max-width: 1100px) {
@@ -3465,10 +3587,6 @@ select.input {
 
   .tag {
     padding: 0 10px 0 16px;
-  }
-
-  .tag-sync .tag-value {
-    display: none;
   }
 
   .me-name {
@@ -3550,11 +3668,11 @@ select.input {
     display: none;
   }
 
+  /* The stub (photo and source) tears off below the ticket, so the title and Start come first. */
   .coupon-stub {
-    order: -1;
     border-left: 0;
-    border-bottom: 2px dashed var(--line);
-    border-radius: var(--r-ticket) var(--r-ticket) 0 0;
+    border-top: 2px dashed var(--line);
+    border-radius: 0 0 var(--r-ticket) var(--r-ticket);
   }
 
   .stub-photo {
@@ -3562,7 +3680,7 @@ select.input {
   }
 
   .coupon-head {
-    border-radius: 0;
+    border-radius: var(--r-ticket) var(--r-ticket) 0 0;
   }
 
   .coupon-title {
@@ -5833,20 +5951,21 @@ body[data-view="messages"] .assistant-panel {
 @container app-viewport (max-width: 600px) {
   /* The tags get their own row so weather, city and sync remain visible. */
   body { --header-height: calc(108px + var(--safe-top)); }
-  .topbar { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 8px; padding-bottom: 8px; }
+  /* row 1: wordmark, refresh, profile; row 2: the weather or city tag, when there is one */
+  body:has(#view-discover:not([hidden]) .city-prompt:not(:empty)),
+  body:not(:has(.bar-tags .tag)) { --header-height: calc(60px + var(--safe-top)); }
+  .topbar { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 4px 8px; padding-bottom: 8px; }
   .wordmark { align-self: end; min-height: 44px; }
-  .me-chip { grid-column: 2; grid-row: 1; min-height: 44px; align-self: end; }
-  .bar-tags { grid-column: 1 / -1; grid-row: 2; margin: 0; min-width: 0; gap: 6px; }
+  .me-chip { grid-column: 3; grid-row: 1; min-height: 44px; align-self: end; }
+  .bar-tags { display: contents; }
   .bar-tags .tag { min-width: 0; height: auto; min-height: 38px; gap: 5px; padding-inline: 16px 8px; white-space: normal; }
-  .bar-tags .tag:first-child { flex: 1 1 auto; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 0 5px; }
+  .bar-tags .tag:first-child { grid-column: 1 / -1; grid-row: 2; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 0 5px; }
   .bar-tags .tag:first-child > .icon { grid-column: 1; grid-row: 1; }
   .bar-tags .tag:first-child .tag-value { grid-column: 2; grid-row: 1; white-space: nowrap; }
   .bar-tags .tag:first-child .tag-label { grid-column: 1 / -1; grid-row: 2; letter-spacing: .04em; }
-  .bar-tags .tag-sync { flex: 0 0 auto; }
-  .bar-tags .tag-label, .tag-sync .tag-value { display: inline; font-size: 12px; line-height: 1.2; overflow-wrap: anywhere; }
+  .bar-tags .tag-sync { grid-column: 2; grid-row: 1; align-self: end; min-height: 44px; padding-inline: 16px 10px; }
+  .bar-tags .tag-label { display: inline; font-size: 12px; line-height: 1.2; overflow-wrap: anywhere; }
   .bar-tags .tag-value { font-size: 13px; }
-  .bar-tags .tag-sync .tag-value { white-space: nowrap; }
-  .bar-tags .tag-action { flex-shrink: 0; min-height: 38px; width: 34px; }
   .wordmark-text { font-size: 22px; }
   .nav-item { font-size: clamp(10px, calc(3.5vw / var(--ui-zoom)), 13px); letter-spacing: 0; }
   .nav-label { white-space: nowrap; overflow-wrap: normal; }
@@ -5855,7 +5974,31 @@ body[data-view="messages"] .assistant-panel {
   .page-title { font-size: 36px; }
   .head-actions { width: 100%; }
   .head-actions .btn { flex: 1 1 140px; }
-  .context { gap: 6px; }
+  /* The summary under the title repeats the folded context below it. */
+  #view-discover .page-sub { display: none; }
+  .filters { margin-bottom: 14px; }
+  .filters-edit { display: none; }
+  .filters-summary {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto auto;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    min-height: 52px;
+    padding: 8px 12px;
+    border: 1.5px solid var(--rule-soft);
+    border-radius: var(--r-control);
+    background: var(--coupon);
+    text-align: left;
+  }
+  .filters-summary:hover, .filters-summary[aria-expanded="true"] { border-color: var(--ink); }
+  .filters-summary > .icon { width: 17px; height: 17px; color: var(--text-3); }
+  .filters-summary .chev { transition: transform 0.15s; }
+  .filters-summary[aria-expanded="true"] .chev { transform: rotate(180deg); }
+  .filters[data-open="false"] .filters-body { display: none; }
+  .filters[data-open="true"] .filters-body { margin-top: 8px; }
+  .filters .shortcuts { margin: 0; }
+  .context { gap: 6px; margin-bottom: 10px; }
   .context .select { flex: 1 1 100%; width: 100%; }
   .select-button {
     display: grid;

@@ -1,0 +1,51 @@
+# Channels for people who use freetime in French: they replace the English channels of
+# youtube_channels.toml (channels you added there stay). Built in, never copied to your config
+# folder: this list improves with each update.
+#
+# Same format as youtube_channels.toml. Lofi Girl and Primitive Technology have no words: they
+# are in both lists.
+
+video = [
+  "UCaNlbnghtwlsGF-KzAFThqA", # ScienceEtonnante
+  "UCtqICqGbPSbTN09K1_7VZ3Q", # DirtyBiology
+  "UCP46_MXP_WG_auH88FnfS1A", # Nota Bene
+  "UCLXDNUOO3EQ80VmD9nQBHPg", # Fouloscopie
+  "UCah8C0gmLkdtvsy0b2jrjrw", # Cyrus North
+  "UC5Twj1Axp_-9HLsZ5o_cEQQ", # Doc Seven
+  "UC5X4e8ScZI2AFd_vkjSoyoQ", # AstronoGeek
+  "UCWedHS9qKebauVIK2J7383g", # Underscore_
+]
+
+learn = [
+  "UCcziTK2NKeWtWQ6kB5tmQ8Q", # e-penser
+  "UC4PasDd25MXqlXBogBw9CAg", # Mickaël Launay (Micmaths)
+  "UCqA8H22FwgBVcF3GJpp0MQw", # Monsieur Phi
+  "UCgkhWgBGRp0sdFy2MHDWfSg", # El Jj
+  "UCV6uM3y-8TeO7JlCtcEN-Bg", # ScienceClic
+  "UCYnvxJ-PKiGXo_tYXpWAC-w", # Micode
+  "UCSULDz1yaHLVQWHpm4g_GHA", # Monsieur Bidouille
+  "UCG9G2dyRv04FDSH1FSYuLBg", # Jamy - Epicurieux
+  "UC1EacOJoqsKaYxaDomTCTEQ", # Le Réveilleur
+  "UCIPwwpJe1Vimoeqc4nKs4Kw", # BlitzStream
+]
+
+sport = [
+  "UCpWaR3gNAQGsX48cIlQC0qw", # Tibo InShape
+  "UCEEGyxve4TX6mIv5_dtU6qg", # Sissy MUA
+  "UCsnRkRtbTyISkfGTGwM7VfQ", # Major Mouvement
+  "UCugkbgfIKX64z9e6txo9G1Q", # Lucile Woodward
+]
+
+food = [
+  "UCgCEqjKOabA2_IvZ-agkQCQ", # Hervé Cuisine
+  "UCfI1q93ZYNR_mJYKFEqxfrA", # Gastronogeek
+]
+
+create = [
+  "UCjED9uS41ioeFuPfbR-OBlw", # Les Frères Poulain
+]
+
+relax = [
+  "UCSJ4gkVC6NrvII8umztf0Ow", # Lofi Girl
+  "UCAL3JXZSzSm8AlZyD3nQdBA", # Primitive Technology
+]

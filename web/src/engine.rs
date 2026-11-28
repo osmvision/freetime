@@ -289,7 +289,12 @@ fn refresh(state: &mut BrowserState, keys: &BrowserKeys) -> Result<Value> {
     let (videos, store, epic, weather) = std::thread::scope(|scope| {
         let videos =
             scope.spawn(|| super::sources::videos(net.as_ref(), &state.config, &keys.youtube));
-        let store = scope.spawn(|| steam::store(net.as_ref(), loc.steam_cc().as_deref()));
+        // Store picks (top sellers, sales) only once a Steam library is imported: for everyone
+        // else they read as ads for games to buy.
+        let store = scope.spawn(|| match &state.library {
+            Some(_) => steam::store(net.as_ref(), loc.steam_cc().as_deref()),
+            None => Ok(Vec::new()),
+        });
         let epic = scope.spawn(|| {
             providers::epic::free_games(net.as_ref(), &loc, chrono::Utc::now(), &mut Vec::new())
         });
@@ -449,12 +454,13 @@ pub fn invoke(call: Call, token: Option<&str>) -> Result<Value> {
                 .cloned()
                 .or_else(|| catalog::load().into_iter().find(|s| s.id == id))
                 .context("Refresh your picks to find this idea")?;
-            state.history.record_pick(&item);
+            let ts = state.history.record_pick(&item);
             patch["history"] = json!(state.history);
             json!({
                 "title": item.title,
                 "icon": item.category.icon(),
-                "link": item.link
+                "link": item.link,
+                "ts": ts
             })
         }
         "my_ideas" => json!(state.config.my_ideas),
@@ -662,6 +668,16 @@ pub fn invoke(call: Call, token: Option<&str>) -> Result<Value> {
             })
         }
         "search_cities" => json!(weather::search_places( HttpNet::shared()?.as_ref(), &arg::<String>(&args, "query")?, 6 )?),
+        "set_lang" => {
+            let lang: String = arg(&args, "lang")?;
+            let lang = if lang == "fr" { "fr" } else { "en" };
+            let changed = state.config.lang.as_deref() != Some(lang);
+            if changed {
+                state.config.lang = Some(lang.into());
+                patch["config"] = json!(state.config);
+            }
+            json!(changed)
+        }
         "set_city" => {
             let place: Option<Place> = arg(&args, "place")?;
             state.config.city = place.as_ref().map(|p| p.name.clone());

@@ -133,7 +133,7 @@ function download(value) {
   return link.download;
 }
 
-const MUTATIONS = new Set(['pick', 'pass_idea', 'hide_idea', 'unhide_idea', 'add_my_idea', 'remove_my_idea', 'rate', 'finish_quiz', 'finish_puzzle', 'save_settings', 'set_city', 'finish_welcome',
+const MUTATIONS = new Set(['pick', 'pass_idea', 'hide_idea', 'unhide_idea', 'add_my_idea', 'remove_my_idea', 'rate', 'finish_quiz', 'finish_puzzle', 'save_settings', 'set_city', 'set_lang', 'finish_welcome',
   'my_friend_code', 'add_friend', 'remove_friend', 'steam_import', 'steam_forget', 'set_share_library', 'set_notify_messages', 'set_notify_invites',
   'not_now', 'load_preferences']);
 

@@ -219,13 +219,15 @@ impl History {
         Ok(())
     }
 
-    pub fn record_pick(&mut self, s: &Suggestion) {
+    /// Records that the idea was started. Returns its timestamp, which `rate` takes with the id.
+    pub fn record_pick(&mut self, s: &Suggestion) -> i64 {
+        let ts = now();
         self.entries.push(Entry {
             id: s.id.clone(),
             category: s.category,
             title: s.title.clone(),
             tags: s.tags.clone(),
-            ts: now(),
+            ts,
             rating: None,
             minutes: Some(((s.min_minutes + s.max_minutes) / 2).clamp(5, 240)),
         });
@@ -233,6 +235,7 @@ impl History {
             let extra = self.entries.len() - MAX_ENTRIES;
             self.entries.drain(..extra);
         }
+        ts
     }
 
     /// The idea was shown first and passed over ("Not this one", "Other picks"). Returns false

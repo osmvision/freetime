@@ -13,13 +13,15 @@ pub fn videos(net: &dyn Net, cfg: &Config, key: &str) -> Vec<Suggestion> {
     let mut found = youtube::search(
         net,
         if key.is_empty() { None } else { Some(key) },
-        &cfg.interests,
+        &youtube::interests_for(cfg),
     )
     .map(|(items, _)| items)
     .unwrap_or_default();
-    let mut channels =
+    let mut channels = youtube::channels_for(
+        cfg,
         youtube::parse_channels(include_str!("../../core/data/youtube_channels.toml"))
-            .unwrap_or_default();
+            .unwrap_or_default(),
+    );
     channels.push((
         Category::Video,
         cfg.youtube

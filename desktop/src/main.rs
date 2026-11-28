@@ -54,6 +54,7 @@ fn main() {
             commands::steam_import,
             commands::steam_forget,
             commands::set_city,
+            commands::set_lang,
             commands::open_data_dir,
             commands::my_friend_code,
             commands::get_friends,

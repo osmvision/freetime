@@ -567,6 +567,8 @@ pub struct Picked {
     title: String,
     icon: &'static str,
     link: Option<String>,
+    /// With the id, what `rate` takes ("I'm done" asks right away).
+    ts: i64,
 }
 
 #[tauri::command(async)]
@@ -576,9 +578,9 @@ pub fn pick(state: State<'_, AppState>, id: String) -> Res<Picked> {
         .cloned()
         .ok_or_else(|| "That idea isn't available anymore. Refresh your picks.".to_string())?;
     let mut h = History::load();
-    h.record_pick(&s);
+    let ts = h.record_pick(&s);
     h.save().map_err(err)?;
-    Ok(Picked { title: s.title, icon: s.category.icon(), link: s.link })
+    Ok(Picked { title: s.title, icon: s.category.icon(), link: s.link, ts })
 }
 
 /// The lead idea was passed over ("Not this one", "Other picks"): it sinks a little for a while.
@@ -999,6 +1001,20 @@ pub fn steam_forget(app: AppHandle) -> Res<()> {
 pub fn search_cities(query: String) -> Res<Vec<Place>> {
     let net = HttpNet::new().map_err(err)?;
     weather::search_places(&net, &query, 6).map_err(err)
+}
+
+/// The app's language ("fr" or "en"): YouTube channels and searches follow it. Returns whether
+/// it changed, so the UI refreshes the online sources once.
+#[tauri::command(async)]
+pub fn set_lang(lang: String) -> Res<bool> {
+    let lang = if lang == "fr" { "fr" } else { "en" };
+    let mut cfg = Config::load().map_err(err)?;
+    if cfg.lang.as_deref() == Some(lang) {
+        return Ok(false);
+    }
+    cfg.lang = Some(lang.into());
+    cfg.save().map_err(err)?;
+    Ok(true)
 }
 
 /// Saves the picked city (None = skip / remove). Either way the question isn't asked again.
