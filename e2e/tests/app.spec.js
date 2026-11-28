@@ -88,6 +88,45 @@ test('the bar asks for the city only where Discover does not already ask', async
   await expect(page.locator('#view-settings')).toBeVisible();
 });
 
+// When the online sources arrive, the picks refresh by themselves. The ticket the user is reading
+// stays put; a new best pick opens the book below instead. The first answer is made partial (as
+// before Steam, YouTube and the weather are in) and the second one puts another idea on top.
+test('the automatic refresh keeps the ticket on screen', async ({ page }) => {
+  let calls = 0;
+  // The refresh answers only once the test has looked at the first ticket.
+  let looked;
+  const lookedAt = new Promise((resolve) => { looked = resolve; });
+  await page.route('**/api/invoke', async (route) => {
+    const body = route.request().postDataJSON();
+    if (body?.cmd !== 'suggest') return route.continue();
+    calls += 1;
+    if (calls > 1) await lookedAt;
+    const response = await route.fetch();
+    const json = await response.json();
+    const res = json.value;
+    if (calls === 1) res.partial = true;
+    else if (res.best && res.groups[0]?.items.length) {
+      const next = res.groups[0].items.shift();
+      res.groups[0].items.unshift(res.best);
+      res.best = next;
+    }
+    await route.fulfill({ response, json });
+  });
+  await openDiscover(page);
+  const title = await leadTitle(page).textContent();
+  await page.locator('.coupon').first().evaluate((el) => { el.dataset.seen = 'yes'; });
+  await expect(page.locator('.partial-note')).toBeVisible();
+  looked();
+
+  await expect.poll(() => calls).toBeGreaterThanOrEqual(2);
+  await expect(page.locator('.partial-note')).toHaveCount(0);
+  // The same ticket, not a new one with the same title.
+  await expect(page.locator('.coupon[data-seen="yes"]')).toBeVisible();
+  await expect(leadTitle(page)).toHaveText(title);
+  // The new best pick opens the rest of the book.
+  await expect(page.locator('.leaf').first()).not.toContainText(title);
+});
+
 test('on a phone, the context folds into one line that opens on a tap', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await openDiscover(page);

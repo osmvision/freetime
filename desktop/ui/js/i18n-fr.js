@@ -99,7 +99,7 @@ export const exact = {
   'You have seen every idea for this context.': 'Tu as vu toutes les idées pour ce contexte.',
   'Try more time, a bigger budget, more kinds of ideas, or going outside.': 'Essaie avec plus de temps, un budget plus large, plus de types d’idées, ou en sortant.',
   'Start over': 'Recommencer',
-  'Steam, YouTube and the weather are still loading. Your picks will refresh by themselves.': 'Steam, YouTube et la météo chargent encore. Tes idées s’actualiseront toutes seules.',
+  'Steam, YouTube and the weather are still loading. More ideas will show up here by themselves.': 'Steam, YouTube et la météo chargent encore. D’autres idées arriveront ici toutes seules.',
   'The rest of your book': 'La suite de ton carnet',
   Indoors: 'Intérieur',
   'Admit one': 'Bon pour un',

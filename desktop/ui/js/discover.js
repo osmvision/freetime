@@ -68,6 +68,7 @@ const state = {
   hidden: new Set(), // voided during this session
   shuffled: new Set(), // already shown, skipped by "Other picks"
   lead: null, // { c, el }: the ticket on top, for the S / N shortcuts and "Other picks"
+  shownLead: null, // { c, el }: the ticket on top as shown, even once started (the automatic refresh keeps it)
   shown: [],
   results: null,
   loading: false,
@@ -181,7 +182,7 @@ export function onOnline(online) {
     state.stale = false;
     runSuggest({ keepShuffle: true, quiet: true, announce: 'Picks updated with your new settings' });
   } else if (wasPartial) {
-    runSuggest({ keepShuffle: true, quiet: true, announce: 'Picks refreshed with Steam, YouTube and the weather' });
+    runSuggest({ keepShuffle: true, quiet: true, keepLead: true, announce: 'Picks refreshed with Steam, YouTube and the weather' });
   }
 }
 
@@ -798,7 +799,12 @@ function renderRate() {
 
 // ---------------------------------------------------------------- suggestions
 
-async function runSuggest({ keepShuffle = false, quiet = false, announce = null } = {}) {
+/**
+ * Asks for picks and shows them. `keepLead` is for the automatic refresh, when the online sources
+ * arrive: the user may be reading the ticket on top, so it stays put ("Other picks" is one tap
+ * away), and a failed refresh leaves the page as it is.
+ */
+async function runSuggest({ keepShuffle = false, quiet = false, keepLead = false, announce = null } = {}) {
   if (state.loading) {
     state.again = true;
     return;
@@ -811,22 +817,27 @@ async function runSuggest({ keepShuffle = false, quiet = false, announce = null 
     const { party, mates } = partyForRequest();
     const res = await api.suggest(state.req, [...state.hidden, ...state.shuffled], party, mates);
     state.results = res;
-    renderResults(res);
+    const kept = renderResults(res, { keepLead });
     renderHead();
-    if (announce) toast(announce, 'ok');
+    // A kept ticket means nothing moved under the user's eyes: no need to say so.
+    if (announce && !kept) toast(announce, 'ok');
     // The online data may have arrived while this request was running.
     refreshAfter = res.partial && Boolean(state.online?.ready) && !state.online?.loading;
   } catch (e) {
-    els.rest.replaceChildren();
-    fill(
-      els.results,
-      emptyState({
-        icon: 'triangle-alert',
-        title: 'Something went wrong',
-        text: errText(e),
-        actions: [btn({ label: 'Try again', icon: 'refresh-cw', onclick: () => runSuggest() })],
-      }),
-    );
+    if (keepLead && state.shownLead?.el?.isConnected) {
+      els.rest.querySelector('.partial-note')?.remove();
+    } else {
+      els.rest.replaceChildren();
+      fill(
+        els.results,
+        emptyState({
+          icon: 'triangle-alert',
+          title: 'Something went wrong',
+          text: errText(e),
+          actions: [btn({ label: 'Try again', icon: 'refresh-cw', onclick: () => runSuggest() })],
+        }),
+      );
+    }
   } finally {
     state.loading = false;
   }
@@ -834,7 +845,7 @@ async function runSuggest({ keepShuffle = false, quiet = false, announce = null 
     state.again = false;
     runSuggest({ keepShuffle: true });
   } else if (refreshAfter) {
-    runSuggest({ keepShuffle: true, quiet: true, announce: 'Picks refreshed with Steam, YouTube and the weather' });
+    runSuggest({ keepShuffle: true, quiet: true, keepLead: true, announce: 'Picks refreshed with Steam, YouTube and the weather' });
   }
 }
 
@@ -847,10 +858,13 @@ function renderLoading() {
   );
 }
 
-function renderResults(res) {
+/** Shows the picks. Returns true when the ticket on screen was kept (`keepLead`, see runSuggest). */
+function renderResults(res, { keepLead = false } = {}) {
+  const before = state.lead;
   state.lead = null;
   if (!res.best) {
     const seenAll = state.shuffled.size > 0 || state.hidden.size > 0;
+    state.shownLead = null;
     els.rest.replaceChildren();
     fill(
       els.results,
@@ -868,26 +882,35 @@ function renderResults(res) {
           : [btn({ label: 'Add your own idea', icon: 'pencil', onclick: () => ctx.goto('settings', { focus: 'my-ideas' }) })],
       }),
     );
-    return;
+    return false;
   }
-  const rest = res.groups.flatMap((g) => g.items);
-  state.shown = [res.best, ...rest].map((c) => c.id);
-  const lead = coupon(res.best);
-  state.lead = { c: res.best, el: lead };
+  let picks = [res.best, ...res.groups.flatMap((g) => g.items)];
+  // The ticket on screen stays (started or not): only the book below changes, and a new best pick
+  // opens the book. Not only when it is still in the new list: scores carry a little randomness, so
+  // an idea that still fits can drop out of it from one call to the next.
+  const shown = state.shownLead;
+  const kept = keepLead && shown?.el?.isConnected ? shown : null;
+  if (kept) {
+    picks = [kept.c, ...picks.filter((c) => c.id !== kept.c.id)];
+    state.lead = before?.el === kept.el ? before : null;
+  } else {
+    const lead = coupon(picks[0]);
+    state.lead = state.shownLead = { c: picks[0], el: lead };
+    fill(els.results, lead);
+  }
+  state.shown = picks.map((c) => c.id);
+  const rest = picks.slice(1);
   fill(
-    els.results,
+    els.rest,
+    // Below the ticket, so the ticket does not move when the note goes.
     res.partial
       ? h(
           'div',
-          { class: 'note', style: 'margin-bottom:14px;border:0' },
+          { class: 'note partial-note', style: 'margin:0 0 14px;border:0' },
           icon('loader-circle', 'spin'),
-          h('span', {}, 'Steam, YouTube and the weather are still loading. Your picks will refresh by themselves.'),
+          h('span', {}, 'Steam, YouTube and the weather are still loading. More ideas will show up here by themselves.'),
         )
       : null,
-    lead,
-  );
-  fill(
-    els.rest,
     rest.length
       ? [
           h(
@@ -901,6 +924,7 @@ function renderResults(res) {
       : null,
     notesBlock(res.notes),
   );
+  return Boolean(kept);
 }
 
 function shuffle() {
@@ -1146,6 +1170,7 @@ async function voidCoupon(c, el) {
 
 async function tearCoupon(el) {
   state.lead = null;
+  if (state.shownLead?.el === el) state.shownLead = null; // torn up: never kept by a refresh
   stamp(el, 'void');
   if (!reducedMotion()) {
     await wait(380);
@@ -1314,14 +1339,14 @@ async function surprise() {
     const started = performance.now();
     const s = await api.surprise([...state.hidden]);
     await wait(Math.max(0, 350 - (performance.now() - started)));
-    state.lead = null;
+    state.lead = state.shownLead = null;
     if (!s.pick) {
       els.rest.replaceChildren();
       fill(els.results, emptyState({ icon: 'shuffle', title: 'Nothing left to draw', text: 'Every idea has been voided this session.' }));
       return;
     }
     const lead = coupon(s.pick, { label: 'Surprise' });
-    state.lead = { c: s.pick, el: lead };
+    state.lead = state.shownLead = { c: s.pick, el: lead };
     fill(els.results, lead);
     fill(
       els.rest,
