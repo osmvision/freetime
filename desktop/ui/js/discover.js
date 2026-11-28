@@ -109,7 +109,7 @@ export function init(root, boot, context) {
     els.filtersToggle,
     h('div', { class: 'filters-body', id: 'discover-filters' }, els.context, els.shortcuts),
   );
-  els.cityPrompt = h('div');
+  els.cityPrompt = h('div', { class: 'city-prompt' });
   els.rate = h('div');
   els.why = h('div');
   els.results = h('div', { 'aria-live': 'polite' }); // the ticket on top

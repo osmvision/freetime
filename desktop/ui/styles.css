@@ -171,8 +171,7 @@
   background: var(--navy-3);
 }
 
-:root[data-theme="dark"]:not([data-contrast="high"]) button.tag:hover,
-:root[data-theme="dark"]:not([data-contrast="high"]) .tag-action:hover {
+:root[data-theme="dark"]:not([data-contrast="high"]) button.tag:not(:disabled):hover {
   background: #3a5090;
 }
 
@@ -433,29 +432,29 @@ button {
   color: var(--purple);
 }
 
-.tag-action {
-  display: grid;
-  place-items: center;
-  width: 30px;
-  height: 30px;
-  margin-right: -6px;
-  border: 0;
-  border-radius: 6px;
-  background: none;
+button.tag:not(:disabled):hover {
+  background: var(--lavender-hover);
+}
+
+/* the refresh tag: a punched hole and one icon */
+.tag-sync {
+  padding: 0 10px 0 18px;
   color: var(--ink);
 }
 
-.tag-action:hover {
-  background: var(--lavender-line);
+.tag-sync > .icon {
+  width: 17px;
+  height: 17px;
+  color: var(--ink);
 }
 
-.tag-action .icon {
-  width: 16px;
-  height: 16px;
+.tag-sync:disabled {
+  cursor: default;
 }
 
-button.tag:hover {
-  background: var(--lavender-hover);
+/* Discover already asks "Where are you?" in the page: the bar does not ask twice */
+body:has(#view-discover:not([hidden]) .city-prompt:not(:empty)) .tag-city {
+  display: none;
 }
 
 .spin {
@@ -3426,6 +3425,55 @@ select.input {
   }
 }
 
+/* the weather tag keeps the temperature, the city tag its pin (the tooltip and label still say
+   the rest) */
+@container app-viewport (min-width: 1101px) and (max-width: 1440px) {
+  .bar-tags .tag-label,
+  .tag-city .tag-value {
+    display: none;
+  }
+}
+
+/* laptops (1101 to 1280 wide), tabs still in the top bar: the tabs keep their labels but get
+   tighter, the profile chip keeps its icon or avatar */
+@container app-viewport (min-width: 1101px) and (max-width: 1280px) {
+  header.topbar {
+    gap: 14px;
+    padding-inline: max(20px, var(--safe-left)) max(20px, var(--safe-right));
+  }
+
+  .nav {
+    gap: 0;
+  }
+
+  .nav-item {
+    gap: 7px;
+    padding: 0 10px;
+    font-size: 15px;
+    letter-spacing: 0.04em;
+  }
+
+  .nav-item .icon {
+    width: 17px;
+    height: 17px;
+  }
+
+  .me-chip .me-name {
+    display: none;
+  }
+
+  .me-chip {
+    width: 40px;
+    margin-left: 0;
+    padding: 0;
+    justify-content: center;
+  }
+
+  .me-chip > .icon {
+    margin-left: 0;
+  }
+}
+
 /* not enough room for the tabs next to the wordmark and tags (narrow windows, or low vision mode):
    the tabs move to a bar at the bottom, labels kept */
 @container app-viewport (max-width: 1100px) {
@@ -3492,10 +3540,6 @@ select.input {
 
   .tag {
     padding: 0 10px 0 16px;
-  }
-
-  .tag-sync .tag-value {
-    display: none;
   }
 
   .me-name {
@@ -5860,20 +5904,21 @@ body[data-view="messages"] .assistant-panel {
 @container app-viewport (max-width: 600px) {
   /* The tags get their own row so weather, city and sync remain visible. */
   body { --header-height: calc(108px + var(--safe-top)); }
-  .topbar { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 8px; padding-bottom: 8px; }
+  /* row 1: wordmark, refresh, profile; row 2: the weather or city tag, when there is one */
+  body:has(#view-discover:not([hidden]) .city-prompt:not(:empty)),
+  body:not(:has(.bar-tags .tag)) { --header-height: calc(60px + var(--safe-top)); }
+  .topbar { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 4px 8px; padding-bottom: 8px; }
   .wordmark { align-self: end; min-height: 44px; }
-  .me-chip { grid-column: 2; grid-row: 1; min-height: 44px; align-self: end; }
-  .bar-tags { grid-column: 1 / -1; grid-row: 2; margin: 0; min-width: 0; gap: 6px; }
+  .me-chip { grid-column: 3; grid-row: 1; min-height: 44px; align-self: end; }
+  .bar-tags { display: contents; }
   .bar-tags .tag { min-width: 0; height: auto; min-height: 38px; gap: 5px; padding-inline: 16px 8px; white-space: normal; }
-  .bar-tags .tag:first-child { flex: 1 1 auto; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 0 5px; }
+  .bar-tags .tag:first-child { grid-column: 1 / -1; grid-row: 2; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 0 5px; }
   .bar-tags .tag:first-child > .icon { grid-column: 1; grid-row: 1; }
   .bar-tags .tag:first-child .tag-value { grid-column: 2; grid-row: 1; white-space: nowrap; }
   .bar-tags .tag:first-child .tag-label { grid-column: 1 / -1; grid-row: 2; letter-spacing: .04em; }
-  .bar-tags .tag-sync { flex: 0 0 auto; }
-  .bar-tags .tag-label, .tag-sync .tag-value { display: inline; font-size: 12px; line-height: 1.2; overflow-wrap: anywhere; }
+  .bar-tags .tag-sync { grid-column: 2; grid-row: 1; align-self: end; min-height: 44px; padding-inline: 16px 10px; }
+  .bar-tags .tag-label { display: inline; font-size: 12px; line-height: 1.2; overflow-wrap: anywhere; }
   .bar-tags .tag-value { font-size: 13px; }
-  .bar-tags .tag-sync .tag-value { white-space: nowrap; }
-  .bar-tags .tag-action { flex-shrink: 0; min-height: 38px; width: 34px; }
   .wordmark-text { font-size: 22px; }
   .nav-item { font-size: clamp(10px, calc(3.5vw / var(--ui-zoom)), 13px); letter-spacing: 0; }
   .nav-label { white-space: nowrap; overflow-wrap: normal; }

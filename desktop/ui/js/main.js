@@ -173,9 +173,10 @@ function renderTags(online) {
       h('span', { class: 'tag-value' }, `${Math.round(w.temp_c)}°C`),
     );
   } else if (!city && online.ready) {
+    // Hidden on Discover while its own "Where are you?" strip asks the same thing.
     weather = h(
       'button',
-      { type: 'button', class: 'tag', title: 'Your city is used for the weather and, when you ask, places nearby', onclick: () => goto('settings') },
+      { type: 'button', class: 'tag tag-city', title: 'Your city is used for the weather and, when you ask, places nearby', 'aria-label': 'Set your city', onclick: () => goto('settings') },
       icon('map-pin'),
       h('span', { class: 'tag-value' }, 'Set your city'),
     );
@@ -192,21 +193,19 @@ function renderTags(online) {
     online.steam_games ? `${online.steam_games} Steam games` : null,
     online.videos ? `${online.videos} videos` : null,
   ].filter(Boolean);
+  // One small refresh button: it spins while the sources load, its tooltip says what it found.
   const sync = h(
-    'div',
+    'button',
     {
+      type: 'button',
       class: 'tag tag-sync',
       title: busy ? 'Checking Steam, YouTube and the weather' : `Up to date: ${counts.join(', ') || 'built-in ideas only'}`,
+      'aria-label': busy ? 'Syncing' : 'Refresh online sources',
+      'aria-busy': String(busy),
+      disabled: busy,
+      onclick: refresh,
     },
-    icon(busy ? 'loader-circle' : 'check', busy ? 'spin' : ''),
-    h('span', { class: 'tag-value' }, busy ? 'Syncing' : 'Synced'),
-    busy
-      ? null
-      : h(
-          'button',
-          { type: 'button', class: 'tag-action', title: 'Refresh Steam, YouTube and the weather', 'aria-label': 'Refresh online sources', onclick: refresh },
-          icon('refresh-cw'),
-        ),
+    icon(busy ? 'loader-circle' : 'refresh-cw', busy ? 'spin' : ''),
   );
   tags.replaceChildren(weather, sync);
 }

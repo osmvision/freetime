@@ -54,6 +54,40 @@ for (const [device, viewport] of [['a small laptop', { width: 1280, height: 720 
   });
 }
 
+// The top bar fits on laptops, in French (the longest tab names), with the sign-in chip in view.
+test.describe('in French', () => {
+  test.use({ locale: 'fr-FR' });
+
+  test('the top bar fits from 1101 to 1440 px wide', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 800 });
+    await page.goto('/');
+    await page.getByRole('button', { name: 'Plus tard' }).click();
+    await expect(page.locator('.coupon')).toBeVisible(FIRST_IDEA);
+    await expect(page.locator('.tag-sync')).toBeVisible();
+    for (const view of ['discover', 'history']) {
+      await page.locator(`.nav-item[data-view="${view}"]`).click();
+      for (const width of [1101, 1180, 1280, 1366, 1440]) {
+        await page.setViewportSize({ width, height: 800 });
+        const overflow = await page.locator('.topbar').evaluate((bar) => bar.scrollWidth - bar.clientWidth);
+        expect(overflow, `${view} at ${width} px`).toBe(0);
+        await expect(page.locator('#me-chip')).toBeInViewport({ ratio: 1 });
+      }
+    }
+  });
+});
+
+test('the bar asks for the city only where Discover does not already ask', async ({ page }) => {
+  await openDiscover(page);
+  await expect(page.getByText('Where are you?')).toBeVisible();
+  const cityTag = page.locator('.topbar').getByRole('button', { name: 'Set your city' });
+  await expect(page.locator('.tag-sync')).toBeVisible();
+  await expect(cityTag).toBeHidden();
+  await page.locator('.nav-item[data-view="history"]').click();
+  await expect(cityTag).toBeVisible();
+  await cityTag.click();
+  await expect(page.locator('#view-settings')).toBeVisible();
+});
+
 test('on a phone, the context folds into one line that opens on a tap', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await openDiscover(page);
