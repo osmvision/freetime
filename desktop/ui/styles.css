@@ -9661,3 +9661,60 @@ body[data-view="messages"] .assistant-panel {
   clip-path: inset(50%);
   white-space: nowrap;
 }
+
+/* ---------------------------------------------------------------- short laptop screens */
+
+/* 1280×720 and the like: a long idea (two-line title, two-line text) pushed Start below the
+   fold. Discover tightens its head and the lead ticket so Start stays on screen. */
+@media (min-width: 1101px) and (max-height: 820px) {
+  #view-discover {
+    padding-top: 24px;
+  }
+
+  #view-discover .page-head {
+    margin-bottom: 14px;
+  }
+
+  #view-discover .page-title {
+    font-size: 44px;
+  }
+
+  /* the context bar right below says the same */
+  #view-discover .page-sub {
+    display: none;
+  }
+
+  #view-discover .context {
+    margin-bottom: 18px;
+  }
+
+  #view-discover .shortcuts {
+    margin-bottom: 16px;
+  }
+
+  #view-discover .coupon-body {
+    gap: 12px;
+    padding: 18px 28px 20px;
+  }
+
+  #view-discover .coupon-title {
+    font-size: 40px;
+  }
+}
+
+/* Phones: same aim. The time bar's legend repeats the Duration box above it, so it goes; the
+   bar itself stays. */
+@container app-viewport (max-width: 600px) {
+  #view-discover .coupon-body {
+    gap: 10px;
+    padding-top: 16px;
+  }
+
+  #view-discover .coupon-title {
+    font-size: 30px;
+  }
+
+  #view-discover .coupon .timebar-legend {
+    display: none;
+  }
+}
