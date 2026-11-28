@@ -46,12 +46,21 @@ for (const [device, viewport] of [['a small laptop', { width: 1280, height: 720 
     await page.setViewportSize(viewport);
     await openDiscover(page);
     const start = page.locator('.coupon').getByRole('button', { name: 'Start' }).first();
-    // Nearly all of it: a long idea can leave its bottom edge a pixel short on a 720 px screen.
-    await expect(start).toBeInViewport({ ratio: 0.9 });
-    // Not hidden under the bottom navigation on a phone either.
-    const nav = await page.locator('.nav').boundingBox();
-    const box = await start.boundingBox();
-    if (nav && nav.y > box.y) expect(box.y + box.height).toBeLessThanOrEqual(nav.y);
+    const onScreen = async () => {
+      await expect(start).toBeInViewport({ ratio: 1 });
+      // Not hidden under the bottom navigation on a phone either.
+      const nav = await page.locator('.nav').boundingBox();
+      const box = await start.boundingBox();
+      if (nav && nav.y > box.y) expect(box.y + box.height).toBeLessThanOrEqual(nav.y);
+    };
+    await onScreen();
+    // Whatever idea comes first: a long one (a two-line title, two lines of text) too.
+    await page.locator('.coupon').first().evaluate((el) => {
+      el.querySelector('.coupon-title').textContent = 'Learn a song on an instrument you have at home tonight';
+      const detail = el.querySelector('.coupon-detail');
+      if (detail) detail.textContent = 'Guitar, keyboard, ukulele, even a recorder: one song, slowly, until you can play it through without stopping once.';
+    });
+    await onScreen();
   });
 }
 
