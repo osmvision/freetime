@@ -208,6 +208,7 @@ export const exact = {
   // times
   'just now': 'à l’instant',
   yesterday: 'hier',
+  'last month': 'le mois dernier',
   Today: 'Aujourd’hui',
   Yesterday: 'Hier',
 

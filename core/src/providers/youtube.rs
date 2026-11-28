@@ -25,18 +25,54 @@ const FEED_CACHE_SECS: i64 = 2 * 3600;
 /// Older uploads aren't "new" anymore.
 const MAX_VIDEO_AGE_SECS: i64 = 365 * 86_400;
 const DEFAULT_CHANNELS: &str = include_str!("../../data/youtube_channels.toml");
+/// For French speakers, in place of the English default channels (see `channels_for`).
+const FRENCH_CHANNELS: &str = include_str!("../../data/youtube_channels_fr.toml");
+/// The default interests (`Config::default`) for French speakers who kept them.
+const FRENCH_INTERESTS: [&str; 5] = ["vulgarisation scientifique", "histoire", "jeux vidéo", "cuisine", "voyage"];
+
+/// The channels to read, from `listed` (the channels file). French speakers get the built-in
+/// French channels in place of the English defaults; channels they added themselves stay.
+pub fn channels_for(cfg: &Config, listed: Vec<(Category, Vec<String>)>) -> Vec<(Category, Vec<String>)> {
+    if !cfg.french() {
+        return listed;
+    }
+    let english: std::collections::HashSet<String> =
+        parse_channels(DEFAULT_CHANNELS).unwrap_or_default().into_iter().flat_map(|(_, ids)| ids).collect();
+    let mut out = parse_channels(FRENCH_CHANNELS).unwrap_or_default();
+    let french: std::collections::HashSet<String> = out.iter().flat_map(|(_, ids)| ids.iter().cloned()).collect();
+    for (category, ids) in listed {
+        let own: Vec<String> = ids.into_iter().filter(|id| !english.contains(id) && !french.contains(id)).collect();
+        if own.is_empty() {
+            continue;
+        }
+        match out.iter_mut().find(|(c, _)| *c == category) {
+            Some((_, list)) => list.extend(own),
+            None => out.push((category, own)),
+        }
+    }
+    out
+}
+
+/// The topics searched on YouTube: the user's interests, in French when they kept the English
+/// defaults and use the app in French.
+pub fn interests_for(cfg: &Config) -> Vec<String> {
+    if cfg.french() && cfg.interests == Config::default().interests {
+        return FRENCH_INTERESTS.map(String::from).to_vec();
+    }
+    cfg.interests.clone()
+}
 
 pub fn suggestions(net: &dyn Net, cfg: &Config, keys: &Keys, notes: &mut Vec<Note>) -> Vec<Suggestion> {
     let mut out = Vec::new();
     let own_key = keys.youtube.as_ref().map(|k| k.value());
-    match search_cached(net, own_key, &cfg.interests) {
+    match search_cached(net, own_key, &interests_for(cfg)) {
         Ok(v) => out.extend(v),
         Err(e) if own_key.is_some() => notes.push(Note::problem(format!("YouTube API unavailable ({e})."))),
         // The shared search is a bonus (it may be out of quota for today): the channel feeds still fill in.
         Err(_) => {}
     }
 
-    let mut channels = channel_config();
+    let mut channels = channels_for(cfg, channel_config());
     let extra: Vec<String> = cfg.youtube.channels.iter().map(|c| c.trim().to_string()).filter(|c| is_channel_id(c)).collect();
     if !extra.is_empty() {
         channels.push((Category::Video, extra.clone()));
@@ -515,7 +551,7 @@ pub fn search_links(cfg: &Config, minutes: u32) -> Vec<Suggestion> {
     } else {
         ("EgIYAg%253D%253D", "20+ min")
     };
-    cfg.interests
+    interests_for(cfg)
         .iter()
         .filter(|i| !i.trim().is_empty())
         .map(|i| Suggestion {
@@ -591,6 +627,52 @@ mod tests {
 
     const FEED: &str = include_str!("../../fixtures/youtube_feed.xml");
     const FIRESHIP: &str = "UCsBjURrPoezykLs9EqgamOA";
+
+    fn ids(channels: &[(Category, Vec<String>)]) -> Vec<String> {
+        channels.iter().flat_map(|(_, ids)| ids.iter().cloned()).collect()
+    }
+
+    #[test]
+    fn the_french_list_is_valid_and_covers_every_kind() {
+        let fr = parse_channels(FRENCH_CHANNELS).unwrap();
+        let raw_ids = FRENCH_CHANNELS.lines().filter(|l| l.trim_start().starts_with("\"UC")).count();
+        assert_eq!(ids(&fr).len(), raw_ids, "a channel ID is malformed");
+        for c in [Category::Video, Category::Learn, Category::Sport, Category::Food, Category::Create, Category::Chill] {
+            assert!(fr.iter().any(|(k, list)| *k == c && !list.is_empty()), "no French channel for {c:?}");
+        }
+    }
+
+    #[test]
+    fn french_speakers_get_french_channels_and_keep_their_own() {
+        let mine = "UCxxxxxxxxxxxxxxxxxxxxxx".to_string();
+        let mut listed = parse_channels(DEFAULT_CHANNELS).unwrap();
+        listed.push((Category::Food, vec![mine.clone()]));
+
+        let english = Config { lang: Some("en".into()), ..Default::default() };
+        assert_eq!(channels_for(&english, listed.clone()), listed);
+
+        let french = Config { lang: Some("fr".into()), ..Default::default() };
+        let got = ids(&channels_for(&french, listed));
+        assert!(!got.contains(&FIRESHIP.to_string()), "English defaults are left out");
+        assert!(got.contains(&mine), "a channel the user added stays");
+        // Lofi Girl is in both lists: read once.
+        assert_eq!(got.iter().filter(|id| *id == "UCSJ4gkVC6NrvII8umztf0Ow").count(), 1);
+        assert_eq!(got.len(), ids(&parse_channels(FRENCH_CHANNELS).unwrap()).len() + 1);
+    }
+
+    #[test]
+    fn french_speakers_search_in_french_unless_they_chose_their_topics() {
+        let french = Config { lang: Some("fr".into()), ..Default::default() };
+        assert_eq!(interests_for(&french)[1], "histoire");
+        let chosen = Config { interests: vec!["échecs".into()], ..french.clone() };
+        assert_eq!(interests_for(&chosen), vec!["échecs".to_string()]);
+        assert_eq!(interests_for(&Config::default()), Config::default().interests);
+        // Before the app says its language, a city in a French-speaking country counts.
+        let lyon = Config { country: Some("FR".into()), ..Default::default() };
+        assert!(lyon.french());
+        let told = Config { lang: Some("en".into()), ..lyon };
+        assert!(!told.french());
+    }
 
     fn ts(rfc3339: &str) -> i64 {
         DateTime::parse_from_rfc3339(rfc3339).unwrap().timestamp()

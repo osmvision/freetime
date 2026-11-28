@@ -1003,6 +1003,20 @@ pub fn search_cities(query: String) -> Res<Vec<Place>> {
     weather::search_places(&net, &query, 6).map_err(err)
 }
 
+/// The app's language ("fr" or "en"): YouTube channels and searches follow it. Returns whether
+/// it changed, so the UI refreshes the online sources once.
+#[tauri::command(async)]
+pub fn set_lang(lang: String) -> Res<bool> {
+    let lang = if lang == "fr" { "fr" } else { "en" };
+    let mut cfg = Config::load().map_err(err)?;
+    if cfg.lang.as_deref() == Some(lang) {
+        return Ok(false);
+    }
+    cfg.lang = Some(lang.into());
+    cfg.save().map_err(err)?;
+    Ok(true)
+}
+
 /// Saves the picked city (None = skip / remove). Either way the question isn't asked again.
 #[tauri::command(async)]
 pub fn set_city(app: AppHandle, place: Option<Place>) -> Res<SettingsView> {

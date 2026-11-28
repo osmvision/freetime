@@ -8,7 +8,7 @@ import * as historyView from './history.js';
 import * as messagesView from './messages.js';
 import { avatar } from './avatars.js';
 import { runWelcome } from './welcome.js';
-import { startI18n } from './i18n.js';
+import { currentLang, startI18n } from './i18n.js';
 import * as settingsView from './settings.js';
 import { initDisplay } from './display.js';
 import { initViewport } from './viewport.js';
@@ -238,6 +238,9 @@ async function refreshAdmin() {
 async function start() {
   startI18n();
   hydrateIcons();
+  // YouTube follows the app's language: French channels and searches for French speakers. When
+  // it changes (first start, or switched in Settings), the online sources are fetched again.
+  api.setAppLang(currentLang()).then((changed) => changed && api.refresh()).catch(() => {});
   await watchGameInvites(({ kind, id }) => {
     if (kind === 'pick') goto('friends', { tab: 'friends', inviteId: id });
     else goto('games', { invitation: { kind, id } });

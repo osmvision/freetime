@@ -34,6 +34,8 @@ export const api = {
   openDataDir: () => invoke('open_data_dir'),
   searchCities: (query) => invoke('search_cities', { query }),
   setCity: (place) => invoke('set_city', { place }),
+  /** The app's language, for YouTube channels and searches. Resolves to true when it changed. */
+  setAppLang: (lang) => invoke('set_lang', { lang }),
   steamScan: () => invoke('steam_scan'),
   steamImport: (steamId64) => invoke('steam_import', { steamId64 }),
   steamForget: () => invoke('steam_forget'),

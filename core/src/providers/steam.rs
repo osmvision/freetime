@@ -59,12 +59,16 @@ pub fn suggestions(net: &dyn Net, loc: &Location, notes: &mut Vec<Note>) -> (Vec
         }
     };
     let cc = loc.steam_cc();
-    match store(net, cc.as_deref()) {
-        Ok(v) => {
-            let mine: HashSet<String> = items.iter().map(|s| s.id.clone()).collect();
-            items.extend(v.into_iter().filter(|s| !mine.contains(&s.id)));
+    // Store picks (top sellers, sales) only for people who play on Steam: for everyone else they
+    // read as ads for games to buy.
+    if library.is_some() {
+        match store(net, cc.as_deref()) {
+            Ok(v) => {
+                let mine: HashSet<String> = items.iter().map(|s| s.id.clone()).collect();
+                items.extend(v.into_iter().filter(|s| !mine.contains(&s.id)));
+            }
+            Err(e) => notes.push(Note::problem(format!("Steam store unavailable ({e})."))),
         }
-        Err(e) => notes.push(Note::problem(format!("Steam store unavailable ({e})."))),
     }
     enrich(net, &mut items, cc.as_deref());
     (items, status)

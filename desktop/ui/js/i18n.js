@@ -144,7 +144,7 @@ function lookupProtected(s) {
       const m = x.match(p.re);
       if (m) return fill(p, m, (y) => y);
     }
-    return Object.hasOwn(dict.exact, x) && /^(Installed|ready to play|Top seller|On sale|Free to play|YouTube|Backlog: .*)$/.test(x) ? dict.exact[x] : null;
+    return Object.hasOwn(dict.exact, x) && /^(Installed|ready to play|Top seller|On sale|Free to play|YouTube|today|yesterday|last month|Backlog: .*)$/.test(x) ? dict.exact[x] : null;
   };
   if (s.includes(' · ')) {
     const parts = s.split(' · ');

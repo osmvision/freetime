@@ -59,6 +59,17 @@ for (const [device, viewport] of [['a small laptop', { width: 1280, height: 720 
 test.describe('in French', () => {
   test.use({ locale: 'fr-FR' });
 
+  // YouTube follows the app's language: the engine is told, so it reads French channels and
+  // searches in French (which channels exactly is checked by the core's unit tests).
+  test('the app tells the engine it speaks French', async ({ page }) => {
+    await page.goto('/');
+    await page.getByRole('button', { name: 'Plus tard' }).click();
+    await expect(page.locator('.coupon')).toBeVisible(FIRST_IDEA);
+    await expect
+      .poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('freetime.web.v1') || '{}').config?.lang))
+      .toBe('fr');
+  });
+
   test('the top bar fits from 1101 to 1440 px wide', async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 800 });
     await page.goto('/');
