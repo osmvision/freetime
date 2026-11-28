@@ -567,6 +567,8 @@ pub struct Picked {
     title: String,
     icon: &'static str,
     link: Option<String>,
+    /// With the id, what `rate` takes ("I'm done" asks right away).
+    ts: i64,
 }
 
 #[tauri::command(async)]
@@ -576,9 +578,9 @@ pub fn pick(state: State<'_, AppState>, id: String) -> Res<Picked> {
         .cloned()
         .ok_or_else(|| "That idea isn't available anymore. Refresh your picks.".to_string())?;
     let mut h = History::load();
-    h.record_pick(&s);
+    let ts = h.record_pick(&s);
     h.save().map_err(err)?;
-    Ok(Picked { title: s.title, icon: s.category.icon(), link: s.link })
+    Ok(Picked { title: s.title, icon: s.category.icon(), link: s.link, ts })
 }
 
 /// The lead idea was passed over ("Not this one", "Other picks"): it sinks a little for a while.

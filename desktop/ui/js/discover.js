@@ -65,6 +65,7 @@ const state = {
   online: null,
   setup: null,
   pending: [],
+  now: null, // the idea in progress, see loadNow
   hidden: new Set(), // voided during this session
   shuffled: new Set(), // already shown, skipped by "Other picks"
   lead: null, // { c, el }: the ticket on top, for the S / N shortcuts and "Other picks"
@@ -84,6 +85,7 @@ export function init(root, boot, context) {
   state.online = boot.online;
   state.setup = boot.setup;
   state.pending = boot.pending;
+  state.now = loadNow();
   const mood = loadMood(boot.categories);
   state.party = mood.party ?? [];
   delete mood.party;
@@ -756,10 +758,66 @@ function renderCityPrompt() {
   );
 }
 
-// ---------------------------------------------------------------- "how was it?"
+// ---------------------------------------------------------------- the idea in progress, "how was it?"
 
+const NOW_KEY = 'freetime.now';
+/** Past this, an idea is no longer "in progress": the usual "how was it?" asks about it later. */
+const NOW_MAX_AGE_MS = 12 * 3600 * 1000;
+
+/** The idea started last ({ id, ts, title, category, link, at, done }), kept across reloads. */
+function loadNow() {
+  try {
+    const n = JSON.parse(localStorage.getItem(NOW_KEY) ?? 'null');
+    return n && Number.isFinite(n.ts) && Date.now() - n.at < NOW_MAX_AGE_MS ? n : null;
+  } catch {
+    return null;
+  }
+}
+
+function setNow(n, { focus = false } = {}) {
+  state.now = n;
+  try {
+    if (n) localStorage.setItem(NOW_KEY, JSON.stringify(n));
+    else localStorage.removeItem(NOW_KEY);
+  } catch {
+    // Private browsing: kept in memory only.
+  }
+  renderRate();
+  if (focus) els.rate.querySelector('.strip-actions .btn')?.focus();
+}
+
+/**
+ * The strip above the ticket. While an idea is in progress: "I'm done", then one tap to say how it
+ * was. Otherwise "how was it?" for a pick made a while ago.
+ */
 function renderRate() {
-  const p = state.pending[0];
+  const n = state.now;
+  if (n && !n.done) {
+    const time = new Date(n.at).toLocaleTimeString(locale(), { hour: '2-digit', minute: '2-digit' });
+    fill(
+      els.rate,
+      h(
+        'div',
+        { class: 'strip now-strip' },
+        h('span', { class: 'now-dot', 'aria-hidden': 'true' }),
+        h(
+          'div',
+          { class: 'strip-text' },
+          h('strong', {}, h('span', {}, 'In progress:'), ' ', h('span', { translate: 'no' }, n.title)),
+          h('span', {}, `Started at ${time}. When you finish, one tap tells freetime how it was.`),
+        ),
+        h(
+          'div',
+          { class: 'strip-actions' },
+          btn({ label: 'I’m done', icon: 'check', kind: 'primary', small: true, onclick: () => setNow({ ...n, done: true }, { focus: true }) }),
+          n.link ? btn({ label: 'Open again', icon: 'external-link', small: true, onclick: () => openLink(n.link) }) : null,
+          btn({ label: 'Close', icon: 'x', square: true, small: true, kind: 'quiet', onclick: () => setNow(null) }),
+        ),
+      ),
+    );
+    return;
+  }
+  const p = n ?? state.pending[0];
   if (!p) {
     els.rate.replaceChildren();
     return;
@@ -768,10 +826,12 @@ function renderRate() {
     try {
       state.pending = await api.rate(p.id, p.ts, rating);
       toast(rating > 0 ? 'Noted: more ideas like that' : rating < 0 ? 'Noted: fewer ideas like that' : 'Skipped', 'ok');
-      renderRate();
+      if (p === n) setNow(null);
+      else renderRate();
       if (rating > 0) offerShare({ kind: 'pick', idea_id: p.id, title: p.title, category: p.category ?? '', detail: '' });
     } catch (e) {
       toast(errText(e), 'error');
+      if (p === n) setNow(null); // gone from the history (cleared elsewhere): don't stay stuck on it
     }
   };
   fill(
@@ -784,7 +844,7 @@ function renderRate() {
         'div',
         { class: 'strip-text' },
         h('strong', {}, `How was ${p.title}?`),
-        h('span', {}, `You picked it ${p.ago}. Your answer tunes the next picks.`),
+        h('span', {}, p === n ? 'Your answer tunes the next picks.' : `You picked it ${p.ago}. Your answer tunes the next picks.`),
       ),
       h(
         'div',
@@ -1154,6 +1214,16 @@ function timebar(c) {
   );
 }
 
+/** On a started ticket, Start becomes a quiet "In progress": a second tap would count twice. */
+function startedButton(el) {
+  const button = el.querySelector('.coupon-actions > .btn.primary');
+  if (!button) return;
+  const done = btn({ label: 'In progress', icon: 'timer', kind: 'primary', title: 'Say how it was in the strip above' });
+  done.disabled = true;
+  done.classList.add('started');
+  button.replaceWith(done);
+}
+
 function stamp(el, kind) {
   el.querySelector('.stamp')?.remove();
   el.append(h('div', { class: `stamp ${kind}`, 'aria-hidden': 'true' }, kind === 'void' ? 'Void' : 'Validated'));
@@ -1232,18 +1302,28 @@ export async function startIdea(c) {
   await start(c, null);
 }
 
-/** "Start": record the pick, stamp VALIDATED, open the link if there is one. */
+/**
+ * "Start": record the pick, stamp VALIDATED, open the link if there is one. The idea is then in
+ * progress: the strip above the ticket offers "I'm done" and asks how it was right away.
+ */
 async function start(c, el) {
   try {
-    await api.pick(c.id);
+    const picked = await api.pick(c.id);
     if (el && state.lead?.el === el) state.lead = null; // started: not "passed over", and S won't repeat it
     api.syncPoints().catch(() => {}); // ranked points (signed in only; quiet otherwise)
     // The week is now active: the "last week" strip goes, the streak chip may appear.
     if (els.week) weekStrip(els.week);
     renderToday();
     renderHead();
-    if (el) stamp(el, 'validated');
-    toast('Enjoy. Next time freetime will ask how it went.', 'ok', 4200);
+    if (el) {
+      stamp(el, 'validated');
+      startedButton(el);
+    }
+    if (Number.isFinite(picked?.ts)) {
+      setNow({ id: c.id, ts: picked.ts, title: c.title, category: c.category, link: c.link ?? null, at: Date.now() });
+    }
+    // Started from further down (the book) or another screen: the strip may be out of sight.
+    if (!el || !picked?.ts) toast('Enjoy. When you are done, Discover asks how it went.', 'ok', 4200);
     if (c.link) {
       if (el && !reducedMotion()) await wait(450);
       openLink(c.link);

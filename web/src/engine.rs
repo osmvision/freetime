@@ -449,12 +449,13 @@ pub fn invoke(call: Call, token: Option<&str>) -> Result<Value> {
                 .cloned()
                 .or_else(|| catalog::load().into_iter().find(|s| s.id == id))
                 .context("Refresh your picks to find this idea")?;
-            state.history.record_pick(&item);
+            let ts = state.history.record_pick(&item);
             patch["history"] = json!(state.history);
             json!({
                 "title": item.title,
                 "icon": item.category.icon(),
-                "link": item.link
+                "link": item.link,
+                "ts": ts
             })
         }
         "my_ideas" => json!(state.config.my_ideas),

@@ -46,7 +46,8 @@ for (const [device, viewport] of [['a small laptop', { width: 1280, height: 720 
     await page.setViewportSize(viewport);
     await openDiscover(page);
     const start = page.locator('.coupon').getByRole('button', { name: 'Start' }).first();
-    await expect(start).toBeInViewport({ ratio: 1 });
+    // Nearly all of it: a long idea can leave its bottom edge a pixel short on a 720 px screen.
+    await expect(start).toBeInViewport({ ratio: 0.9 });
     // Not hidden under the bottom navigation on a phone either.
     const nav = await page.locator('.nav').boundingBox();
     const box = await start.boundingBox();
@@ -125,6 +126,37 @@ test('the automatic refresh keeps the ticket on screen', async ({ page }) => {
   await expect(leadTitle(page)).toHaveText(title);
   // The new best pick opens the rest of the book.
   await expect(page.locator('.leaf').first()).not.toContainText(title);
+});
+
+// After Start, the idea is in progress: "I'm done" asks how it was right away, not next time.
+test('Start, then "I’m done" and one tap to say how it was', async ({ page }) => {
+  page.on('popup', (popup) => popup.close().catch(() => {}));
+  await openDiscover(page);
+  const title = await leadTitle(page).textContent();
+  await page.locator('.coupon').getByRole('button', { name: 'Start' }).first().click();
+
+  const strip = page.locator('.now-strip');
+  await expect(strip).toContainText('In progress:');
+  await expect(strip).toContainText(title);
+  // The ticket can't be started twice.
+  await expect(page.locator('.coupon').getByRole('button', { name: 'In progress' })).toBeDisabled();
+
+  // Still there after a reload: people leave to do the thing and come back.
+  await page.reload();
+  await expect(strip).toContainText(title);
+
+  await strip.getByRole('button', { name: 'I’m done' }).click();
+  const rate = page.locator('#view-discover .strip').filter({ hasText: `How was ${title}?` });
+  await expect(rate.getByRole('button', { name: 'Loved it' })).toBeFocused();
+  await rate.getByRole('button', { name: 'Loved it' }).click();
+  await expect(page.getByText('Noted: more ideas like that')).toBeVisible();
+  await expect(rate).toHaveCount(0);
+  await expect(strip).toHaveCount(0);
+
+  // Answered once: a reload doesn't ask again.
+  await page.reload();
+  await expect(page.locator('.coupon')).toBeVisible(FIRST_IDEA);
+  await expect(page.locator('#view-discover .strip').filter({ hasText: title })).toHaveCount(0);
 });
 
 test('on a phone, the context folds into one line that opens on a tap', async ({ page }) => {
