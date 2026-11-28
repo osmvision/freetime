@@ -92,17 +92,50 @@ export function init(root, boot, context) {
   els.head = h('div');
   els.context = h('div', { class: 'context', role: 'toolbar', 'aria-label': 'Your free time' });
   els.shortcuts = h('div', { class: 'shortcuts', role: 'group', 'aria-label': 'Shortcuts' });
+  // On a phone the context folds into one line ("1h · Steady · Just me…"), so the ticket shows
+  // without scrolling; on wider screens the selects are always out (see .filters in styles.css).
+  els.summary = h('span', { class: 'filters-values' });
+  els.filtersToggle = h(
+    'button',
+    { type: 'button', class: 'filters-summary', 'aria-expanded': 'false', 'aria-controls': 'discover-filters', onclick: () => toggleFilters() },
+    icon('sliders-horizontal'),
+    els.summary,
+    h('span', { class: 'filters-edit' }, 'Change'),
+    icon('chevron-down', 'chev'),
+  );
+  els.filters = h(
+    'div',
+    { class: 'filters', 'data-open': 'false' },
+    els.filtersToggle,
+    h('div', { class: 'filters-body', id: 'discover-filters' }, els.context, els.shortcuts),
+  );
   els.cityPrompt = h('div');
   els.rate = h('div');
   els.why = h('div');
-  els.results = h('div', { 'aria-live': 'polite' });
+  els.results = h('div', { 'aria-live': 'polite' }); // the ticket on top
+  els.rest = h('div'); // the rest of the book
   els.free = h('div');
   els.playNow = h('div');
   els.evenings = h('div');
   els.week = h('div');
   els.today = h('div');
   els.root = root;
-  root.replaceChildren(els.head, els.context, els.shortcuts, els.free, els.playNow, els.evenings, els.week, els.today, els.cityPrompt, els.rate, els.why, els.results);
+  // The best pick comes first: the context, then the ticket. What's around it (friends, the rest
+  // of the book, the day's quiz and challenge) follows, so "Start" is on screen when the app opens.
+  root.replaceChildren(
+    els.head,
+    els.filters,
+    els.rate,
+    els.why,
+    els.results,
+    els.cityPrompt,
+    els.free,
+    els.playNow,
+    els.evenings,
+    els.rest,
+    els.today,
+    els.week,
+  );
   weekStrip(els.week);
   renderToday();
   // Who's free and "I'm free" (signed in only). Refreshed every minute while Discover is on screen.
@@ -256,6 +289,7 @@ function changed() {
   saveMood();
   renderHead();
   renderShortcuts();
+  renderSummary();
   clearTimeout(state.timer);
   state.timer = setTimeout(() => runSuggest(), 220);
 }
@@ -305,13 +339,7 @@ function renderContext() {
     select({
       name: 'Mood',
       icon: () => 'heart',
-      value: () => {
-        const n = r.categories.length;
-        if (n === 0) return 'None';
-        if (n === state.categories.length) return 'Anything';
-        if (n === 1) return state.categories.find((c) => c.id === r.categories[0])?.label ?? '1 kind';
-        return `${n} kinds`;
-      },
+      value: moodValue,
       title: 'In the mood for',
       multi: true,
       options: () => state.categories.map((c) => ({ id: c.id, label: c.label, icon: categoryIcon(c.id) })),
@@ -336,6 +364,40 @@ function renderContext() {
     }),
   );
   renderShortcuts();
+  renderSummary();
+}
+
+function moodValue() {
+  const r = state.req;
+  const n = r.categories.length;
+  if (n === 0) return 'None';
+  if (n === state.categories.length) return 'Anything';
+  if (n === 1) return state.categories.find((c) => c.id === r.categories[0])?.label ?? '1 kind';
+  return `${n} kinds`;
+}
+
+/** The folded context on a phone: each value in its own span, so the page layer translates it. */
+function renderSummary() {
+  if (!els.summary) return;
+  const r = state.req;
+  const label = (list, key) => list.find((o) => o.id === r[key])?.label ?? '';
+  const values = [
+    fmtMinutes(r.minutes),
+    label(ENERGY, 'energy'),
+    label(COMPANY, 'with_friends'),
+    label(OUTSIDE, 'can_go_out'),
+    label(BUDGET, 'budget'),
+    moodValue(),
+  ].filter(Boolean);
+  fill(
+    els.summary,
+    values.flatMap((v, i) => [i ? h('span', { class: 'filters-dot', 'aria-hidden': 'true' }, '·') : null, h('span', {}, v)]),
+  );
+}
+
+function toggleFilters(open = els.filters.dataset.open !== 'true') {
+  els.filters.dataset.open = String(open);
+  els.filtersToggle.setAttribute('aria-expanded', String(open));
 }
 
 // ---------------------------------------------------------------- shortcuts
@@ -755,6 +817,7 @@ async function runSuggest({ keepShuffle = false, quiet = false, announce = null 
     // The online data may have arrived while this request was running.
     refreshAfter = res.partial && Boolean(state.online?.ready) && !state.online?.loading;
   } catch (e) {
+    els.rest.replaceChildren();
     fill(
       els.results,
       emptyState({
@@ -776,9 +839,9 @@ async function runSuggest({ keepShuffle = false, quiet = false, announce = null 
 }
 
 function renderLoading() {
+  fill(els.results, h('div', { class: 'ghost coupon-ghost', 'aria-label': 'Finding your best pick' }));
   fill(
-    els.results,
-    h('div', { class: 'ghost coupon-ghost', 'aria-label': 'Finding your best pick' }),
+    els.rest,
     h('div', { class: 'section-head' }, h('div', { class: 'ghost', style: 'width:260px;height:28px' })),
     h('div', { class: 'book' }, Array.from({ length: 4 }, () => h('div', { class: 'ghost leaf-ghost' }))),
   );
@@ -788,6 +851,7 @@ function renderResults(res) {
   state.lead = null;
   if (!res.best) {
     const seenAll = state.shuffled.size > 0 || state.hidden.size > 0;
+    els.rest.replaceChildren();
     fill(
       els.results,
       emptyState({
@@ -821,6 +885,9 @@ function renderResults(res) {
         )
       : null,
     lead,
+  );
+  fill(
+    els.rest,
     rest.length
       ? [
           h(
@@ -1249,14 +1316,15 @@ async function surprise() {
     await wait(Math.max(0, 350 - (performance.now() - started)));
     state.lead = null;
     if (!s.pick) {
+      els.rest.replaceChildren();
       fill(els.results, emptyState({ icon: 'shuffle', title: 'Nothing left to draw', text: 'Every idea has been voided this session.' }));
       return;
     }
     const lead = coupon(s.pick, { label: 'Surprise' });
     state.lead = { c: s.pick, el: lead };
+    fill(els.results, lead);
     fill(
-      els.results,
-      lead,
+      els.rest,
       s.alternatives?.length
         ? [
             h('div', { class: 'section-head' }, h('h2', { class: 'section-title' }, 'Or maybe')),

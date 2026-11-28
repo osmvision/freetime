@@ -594,6 +594,33 @@ button.tag:hover {
 
 /* ---------------------------------------------------------------- context bar */
 
+/* The summary line only shows on a phone (see the 600px container query), where the selects fold. */
+.filters-summary {
+  display: none;
+}
+
+.filters-values {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 6px;
+  min-width: 0;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.filters-dot {
+  color: var(--text-3);
+}
+
+.filters-edit {
+  font: 600 13px/1 var(--display);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  white-space: nowrap;
+}
+
 .context {
   display: flex;
   flex-wrap: wrap;
@@ -3550,11 +3577,11 @@ select.input {
     display: none;
   }
 
+  /* The stub (photo and source) tears off below the ticket, so the title and Start come first. */
   .coupon-stub {
-    order: -1;
     border-left: 0;
-    border-bottom: 2px dashed var(--line);
-    border-radius: var(--r-ticket) var(--r-ticket) 0 0;
+    border-top: 2px dashed var(--line);
+    border-radius: 0 0 var(--r-ticket) var(--r-ticket);
   }
 
   .stub-photo {
@@ -3562,7 +3589,7 @@ select.input {
   }
 
   .coupon-head {
-    border-radius: 0;
+    border-radius: var(--r-ticket) var(--r-ticket) 0 0;
   }
 
   .coupon-title {
@@ -5855,7 +5882,31 @@ body[data-view="messages"] .assistant-panel {
   .page-title { font-size: 36px; }
   .head-actions { width: 100%; }
   .head-actions .btn { flex: 1 1 140px; }
-  .context { gap: 6px; }
+  /* The summary under the title repeats the folded context below it. */
+  #view-discover .page-sub { display: none; }
+  .filters { margin-bottom: 14px; }
+  .filters-edit { display: none; }
+  .filters-summary {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto auto;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    min-height: 52px;
+    padding: 8px 12px;
+    border: 1.5px solid var(--rule-soft);
+    border-radius: var(--r-control);
+    background: var(--coupon);
+    text-align: left;
+  }
+  .filters-summary:hover, .filters-summary[aria-expanded="true"] { border-color: var(--ink); }
+  .filters-summary > .icon { width: 17px; height: 17px; color: var(--text-3); }
+  .filters-summary .chev { transition: transform 0.15s; }
+  .filters-summary[aria-expanded="true"] .chev { transform: rotate(180deg); }
+  .filters[data-open="false"] .filters-body { display: none; }
+  .filters[data-open="true"] .filters-body { margin-top: 8px; }
+  .filters .shortcuts { margin: 0; }
+  .context { gap: 6px; margin-bottom: 10px; }
   .context .select { flex: 1 1 100%; width: 100%; }
   .select-button {
     display: grid;

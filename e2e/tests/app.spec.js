@@ -39,6 +39,35 @@ test('a new user sees the welcome window, then a lead idea and the rest of the b
   expect(errors).toEqual([]);
 });
 
+// The best pick leads: its Start button is on screen when Discover opens, without scrolling, on a
+// small laptop and on a phone (where the context folds into one line that opens on a tap).
+for (const [device, viewport] of [['a small laptop', { width: 1280, height: 720 }], ['a phone', { width: 390, height: 844 }]]) {
+  test(`Start is on screen without scrolling on ${device}`, async ({ page }) => {
+    await page.setViewportSize(viewport);
+    await openDiscover(page);
+    const start = page.locator('.coupon').getByRole('button', { name: 'Start' }).first();
+    await expect(start).toBeInViewport({ ratio: 1 });
+    // Not hidden under the bottom navigation on a phone either.
+    const nav = await page.locator('.nav').boundingBox();
+    const box = await start.boundingBox();
+    if (nav && nav.y > box.y) expect(box.y + box.height).toBeLessThanOrEqual(nav.y);
+  });
+}
+
+test('on a phone, the context folds into one line that opens on a tap', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await openDiscover(page);
+  const summary = page.locator('.filters-summary');
+  await expect(summary).toBeVisible();
+  await expect(page.locator('.context')).toBeHidden();
+
+  await summary.click();
+  await expect(summary).toHaveAttribute('aria-expanded', 'true');
+  await page.locator('.context').getByRole('button', { name: /^Time:/ }).click();
+  await page.locator('.menu .option', { hasText: '30 min' }).click();
+  await expect(summary).toContainText('30 min');
+});
+
 test('every main page opens without an error', async ({ page }) => {
   const errors = trackErrors(page);
   await openDiscover(page);

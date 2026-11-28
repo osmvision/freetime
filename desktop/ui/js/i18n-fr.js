@@ -57,6 +57,7 @@ export const exact = {
   Paid: 'Payant',
   'Other picks': 'Autres idées',
   'Your free time': 'Ton temps libre',
+  Change: 'Modifier',
   'Picks updated with your new settings': 'Idées mises à jour avec tes réglages',
   'Picks refreshed with Steam, YouTube and the weather': 'Idées actualisées avec Steam, YouTube et la météo',
   'Finding the best way to spend it.': 'On cherche la meilleure façon d’en profiter.',
